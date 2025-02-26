@@ -72,25 +72,26 @@ const navItems: NavItem[] = [
       </svg>
     ),
   },
-  {
-    name: 'Profile',
-    path: '/profile',
-    icon: (active) => (
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        viewBox="0 0 24 24"
-        fill="currentColor"
-        className={`w-6 h-6 ${active ? 'text-indigo-500' : 'text-slate-400'}`}
-      >
-        <path
-          fillRule="evenodd"
-          d="M18.685 19.097A9.723 9.723 0 0021.75 12c0-5.385-4.365-9.75-9.75-9.75S2.25 6.615 2.25 12a9.723 9.723 0 003.065 7.097A9.716 9.716 0 0012 21.75a9.716 9.716 0 006.685-2.653zm-12.54-1.285A7.486 7.486 0 0112 15a7.486 7.486 0 015.855 2.812A8.224 8.224 0 0112 20.25a8.224 8.224 0 01-5.855-2.438zM15.75 9a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z"
-          clipRule="evenodd"
-        />
-      </svg>
-    ),
-  },
 ];
+
+const profileItem: NavItem = {
+  name: 'Profile',
+  path: '/profile',
+  icon: (active) => (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      className={`w-6 h-6 ${active ? 'text-indigo-500' : 'text-slate-400'}`}
+    >
+      <path
+        fillRule="evenodd"
+        d="M18.685 19.097A9.723 9.723 0 0021.75 12c0-5.385-4.365-9.75-9.75-9.75S2.25 6.615 2.25 12a9.723 9.723 0 003.065 7.097A9.716 9.716 0 0012 21.75a9.716 9.716 0 006.685-2.653zm-12.54-1.285A7.486 7.486 0 0112 15a7.486 7.486 0 015.855 2.812A8.224 8.224 0 0112 20.25a8.224 8.224 0 01-5.855-2.438zM15.75 9a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z"
+        clipRule="evenodd"
+      />
+    </svg>
+  ),
+};
 
 export function Navigation() {
   const pathname = usePathname();
@@ -101,10 +102,10 @@ export function Navigation() {
       {/* Desktop Sidebar */}
       <aside
         className="fixed inset-y-0 left-0 w-64 bg-white shadow-xl z-50 transition-transform duration-300 transform 
-          -translate-x-full lg:translate-x-0 hidden lg:block"
+          -translate-x-full lg:translate-x-0 hidden lg:block dark:bg-slate-800 dark:border-r dark:border-slate-700"
       >
         <div className="flex flex-col h-full">
-          <div className="p-6 border-b border-slate-100">
+          <div className="p-6 border-b border-slate-100 dark:border-slate-700">
             <div className="flex items-center">
               <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white mr-3">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
@@ -112,8 +113,8 @@ export function Navigation() {
                 </svg>
               </div>
               <div>
-                <h1 className="text-xl font-bold text-slate-900">Quest Master</h1>
-                <p className="text-xs text-slate-500">Level up your habits</p>
+                <h1 className="text-xl font-bold text-slate-900 dark:text-white">Quest Master</h1>
+                <p className="text-xs text-slate-500 dark:text-slate-400">Level up your habits</p>
               </div>
             </div>
           </div>
@@ -128,8 +129,8 @@ export function Navigation() {
                     href={item.path}
                     className={`flex items-center px-4 py-3 rounded-lg transition-all duration-200 
                       ${isActive 
-                        ? 'bg-indigo-50 text-indigo-700' 
-                        : 'text-slate-600 hover:bg-slate-50 hover:text-indigo-600'}`}
+                        ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300' 
+                        : 'text-slate-600 hover:bg-slate-50 hover:text-indigo-600 dark:text-slate-300 dark:hover:bg-slate-700/50 dark:hover:text-indigo-300'}`}
                   >
                     <span className="mr-3">{item.icon(isActive)}</span>
                     <span className="font-medium">{item.name}</span>
@@ -142,14 +143,25 @@ export function Navigation() {
             </div>
           </nav>
 
-          <div className="border-t border-slate-100 p-4">
-            <div className="rounded-lg bg-indigo-50 p-4">
-              <h3 className="text-sm font-medium text-indigo-800 mb-2">Premium Features</h3>
-              <p className="text-xs text-indigo-600 mb-3">Unlock advanced tracking, insights and more</p>
-              <button className="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-sm py-2 px-3 rounded-lg font-medium transition-colors">
-                Upgrade
-              </button>
-            </div>
+          <div className="border-t border-slate-100 dark:border-slate-700 p-4 mt-auto">
+            {(() => {
+              const isActive = pathname === profileItem.path;
+              return (
+                <Link
+                  href={profileItem.path}
+                  className={`flex items-center px-4 py-3 rounded-lg transition-all duration-200 
+                    ${isActive 
+                      ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300' 
+                      : 'text-slate-600 hover:bg-slate-50 hover:text-indigo-600 dark:text-slate-300 dark:hover:bg-slate-700/50 dark:hover:text-indigo-300'}`}
+                >
+                  <span className="mr-3">{profileItem.icon(isActive)}</span>
+                  <span className="font-medium">{profileItem.name}</span>
+                  {isActive && (
+                    <span className="ml-auto w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
+                  )}
+                </Link>
+              );
+            })()}
           </div>
         </div>
       </aside>
@@ -158,7 +170,7 @@ export function Navigation() {
       <div className="fixed top-4 left-4 z-50 lg:hidden">
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="p-2 rounded-lg bg-white shadow-md text-slate-700 hover:text-indigo-600 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          className="p-2 rounded-lg bg-white shadow-md text-slate-700 hover:text-indigo-600 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-slate-800 dark:text-slate-200 dark:hover:text-indigo-300"
           aria-label="Toggle menu"
         >
           <svg
@@ -195,11 +207,11 @@ export function Navigation() {
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 w-64 bg-white shadow-xl z-50 transition-transform duration-300 transform lg:hidden
+        className={`fixed inset-y-0 left-0 w-64 bg-white shadow-xl z-50 transition-transform duration-300 transform lg:hidden dark:bg-slate-800
           ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}
       >
         <div className="flex flex-col h-full">
-          <div className="p-6 border-b border-slate-100">
+          <div className="p-6 border-b border-slate-100 dark:border-slate-700">
             <div className="flex items-center">
               <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white mr-3">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
@@ -207,15 +219,15 @@ export function Navigation() {
                 </svg>
               </div>
               <div>
-                <h1 className="text-xl font-bold text-slate-900">Quest Master</h1>
-                <p className="text-xs text-slate-500">Level up your habits</p>
+                <h1 className="text-xl font-bold text-slate-900 dark:text-white">Quest Master</h1>
+                <p className="text-xs text-slate-500 dark:text-slate-400">Level up your habits</p>
               </div>
             </div>
           </div>
 
           <nav className="flex-1 overflow-y-auto p-4">
             <div className="space-y-1">
-              {navItems.map((item) => {
+              {[...navItems, profileItem].map((item) => {
                 const isActive = pathname === item.path;
                 return (
                   <Link
@@ -224,8 +236,8 @@ export function Navigation() {
                     onClick={() => setIsOpen(false)}
                     className={`flex items-center px-4 py-3 rounded-lg transition-all duration-200 
                       ${isActive 
-                        ? 'bg-indigo-50 text-indigo-700' 
-                        : 'text-slate-600 hover:bg-slate-50 hover:text-indigo-600'}`}
+                        ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300' 
+                        : 'text-slate-600 hover:bg-slate-50 hover:text-indigo-600 dark:text-slate-300 dark:hover:bg-slate-700/50 dark:hover:text-indigo-300'}`}
                   >
                     <span className="mr-3">{item.icon(isActive)}</span>
                     <span className="font-medium">{item.name}</span>
@@ -241,20 +253,21 @@ export function Navigation() {
       </aside>
 
       {/* Mobile Bottom Navigation Bar */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 z-40 lg:hidden pb-safe">
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 z-40 lg:hidden pb-safe dark:bg-slate-800 dark:border-slate-700">
         <nav className="flex justify-around items-center">
-          {navItems.map((item) => {
+          {[...navItems, profileItem].map((item) => {
             const isActive = pathname === item.path;
             return (
               <Link
                 key={item.path}
                 href={item.path}
-                className={`flex flex-col items-center py-3 px-2 ${
-                  isActive ? 'text-indigo-600' : 'text-slate-400'
+                className={`flex flex-col items-center py-2 px-3 ${
+                  isActive ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-500 dark:text-slate-400'
                 }`}
               >
-                <span>{item.icon(isActive)}</span>
-                <span className="text-xs mt-1 font-medium">{item.name}</span>
+                {item.icon(isActive)}
+                <span className="text-xs mt-1">{item.name}</span>
+                {isActive && <span className="absolute top-0 w-full h-0.5 bg-indigo-500"></span>}
               </Link>
             );
           })}

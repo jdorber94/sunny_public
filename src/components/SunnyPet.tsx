@@ -24,30 +24,20 @@ export default function SunnyPet({ level, onClick }: SunnyPetProps) {
 
   const evolutionStage = getEvolutionStage();
   
-  // Get color scheme based on evolution stage and dark mode
-  const getColors = () => {
-    if (isDarkMode) {
-      switch (evolutionStage) {
-        case 1: return { primary: 'from-yellow-500 to-amber-600', face: 'text-amber-900' };
-        case 2: return { primary: 'from-yellow-500 to-amber-600', face: 'text-amber-900' };
-        case 3: return { primary: 'from-amber-500 to-orange-600', face: 'text-amber-900' };
-        case 4: return { primary: 'from-orange-500 to-red-600', face: 'text-red-900' };
-        case 5: return { primary: 'from-yellow-500 to-purple-600', face: 'text-purple-900' };
-        default: return { primary: 'from-yellow-500 to-amber-600', face: 'text-amber-900' };
-      }
-    } else {
-      switch (evolutionStage) {
-        case 1: return { primary: 'from-yellow-300 to-amber-400', face: 'text-amber-700' };
-        case 2: return { primary: 'from-yellow-300 to-amber-400', face: 'text-amber-700' };
-        case 3: return { primary: 'from-amber-300 to-orange-400', face: 'text-orange-700' };
-        case 4: return { primary: 'from-orange-300 to-red-400', face: 'text-red-700' };
-        case 5: return { primary: 'from-yellow-300 to-purple-400', face: 'text-purple-700' };
-        default: return { primary: 'from-yellow-300 to-amber-400', face: 'text-amber-700' };
-      }
+  // Get emoji and color based on evolution stage
+  const getSunnyAppearance = () => {
+    // Simple emoji-based approach
+    switch (evolutionStage) {
+      case 1: return { emoji: '🌞', bgColor: 'bg-yellow-300' };
+      case 2: return { emoji: '☀️', bgColor: 'bg-amber-300' };
+      case 3: return { emoji: '⭐', bgColor: 'bg-orange-300' };
+      case 4: return { emoji: '🌟', bgColor: 'bg-red-300' };
+      case 5: return { emoji: '✨', bgColor: 'bg-purple-300' };
+      default: return { emoji: '🌞', bgColor: 'bg-yellow-300' };
     }
   };
 
-  const colors = getColors();
+  const { emoji, bgColor } = getSunnyAppearance();
 
   // Get personality traits based on evolution stage
   const getPersonality = () => {
@@ -68,20 +58,6 @@ export default function SunnyPet({ level, onClick }: SunnyPetProps) {
     setTimeout(() => setIsAnimating(false), 1000);
   };
 
-  // Get the face features based on evolution stage
-  const getFaceFeatures = () => {
-    // Simplified face features
-    return (
-      <div className={`${colors.face}`}>
-        <div className="flex justify-center space-x-3 mb-1">
-          <div className="w-1.5 h-1.5 rounded-full bg-current"></div>
-          <div className="w-1.5 h-1.5 rounded-full bg-current"></div>
-        </div>
-        <div className="w-4 h-1.5 mx-auto rounded-full bg-current"></div>
-      </div>
-    );
-  };
-
   return (
     <div className="relative">
       <div 
@@ -90,15 +66,14 @@ export default function SunnyPet({ level, onClick }: SunnyPetProps) {
         onMouseEnter={() => setShowTooltip(true)}
         onMouseLeave={() => setShowTooltip(false)}
       >
-        {/* Sun body */}
+        {/* Sun body - simple emoji-based approach */}
         <div 
-          className={`relative w-16 h-16 rounded-full bg-gradient-to-br ${colors.primary} shadow-lg flex items-center justify-center z-10
-            ${isAnimating ? 'animate-pulse' : ''}`}
+          className={`relative w-16 h-16 rounded-full ${bgColor} dark:bg-opacity-80 shadow-lg flex items-center justify-center z-10
+            ${isAnimating ? 'animate-bounce-small' : ''}`}
         >
-          {/* Face */}
-          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/4">
-            {getFaceFeatures()}
-          </div>
+          <span className="text-3xl" role="img" aria-label="Sunny">
+            {emoji}
+          </span>
         </div>
         
         {/* Level indicator */}
