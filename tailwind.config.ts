@@ -6,6 +6,7 @@ const config: Config = {
     "./app/**/*.{js,ts,jsx,tsx,mdx}",
     "./components/**/*.{js,ts,jsx,tsx,mdx}",
   ],
+  darkMode: 'class',
   theme: {
     extend: {
       colors: {
@@ -17,6 +18,25 @@ const config: Config = {
         'sparkle': 'sparkle 1s ease-in-out',
         'progress-celebration': 'progress-celebration 1s ease-in-out',
         'scale-bounce': 'scale-bounce 0.5s ease-in-out',
+        'bounce-small': 'bounce-small 0.5s ease-in-out',
+        'bounce-slow': 'bounce-slow 3s infinite',
+        'spin-slow': 'spin 3s linear infinite',
+        'ping': 'ping 1s cubic-bezier(0, 0, 0.2, 1) infinite',
+        'scale-up': 'scale-up 0.5s ease-in-out',
+      },
+      keyframes: {
+        'bounce-small': {
+          '0%, 100%': { transform: 'translateY(0)' },
+          '50%': { transform: 'translateY(-10%)' },
+        },
+        'bounce-slow': {
+          '0%, 100%': { transform: 'translateY(0)' },
+          '50%': { transform: 'translateY(-5%)' },
+        },
+        'scale-up': {
+          '0%': { transform: 'scale(0)', opacity: '1' },
+          '100%': { transform: 'scale(1)', opacity: '0' },
+        },
       },
     },
   },

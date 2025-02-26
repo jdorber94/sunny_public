@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter, Montserrat } from 'next/font/google';
 import './globals.css';
 import { Navigation } from '@/components/Navigation';
+import ThemeProvider from '@/components/ThemeProvider';
 
 const montserrat = Montserrat({ 
   subsets: ['latin'],
@@ -31,12 +32,14 @@ export default function RootLayout({
         <link rel="icon" href="/favicon.ico" />
       </head>
       <body className={inter.className}>
-        <div className={montserrat.className}>
-          <Navigation />
-          <main className="lg:pl-64">
-            {children}
-          </main>
-        </div>
+        <ThemeProvider>
+          <div className={montserrat.className}>
+            <Navigation />
+            <main className="lg:pl-64">
+              {children}
+            </main>
+          </div>
+        </ThemeProvider>
       </body>
     </html>
   );

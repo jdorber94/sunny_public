@@ -14,6 +14,11 @@ body {
   animation: subtleGradient 15s ease infinite;
 }
 
+/* Dark mode styles */
+.dark body {
+  @apply bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 bg-fixed;
+}
+
 /* Custom animations */
 @keyframes subtleGradient {
   0% { background-position: 0% 50%; }
@@ -105,9 +110,21 @@ body {
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
 }
 
+.dark .glass-card {
+  @apply bg-slate-800 bg-opacity-80 backdrop-blur-sm;
+  @apply border border-slate-700 border-opacity-50;
+  @apply shadow-lg shadow-black/30;
+  background: rgba(30, 41, 59, 0.7);
+  border: 1px solid rgba(51, 65, 85, 0.5);
+}
+
 .glass-card:hover {
   @apply shadow-xl shadow-slate-200/70;
   transform: translateY(-2px);
+}
+
+.dark .glass-card:hover {
+  @apply shadow-xl shadow-black/40;
 }
 
 /* Form elements */
@@ -117,6 +134,11 @@ body {
   @apply transition-all duration-200;
   @apply focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent;
   @apply placeholder-slate-400;
+}
+
+.dark .input-field {
+  @apply bg-slate-800 bg-opacity-80 border-slate-700 text-white;
+  @apply placeholder-slate-500;
 }
 
 /* Buttons */
@@ -179,8 +201,16 @@ body {
   @apply bg-slate-300 rounded-full;
 }
 
+.dark ::-webkit-scrollbar-thumb {
+  @apply bg-slate-600;
+}
+
 ::-webkit-scrollbar-thumb:hover {
   @apply bg-slate-400;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  @apply bg-slate-500;
 }
 
 /* Responsive utilities */
@@ -188,6 +218,11 @@ body {
   .glass-card {
     @apply bg-white/60 backdrop-blur-sm rounded-3xl p-6 sm:p-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)] 
       border border-white/20 transition-all duration-300 hover:bg-white/70;
+  }
+
+  .dark .glass-card {
+    @apply bg-slate-800/70 backdrop-blur-sm border-slate-700/30 hover:bg-slate-800/80
+      shadow-[0_8px_30px_rgb(0,0,0,0.2)];
   }
 
   .responsive-padding {
@@ -208,6 +243,10 @@ body {
     @apply min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50;
   }
 
+  .dark body {
+    @apply from-slate-900 via-slate-800 to-indigo-950;
+  }
+
   :root {
     --primary: #000000;
     --secondary: #18191B;
@@ -217,6 +256,17 @@ body {
     --text-primary: #18191B;
     --text-secondary: #6B7280;
     --border: #E5E7EB;
+  }
+
+  .dark {
+    --primary: #FFFFFF;
+    --secondary: #E5E7EB;
+    --accent: #10B981;
+    --background: #111827;
+    --surface: #1F2937;
+    --text-primary: #F9FAFB;
+    --text-secondary: #9CA3AF;
+    --border: #374151;
   }
 }
 

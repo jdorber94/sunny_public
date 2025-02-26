@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import SunnyPet from '@/components/SunnyPet';
 import SunnyEvolution from '@/components/SunnyEvolution';
+import { useTheme } from '@/components/ThemeProvider';
 
 interface UserProfile {
   name: string;
@@ -84,6 +85,7 @@ const calculateDaysActive = (habits: any[]) => {
 };
 
 export default function ProfilePage() {
+  const { isDarkMode, toggleDarkMode } = useTheme();
   const [profile, setProfile] = useState<UserProfile>({
     name: 'John Doe',
     email: 'john.doe@example.com',
@@ -269,7 +271,7 @@ export default function ProfilePage() {
   };
 
   return (
-    <div className="px-4 py-8 sm:px-6 lg:px-8 min-h-screen bg-gradient-to-br from-indigo-50 to-purple-50">
+    <div className="px-4 py-8 sm:px-6 lg:px-8 min-h-screen bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-slate-900 dark:via-indigo-950 dark:to-slate-900">
       {/* Evolution Celebration Modal */}
       <SunnyEvolution 
         show={showEvolution} 
@@ -278,13 +280,30 @@ export default function ProfilePage() {
       />
       
       <div className="max-w-4xl mx-auto">
-        <header className="mb-8">
-          <h1 className="text-3xl font-bold text-indigo-900 mb-2">Your Profile</h1>
-          <p className="text-slate-600">Manage your account and preferences</p>
+        <header className="mb-8 flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold text-indigo-900 dark:text-indigo-300 mb-2">Your Profile</h1>
+            <p className="text-slate-600 dark:text-slate-400">Manage your account and preferences</p>
+          </div>
+          <button
+            onClick={toggleDarkMode}
+            className="p-2 rounded-full bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors"
+            aria-label={isDarkMode ? "Switch to light mode" : "Switch to dark mode"}
+          >
+            {isDarkMode ? (
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6 text-yellow-300">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v2.25m6.364.386-1.591 1.591M21 12h-2.25m-.386 6.364-1.591-1.591M12 18.75V21m-4.773-4.227-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z" />
+              </svg>
+            ) : (
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6 text-indigo-600">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21.752 15.002A9.72 9.72 0 0 1 18 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 0 0 3 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 0 0 9.002-5.998Z" />
+              </svg>
+            )}
+          </button>
         </header>
 
         <div className="glass-card p-6 mb-8">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8 pb-6 border-b border-slate-100">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8 pb-6 border-b border-slate-100 dark:border-slate-700">
             <div className="flex items-center gap-4">
               <div className="w-20 h-20 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-2xl font-medium">
                 {profile.avatar}
@@ -296,12 +315,12 @@ export default function ProfilePage() {
                     name="name"
                     value={editedProfile.name}
                     onChange={handleChange}
-                    className="text-xl font-semibold text-slate-700 bg-white border border-slate-200 rounded-lg px-3 py-2 mb-1 w-full sm:w-auto"
+                    className="text-xl font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 mb-1 w-full sm:w-auto"
                   />
                 ) : (
-                  <h2 className="text-xl font-semibold text-slate-700">{profile.name}</h2>
+                  <h2 className="text-xl font-semibold text-slate-700 dark:text-slate-200">{profile.name}</h2>
                 )}
-                <p className="text-slate-500">Level {profile.level} Quester</p>
+                <p className="text-slate-500 dark:text-slate-400">Level {profile.level} Quester</p>
               </div>
             </div>
             
@@ -319,7 +338,7 @@ export default function ProfilePage() {
                       setIsEditing(false);
                       setEditedProfile(profile);
                     }}
-                    className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
+                    className="px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
                   >
                     Cancel
                   </button>
@@ -327,7 +346,7 @@ export default function ProfilePage() {
               ) : (
                 <button 
                   onClick={() => setIsEditing(true)}
-                  className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
+                  className="px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
                 >
                   Edit Profile
                 </button>

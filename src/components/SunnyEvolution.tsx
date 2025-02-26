@@ -72,26 +72,26 @@ export default function SunnyEvolution({ show, onClose, evolutionStage }: SunnyE
           />
         ))}
         
-        <div className="bg-gradient-to-br from-yellow-100 to-amber-200 rounded-2xl p-8 text-center shadow-xl transform animate-bounce-slow">
-          <div className="text-3xl font-bold text-amber-800 mb-4">
+        <div className="bg-gradient-to-br from-yellow-100 to-amber-200 dark:from-amber-700 dark:to-amber-900 rounded-2xl p-8 text-center shadow-xl transform animate-bounce-slow">
+          <div className="text-3xl font-bold text-amber-800 dark:text-amber-100 mb-4">
             Sunny Has Evolved!
           </div>
           
-          <div className="w-32 h-32 mx-auto bg-gradient-to-br from-yellow-300 to-amber-500 rounded-full flex items-center justify-center mb-6 animate-pulse">
+          <div className="w-32 h-32 mx-auto bg-gradient-to-br from-yellow-300 to-amber-500 dark:from-yellow-400 dark:to-amber-600 rounded-full flex items-center justify-center mb-6 animate-pulse">
             <div className="text-6xl">✨</div>
           </div>
           
-          <div className="text-2xl font-semibold text-amber-700 mb-2">
+          <div className="text-2xl font-semibold text-amber-700 dark:text-amber-200 mb-2">
             Welcome {getEvolutionTitle()}!
           </div>
           
-          <p className="text-amber-600 mb-6">
+          <p className="text-amber-600 dark:text-amber-300 mb-6">
             Your dedication to your habits has helped Sunny evolve into a brighter form!
           </p>
           
           <button
             onClick={onClose}
-            className="px-6 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors"
+            className="px-6 py-2 bg-amber-500 dark:bg-amber-600 text-white rounded-lg hover:bg-amber-600 dark:hover:bg-amber-700 transition-colors"
           >
             Continue Your Journey
           </button>
