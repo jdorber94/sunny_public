@@ -1,0 +1,150 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Base styles */
+html,
+body {
+  @apply min-h-screen;
+}
+
+body {
+  @apply bg-gradient-to-br from-blue-50 via-white to-indigo-50;
+}
+
+/* Animations */
+@keyframes gradient {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.animate-gradient {
+  animation: gradient 15s ease infinite;
+}
+
+@keyframes sparkle {
+  0% {
+    transform: scale(0) translate(0, 0);
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1) translate(var(--tw-translate-x), var(--tw-translate-y));
+    opacity: 0;
+  }
+}
+
+@keyframes progress-celebration {
+  0% { filter: brightness(1); }
+  50% { filter: brightness(1.2); }
+  100% { filter: brightness(1); }
+}
+
+@keyframes scale-bounce {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+
+@keyframes scale-up {
+  0% { transform: scale(0.8); opacity: 1; }
+  100% { transform: scale(1.5); opacity: 0; }
+}
+
+@keyframes bounce-small {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-2px); }
+}
+
+/* Custom styles */
+.glass-card {
+  @apply bg-white/90 backdrop-blur-sm rounded-2xl p-6 
+    border border-white/40 transition-all duration-200
+    shadow-[0_8px_30px_rgba(0,0,0,0.06)]
+    hover:shadow-[0_8px_30px_rgba(0,0,0,0.08)]
+    hover:bg-white/95;
+}
+
+.input-field {
+  @apply bg-white/90 border-2 border-[#E5E7EB] rounded-xl px-4 py-3
+    text-[#18191B] placeholder:text-[#9CA3AF] font-medium
+    focus:ring-4 focus:ring-indigo-100/30 focus:border-indigo-300
+    hover:border-indigo-200 hover:shadow-md
+    outline-none transition-all duration-200;
+}
+
+.button-primary {
+  @apply bg-gradient-to-br from-indigo-500 to-purple-500 
+    text-white rounded-xl px-4 py-3 font-medium
+    shadow-lg shadow-indigo-500/20
+    hover:shadow-xl hover:shadow-indigo-500/30 hover:-translate-y-0.5
+    active:shadow-md active:translate-y-0
+    disabled:bg-[#E5E7EB] disabled:text-[#9CA3AF] disabled:shadow-none
+    transition-all duration-200;
+}
+
+.container-center {
+  @apply max-w-4xl mx-auto px-4 sm:px-6 lg:px-8;
+}
+
+/* Responsive utilities */
+@layer utilities {
+  .glass-card {
+    @apply bg-white/60 backdrop-blur-sm rounded-3xl p-6 sm:p-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)] 
+      border border-white/20 transition-all duration-300 hover:bg-white/70;
+  }
+
+  .responsive-grid {
+    @apply grid grid-cols-1 sm:grid-cols-2 gap-4;
+  }
+
+  .responsive-padding {
+    @apply px-4 py-6 sm:px-6 sm:py-8;
+  }
+
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+@layer base {
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+  
+  body {
+    @apply min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50;
+  }
+
+  :root {
+    --primary: #000000;
+    --secondary: #18191B;
+    --accent: #00B971;
+    --background: #F8F9FA;
+    --surface: #FFFFFF;
+    --text-primary: #18191B;
+    --text-secondary: #6B7280;
+    --border: #E5E7EB;
+  }
+}
+
+.animate-scale-up {
+  animation: scale-up 0.5s ease-out forwards;
+}
+
+.animate-bounce-small {
+  animation: bounce-small 0.3s ease-in-out;
+}
+
+/* Add new animation for level up */
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 12px rgba(99,102,241,0.4); }
+  50% { box-shadow: 0 0 24px rgba(99,102,241,0.6); }
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s infinite;
+}
