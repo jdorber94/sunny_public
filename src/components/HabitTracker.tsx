@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Sparkles } from './Sparkles';
 import { WeeklyProgress } from './WeeklyProgress';
+import { LevelUpCelebration } from './LevelUpCelebration';
 import { format, addDays, subDays, isToday } from 'date-fns';
 
 interface Habit {
@@ -141,6 +142,7 @@ export default function HabitTracker() {
 
   const [celebrateHabitId, setCelebrateHabitId] = useState<number | null>(null);
   const [celebrateProgress, setCelebrateProgress] = useState(false);
+  const [showLevelUp, setShowLevelUp] = useState(false);
 
   const { level, currentLevelXP, nextLevelXP } = calculateLevel(stats.totalXP);
 
@@ -246,208 +248,179 @@ export default function HabitTracker() {
   };
 
   return (
-    <div className="grid place-items-center min-h-screen">
-      <div className="w-full max-w-4xl px-4 py-6 sm:py-12 pb-24 lg:pb-6">
-        {/* Level Overview */}
-        <div className="glass-card mb-6 hover:shadow-lg transition-all duration-300">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <div className="flex items-center justify-center w-12 h-12 rounded-xl 
-                bg-gradient-to-br from-indigo-500 to-purple-500 
-                text-white text-xl font-bold shadow-lg">
-                {level}
-              </div>
-              <div>
-                <span className="text-2xl font-bold text-black">
-                  Level {level}
-                </span>
-                <div className="text-sm text-[#6B7280] flex items-center gap-2">
-                  <span>{currentLevelXP}/{nextLevelXP} XP</span>
-                  <span className="text-[#00B971] font-medium">+{stats.dailyXP.xp} today</span>
+    <div className="px-4 py-8 sm:px-6 lg:px-8 min-h-screen bg-gradient-to-br from-indigo-50 to-purple-50">
+      <div className="max-w-4xl mx-auto">
+        <header className="mb-8">
+          <h1 className="text-3xl font-bold text-indigo-900 mb-2">Daily Quests</h1>
+          <p className="text-slate-600">Track your daily habits and level up your life</p>
+        </header>
+        
+        {showLevelUp && (
+          <div className="mb-8">
+            <LevelUpCelebration level={level} onClose={() => setShowLevelUp(false)} />
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 md:grid-cols-7 gap-6 mb-8">
+          <div className="md:col-span-5">
+            <div className="glass-card p-6 mb-6">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h2 className="font-semibold text-slate-700 text-xl">Today's Quests</h2>
+                  <p className="text-slate-500 text-sm">{format(selectedDate, 'EEEE, MMMM d')}</p>
+                </div>
+                <div className="flex items-center space-x-3">
+                  <button 
+                    onClick={() => setSelectedDate(subDays(selectedDate, 1))}
+                    className="p-2 rounded-full hover:bg-indigo-100 transition-colors"
+                    title="Previous day"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                    </svg>
+                  </button>
+                  <button
+                    onClick={() => setSelectedDate(new Date())}
+                    className={`text-sm px-3 py-1 rounded-full ${isToday(selectedDate) ? 'bg-indigo-100 text-indigo-700' : 'text-slate-500 hover:bg-indigo-50'} transition-colors`}
+                  >
+                    Today
+                  </button>
+                  <button 
+                    onClick={() => setSelectedDate(addDays(selectedDate, 1))}
+                    className="p-2 rounded-full hover:bg-indigo-100 transition-colors"
+                    title="Next day"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
                 </div>
               </div>
-            </div>
-          </div>
-          <div className="h-2 bg-[#F3F4F6] rounded-full overflow-hidden shadow-inner">
-            <div 
-              className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 transition-all duration-300
-                shadow-[0_0_12px_rgba(99,102,241,0.4)]"
-              style={{ width: `${(currentLevelXP / nextLevelXP) * 100}%` }}
-            />
-          </div>
-        </div>
 
-        {/* Add Habit Form - Moved up */}
-        <div className="glass-card mb-8">
-          <form onSubmit={addHabit} className="flex flex-col sm:flex-row gap-4">
-            <input
-              type="text"
-              value={newHabit}
-              onChange={(e) => setNewHabit(e.target.value)}
-              placeholder="Add a new habit"
-              className="input-field w-full text-base"
-            />
-            <button 
-              type="submit" 
-              onClick={() => {
-                if (habits.length < MAX_HABITS) {
-                  setCelebrateHabitId(-1);
-                  setTimeout(() => setCelebrateHabitId(null), 1000);
-                }
-              }}
-              disabled={habits.length >= MAX_HABITS}
-              className={`relative px-8 py-4 rounded-2xl font-semibold transition-all duration-300 text-lg
-                ${habits.length >= MAX_HABITS 
-                  ? 'bg-slate-100 text-slate-400 cursor-not-allowed' 
-                  : 'bg-gradient-to-br from-indigo-500 to-purple-500 text-white shadow-lg hover:shadow-xl hover:-translate-y-0.5 hover:scale-105 active:scale-100 border-2 border-transparent hover:border-indigo-200'
-                }`}
-            >
-              Add Habit
-              {celebrateHabitId === -1 && <Sparkles color="white" />}
-            </button>
-          </form>
-          {error && (
-            <p className="mt-3 text-red-400 text-sm font-medium">{error}</p>
-          )}
-          <div className="mt-4 flex items-center justify-between text-sm text-slate-400 font-medium">
-            <p>
-              {habits.length}/{MAX_HABITS} habits created
-            </p>
-            <p>
-              {MAX_DAILY_XP - stats.dailyXP.xp} XP available today
-            </p>
-          </div>
-        </div>
-
-        {/* Date Navigation - Moved down */}
-        <div className="glass-card mb-8">
-          <div className="flex items-center justify-between">
-            <button
-              onClick={() => setSelectedDate(prev => subDays(prev, 1))}
-              className="p-2 rounded-lg hover:bg-slate-100 text-slate-600"
-            >
-              ←
-            </button>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-slate-700 mb-1">
-                {isToday(selectedDate) ? 'Today' : format(selectedDate, 'EEEE')}
-              </div>
-              <div className="text-sm text-slate-500">
-                {format(selectedDate, 'MMMM d, yyyy')}
-              </div>
-            </div>
-            <button
-              onClick={() => setSelectedDate(prev => addDays(prev, 1))}
-              className="p-2 rounded-lg hover:bg-slate-100 text-slate-600"
-              disabled={isToday(selectedDate)}
-            >
-              →
-            </button>
-          </div>
-        </div>
-
-        {/* Habits List */}
-        {habits.length > 0 && (
-          <div className="space-y-4">
-            {habits.map(habit => (
-              <div 
-                key={habit.id} 
-                className={`relative glass-card hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300
-                  ${celebrateHabitId === habit.id ? 'animate-[scale-bounce_0.5s_ease-in-out]' : ''}`}
-              >
-                {celebrateHabitId === habit.id && (
-                  <Sparkles color={isHabitCompletedForDate(habit, selectedDate) ? 'green-400' : 'blue-400'} />
-                )}
-                <div className="flex items-center gap-4">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-2">
-                      <h3 className="text-base font-medium text-black">
-                        {habit.name}
-                      </h3>
-                      {habit.logs.length >= 3 && (
-                        <div className="flex items-center gap-1 px-2 py-0.5 bg-[#FEF3C7] rounded-full">
-                          <span className="text-[#D97706] text-xs">🔥 {habit.logs.length}</span>
-                        </div>
-                      )}
-                    </div>
-                    <div className="w-full h-3 bg-[#F3F4F6] rounded-full mb-2 overflow-hidden shadow-inner">
-                      <div 
-                        className={`h-full transition-all duration-500 ease-out
-                          ${isHabitCompletedForDate(habit, selectedDate)
-                            ? 'bg-gradient-to-r from-emerald-400 to-green-500 shadow-[0_0_20px_rgba(16,185,129,0.4)]'
-                            : 'bg-gradient-to-r from-indigo-400 via-blue-500 to-indigo-500 shadow-[0_0_12px_rgba(99,102,241,0.2)]'
-                          }`}
-                        style={{ 
-                          width: `${(habit.logs.length / 30) * 100}%`,
-                          transform: isHabitCompletedForDate(habit, selectedDate) ? 'scale(1.02)' : 'scale(1)'
-                        }}
-                      />
-                    </div>
-                    <div className="flex items-center gap-2 text-sm text-[#6B7280]">
-                      <span>{habit.logs.length} days</span>
-                      <span>•</span>
-                      <span className="flex items-center gap-1">
-                        <span className="text-[#00B971]">{habit.xp}</span> XP
-                      </span>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <button
-                      onClick={() => toggleHabit(habit.id)}
-                      className={`w-10 h-10 rounded-xl flex items-center justify-center
-                        transition-all duration-200
-                        ${isHabitCompletedForDate(habit, selectedDate)
-                          ? 'bg-[#00B971] text-white'
-                          : 'bg-[#F3F4F6] text-[#6B7280] hover:bg-[#E5E7EB]'
+              {habits.length > 0 ? (
+                <ul className="space-y-3">
+                  {habits.map((habit) => {
+                    const isCompleted = isHabitCompletedForDate(habit, selectedDate);
+                    return (
+                      <li 
+                        key={habit.id}
+                        className={`flex items-center justify-between p-4 rounded-xl border transition-all duration-200 ${
+                          isCompleted 
+                            ? 'bg-green-50 border-green-200' 
+                            : 'bg-white border-slate-200 hover:border-indigo-200 hover:shadow-sm'
                         }`}
-                    >
-                      <CheckmarkIcon checked={isHabitCompletedForDate(habit, selectedDate)} animate={celebrateProgress} />
-                    </button>
-                    <button
-                      onClick={() => deleteHabit(habit.id)}
-                      className="w-10 h-10 rounded-xl flex items-center justify-center
-                        bg-white/80 backdrop-blur-sm border-2 border-red-100
-                        text-red-400 hover:text-white
-                        hover:bg-gradient-to-r hover:from-red-400 hover:to-red-500
-                        hover:border-transparent hover:shadow-lg
-                        hover:scale-105 active:scale-95
-                        transition-all duration-200"
-                    >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        strokeWidth={2}
-                        stroke="currentColor"
-                        className="w-5 h-5"
                       >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"
-                        />
-                      </svg>
-                    </button>
+                        <div className="flex items-center">
+                          <button
+                            onClick={() => toggleHabit(habit.id)}
+                            className={`flex-shrink-0 w-6 h-6 rounded-full mr-3 flex items-center justify-center transition-all duration-200 ${
+                              isCompleted
+                                ? 'bg-green-500 text-white'
+                                : 'border-2 border-slate-300 hover:border-indigo-400'
+                            }`}
+                          >
+                            <CheckmarkIcon checked={isCompleted} animate={true} />
+                          </button>
+                          <span className={`text-slate-700 font-medium ${isCompleted ? 'line-through text-slate-500' : ''}`}>
+                            {habit.name}
+                          </span>
+                        </div>
+                        <div className="flex items-center">
+                          <span className="text-xs text-slate-500 mr-2">{habit.xp} XP</span>
+                          <button
+                            onClick={() => deleteHabit(habit.id)}
+                            className="text-slate-400 hover:text-red-500 transition-colors p-1"
+                            title="Delete habit"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              ) : (
+                <div className="text-center p-8">
+                  <div className="inline-block p-3 rounded-full bg-indigo-100 mb-4">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
                   </div>
+                  <h3 className="text-slate-700 font-medium mb-1">No quests yet</h3>
+                  <p className="text-slate-500 text-sm mb-4">Start by adding your first daily quest</p>
                 </div>
-              </div>
-            ))}
-          </div>
-        )}
+              )}
 
-        {/* Empty State */}
-        {habits.length === 0 && (
-          <div className="bg-white/60 backdrop-blur-sm rounded-3xl p-16 shadow-[0_8px_30px_rgb(0,0,0,0.04)]
-            border border-white/20 text-center transition-all duration-300 hover:bg-white/70">
-            <div className="mb-4 text-4xl">✨</div>
-            <h3 className="text-xl font-semibold text-slate-700 mb-2">
-              Start Your Journey
-            </h3>
-            <p className="text-slate-500">
-              Add your first habit above and begin building a better you
-            </p>
+              {habits.length < MAX_HABITS && (
+                <div className="mt-6">
+                  <form onSubmit={addHabit} className="flex items-center">
+                    <input
+                      type="text"
+                      value={newHabit}
+                      onChange={(e) => setNewHabit(e.target.value)}
+                      placeholder="Enter a new quest..."
+                      className="flex-1 rounded-l-lg border border-slate-300 p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    />
+                    <button
+                      type="submit"
+                      disabled={!newHabit.trim()}
+                      className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-3 rounded-r-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Add Quest
+                    </button>
+                  </form>
+                </div>
+              )}
+            </div>
+            
+            <WeeklyProgress habits={habits} />
           </div>
-        )}
+          
+          <div className="md:col-span-2 space-y-6">
+            <div className="glass-card p-6">
+              <div className="flex flex-col items-center text-center">
+                <div className="relative mb-2">
+                  <div className="w-20 h-20 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-xl font-bold">
+                    {level}
+                  </div>
+                  {stats.dailyXP.xp > 0 && (
+                    <div className="absolute -bottom-1 -right-1 bg-green-500 text-white text-xs rounded-full h-6 w-6 flex items-center justify-center">
+                      +{stats.dailyXP.xp}
+                    </div>
+                  )}
+                </div>
+                <h3 className="text-xl font-semibold text-slate-700">Level {level}</h3>
+                <p className="text-slate-500 text-sm mb-4">Quest Master</p>
+                
+                <div className="w-full bg-slate-200 rounded-full h-2 mb-2">
+                  <div 
+                    className="bg-indigo-600 h-2 rounded-full transition-all duration-500"
+                    style={{ width: `${(currentLevelXP / nextLevelXP) * 100}%` }}
+                  ></div>
+                </div>
+                <p className="text-sm text-slate-600">{stats.totalXP} XP total</p>
+              </div>
+            </div>
+            
+            <div className="glass-card p-6">
+              <h3 className="text-lg font-semibold text-slate-700 mb-4">Today's Progress</h3>
+              <div className="flex items-center mb-2">
+                <div className="w-full bg-slate-200 rounded-full h-2 mr-2">
+                  <div 
+                    className="bg-green-500 h-2 rounded-full transition-all duration-500"
+                    style={{ width: `${(stats.dailyXP.xp / MAX_DAILY_XP) * 100}%` }}
+                  ></div>
+                </div>
+                <span className="text-sm text-slate-600 whitespace-nowrap">{stats.dailyXP.xp}/{MAX_DAILY_XP} XP</span>
+              </div>
+              <p className="text-sm text-slate-500">
+                {habits.filter(habit => isHabitCompletedForDate(habit, new Date())).length} of {habits.length} quests completed today
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

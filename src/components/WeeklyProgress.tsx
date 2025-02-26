@@ -40,44 +40,72 @@ export function WeeklyProgress({ habits }: WeeklyProgressProps) {
   };
 
   return (
-    <div className="glass-card p-4 sm:p-6 mb-8">
-      <h3 className="text-lg font-semibold text-slate-700 mb-4 sm:mb-6">Weekly Overview</h3>
-      <div className="grid grid-cols-7 gap-1.5 sm:gap-3">
+    <div className="glass-card p-6">
+      <div className="flex items-center justify-between mb-6">
+        <h3 className="text-lg font-semibold text-slate-700">Weekly Overview</h3>
+        <div className="flex items-center space-x-2 text-sm">
+          <button 
+            onClick={() => setSelectedWeek(selectedWeek - 1)}
+            className="p-1.5 rounded-full hover:bg-indigo-100 text-indigo-600 transition-colors"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+          <span className="text-slate-600">Week {selectedWeek}</span>
+          <button 
+            onClick={() => setSelectedWeek(selectedWeek + 1)}
+            className="p-1.5 rounded-full hover:bg-indigo-100 text-indigo-600 transition-colors"
+            disabled={selectedWeek >= getWeek(new Date())}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+        </div>
+      </div>
+      
+      <div className="grid grid-cols-7 gap-2">
         {weekDates.map((date) => {
           const dateStr = format(date, 'yyyy-MM-dd');
           const completion = getDailyCompletion(dateStr);
-          const isToday = dateStr === format(new Date(), 'yyyy-MM-dd');
+          const isCurrentDay = dateStr === format(new Date(), 'yyyy-MM-dd');
           const { day, date: dayNumber } = formatDate(dateStr);
           
           return (
-            <div 
-              key={dateStr}
-              className={`flex flex-col items-center ${isToday ? 'relative' : ''}`}
-            >
-              {isToday && (
-                <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full bg-blue-500" />
-              )}
-              <div className="text-[10px] sm:text-xs font-medium text-slate-400 mb-0.5 sm:mb-1">
-                {day}
-              </div>
-              <div className="text-[10px] sm:text-xs font-medium text-slate-600 mb-1.5 sm:mb-2">
+            <div key={dateStr} className="flex flex-col items-center">
+              <div className="text-xs text-slate-500 mb-1">{day}</div>
+              <div 
+                className={`w-10 h-10 flex items-center justify-center rounded-full mb-2 font-medium text-sm
+                  ${isCurrentDay 
+                    ? 'bg-indigo-100 text-indigo-700 ring-2 ring-indigo-300 ring-offset-2' 
+                    : 'bg-slate-100 text-slate-700'}`}
+              >
                 {dayNumber}
               </div>
-              <div className="relative w-full pt-[100%] rounded-md sm:rounded-lg bg-slate-100/50 overflow-hidden">
-                <div
-                  className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-blue-400 to-indigo-400 transition-all duration-300"
-                  style={{ height: `${completion}%` }}
+              <div className="w-full bg-slate-100 rounded-full h-16 relative">
+                <div 
+                  className={`absolute bottom-0 left-0 right-0 rounded-full transition-all duration-300 ease-out
+                    ${completion > 0 
+                      ? 'bg-gradient-to-t from-green-500 to-green-400' 
+                      : 'bg-slate-200'}`}
+                  style={{ 
+                    height: `${completion}%`,
+                    minHeight: completion > 0 ? '8px' : '0'
+                  }}
                 />
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="text-[10px] sm:text-xs font-medium text-slate-700">
-                    {completion}%
-                  </span>
-                </div>
               </div>
+              <div className="text-xs font-medium mt-2 text-slate-700">{completion}%</div>
             </div>
           );
         })}
       </div>
+      
+      {habits.length === 0 && (
+        <div className="text-center text-slate-500 mt-6 text-sm">
+          Add habits to start tracking your weekly progress
+        </div>
+      )}
     </div>
   );
 } 

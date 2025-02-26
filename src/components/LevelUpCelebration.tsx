@@ -1,6 +1,6 @@
 'use client';
 
-export function LevelUpCelebration({ level }: { level: number }) {
+export function LevelUpCelebration({ level, onClose }: { level: number; onClose: () => void }) {
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-black/50 z-50">
       <div className="bg-white rounded-2xl p-8 text-center max-w-sm mx-4">
@@ -14,7 +14,10 @@ export function LevelUpCelebration({ level }: { level: number }) {
         <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 text-white text-2xl font-bold mb-4">
           {level}
         </div>
-        <button className="button-primary w-full">
+        <button 
+          className="button-primary w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3 px-6 rounded-lg font-medium transition-colors"
+          onClick={onClose}
+        >
           Continue
         </button>
       </div>
