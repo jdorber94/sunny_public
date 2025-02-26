@@ -20,16 +20,79 @@ interface UserProfile {
   };
 }
 
+// Calculate level from XP
+const calculateLevel = (xp: number) => {
+  // Each level requires double XP of the previous level
+  // Level 1: 0-60
+  // Level 2: 60-180 (60 + 120)
+  // Level 3: 180-420 (180 + 240)
+  // Level 4: 420-900 (420 + 480)
+  const getRequiredXP = (level: number): number => {
+    if (level === 1) return 60;
+    return getRequiredXP(level - 1) * 2;
+  };
+
+  let level = 1;
+  let totalRequired = 60; // First level requirement
+
+  while (xp >= totalRequired) {
+    level++;
+    totalRequired += getRequiredXP(level);
+  }
+
+  return level;
+};
+
+// Calculate streak from habit logs
+const calculateStreak = (habits: any[]) => {
+  if (!habits || habits.length === 0) return 0;
+  
+  let streak = 0;
+  const today = new Date();
+  let currentDate = new Date(today);
+  
+  while (true) {
+    const dateToCheck = currentDate.toISOString().split('T')[0];
+    const completedHabits = habits.filter(habit => 
+      habit.logs && habit.logs.includes(dateToCheck)
+    );
+    
+    if (completedHabits.length === 0) break;
+    streak++;
+    currentDate.setDate(currentDate.getDate() - 1);
+  }
+  
+  return streak;
+};
+
+// Calculate days active from habit logs
+const calculateDaysActive = (habits: any[]) => {
+  if (!habits || habits.length === 0) return 0;
+  
+  // Get all unique dates from all habit logs
+  const activeDates = new Set<string>();
+  
+  habits.forEach(habit => {
+    if (habit.logs) {
+      habit.logs.forEach((date: string) => {
+        activeDates.add(date);
+      });
+    }
+  });
+  
+  return activeDates.size;
+};
+
 export default function ProfilePage() {
   const [profile, setProfile] = useState<UserProfile>({
     name: 'John Doe',
     email: 'john.doe@example.com',
     avatar: 'JD',
-    level: 5,
-    totalXP: 1234,
-    daysActive: 42,
-    currentStreak: 3,
-    joinDate: '2023-01-15',
+    level: 1,
+    totalXP: 0,
+    daysActive: 0,
+    currentStreak: 0,
+    joinDate: new Date().toISOString().split('T')[0],
     preferences: {
       notifications: true,
       darkMode: false,
@@ -37,12 +100,60 @@ export default function ProfilePage() {
     }
   });
 
+  // Load actual stats from localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      // Load habits
+      const savedHabits = localStorage.getItem('habits');
+      const habits = savedHabits ? JSON.parse(savedHabits) : [];
+      
+      // Load stats
+      const savedStats = localStorage.getItem('habitStats');
+      const stats = savedStats ? JSON.parse(savedStats) : { totalXP: 0 };
+      
+      // Calculate level from XP
+      const level = calculateLevel(stats.totalXP);
+      
+      // Calculate streak and days active
+      const currentStreak = calculateStreak(habits);
+      const daysActive = calculateDaysActive(habits);
+      
+      // Get join date (or use current date if not available)
+      const savedProfile = localStorage.getItem('userProfile');
+      const joinDate = savedProfile 
+        ? JSON.parse(savedProfile).joinDate 
+        : new Date().toISOString().split('T')[0];
+      
+      // Update profile with actual data
+      setProfile(prev => ({
+        ...prev,
+        level,
+        totalXP: stats.totalXP || 0,
+        daysActive,
+        currentStreak,
+        joinDate
+      }));
+    }
+  }, []);
+
+  // Save profile to localStorage when it changes
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('userProfile', JSON.stringify(profile));
+    }
+  }, [profile]);
+
   const [isEditing, setIsEditing] = useState(false);
   const [editedProfile, setEditedProfile] = useState(profile);
 
   const [sunnyInteractions, setSunnyInteractions] = useState(0);
   const [showEvolution, setShowEvolution] = useState(false);
   const [previousLevel, setPreviousLevel] = useState(profile.level);
+  
+  // Update edited profile when profile changes
+  useEffect(() => {
+    setEditedProfile(profile);
+  }, [profile]);
   
   // Check if Sunny has evolved to a new stage
   useEffect(() => {
@@ -59,7 +170,8 @@ export default function ProfilePage() {
   const handleSave = () => {
     setProfile(editedProfile);
     setIsEditing(false);
-    // Here you would typically save to backend/localStorage
+    // Save to localStorage
+    localStorage.setItem('userProfile', JSON.stringify(editedProfile));
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -106,19 +218,50 @@ export default function ProfilePage() {
     setSunnyInteractions(prev => prev + 1);
     // Give a small XP boost when interacting with Sunny
     if (sunnyInteractions % 5 === 4) { // Every 5 clicks
+      // Update XP in both profile and habitStats
+      const newXP = profile.totalXP + 10;
       setProfile(prev => ({
         ...prev,
-        totalXP: prev.totalXP + 10
+        totalXP: newXP,
+        level: calculateLevel(newXP)
       }));
+      
+      // Update habitStats in localStorage
+      if (typeof window !== 'undefined') {
+        const savedStats = localStorage.getItem('habitStats');
+        const stats = savedStats ? JSON.parse(savedStats) : { 
+          totalXP: 0,
+          dailyXP: { date: new Date().toISOString().split('T')[0], xp: 0 }
+        };
+        
+        stats.totalXP = newXP;
+        localStorage.setItem('habitStats', JSON.stringify(stats));
+      }
     }
   };
 
   const handleLevelUp = () => {
+    // Update XP in both profile and habitStats
+    const newXP = profile.totalXP + 100;
+    const newLevel = calculateLevel(newXP);
+    
     setProfile(prev => ({
       ...prev,
-      level: prev.level + 1,
-      totalXP: prev.totalXP + 100
+      level: newLevel,
+      totalXP: newXP
     }));
+    
+    // Update habitStats in localStorage
+    if (typeof window !== 'undefined') {
+      const savedStats = localStorage.getItem('habitStats');
+      const stats = savedStats ? JSON.parse(savedStats) : { 
+        totalXP: 0,
+        dailyXP: { date: new Date().toISOString().split('T')[0], xp: 0 }
+      };
+      
+      stats.totalXP = newXP;
+      localStorage.setItem('habitStats', JSON.stringify(stats));
+    }
   };
 
   const getCurrentEvolutionStage = () => {
