@@ -1,13 +1,35 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { SparklesIcon, CheckIcon } from '@heroicons/react/24/outline';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { stripePromise } from '@/lib/stripe';
+import { toast } from 'react-hot-toast';
 
 export default function PremiumFeatures() {
   const { user, upgradeToPremium } = useAuth();
   const [upgrading, setUpgrading] = useState(false);
   const [error, setError] = useState('');
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  
+  // Check for success or canceled status from Stripe redirect
+  useEffect(() => {
+    if (searchParams) {
+      const success = searchParams.get('success');
+      const canceled = searchParams.get('canceled');
+      const sessionId = searchParams.get('session_id');
+      
+      if (success === 'true' && sessionId) {
+        toast.success('Thank you for upgrading to premium!');
+        // We'll rely on the webhook to update the user's status
+        // But we can also verify the session here if needed
+      } else if (canceled === 'true') {
+        toast.error('Premium upgrade was canceled.');
+      }
+    }
+  }, [searchParams]);
 
   const handleUpgrade = async () => {
     if (!user) return;
@@ -16,11 +38,33 @@ export default function PremiumFeatures() {
     setError('');
     
     try {
-      await upgradeToPremium();
-      // Success message would typically be shown here
+      // Create a checkout session
+      const response = await fetch('/api/create-checkout-session', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: user.uid,
+          email: user.email,
+        }),
+      });
+      
+      const { url, error: checkoutError } = await response.json();
+      
+      if (checkoutError) {
+        throw new Error(checkoutError);
+      }
+      
+      // Redirect to Stripe Checkout
+      if (url) {
+        window.location.href = url;
+      } else {
+        throw new Error('No checkout URL returned');
+      }
     } catch (error) {
-      setError('Failed to upgrade to premium. Please try again later.');
-      console.error('Error upgrading to premium:', error);
+      setError('Failed to start the checkout process. Please try again later.');
+      console.error('Error starting checkout:', error);
     } finally {
       setUpgrading(false);
     }
@@ -122,7 +166,7 @@ export default function PremiumFeatures() {
       </button>
       
       <p className="text-xs text-gray-500 dark:text-gray-400 text-center mt-4">
-        Cancel anytime. Secure payment processing.
+        Cancel anytime. Secure payment processing with Stripe.
       </p>
     </div>
   );

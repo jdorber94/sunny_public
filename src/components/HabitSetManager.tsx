@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { 
   HabitSet, 
   getHabitSets, 
@@ -14,6 +14,7 @@ import {
 import { PlusIcon, TrashIcon, PencilIcon, SparklesIcon } from '@heroicons/react/24/outline';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
+import Link from 'next/link';
 
 export default function HabitSetManager() {
   const { user } = useAuth();
@@ -348,9 +349,11 @@ export default function HabitSetManager() {
               <p className="text-sm text-gray-600 dark:text-gray-400">
                 Create unlimited habit sets and unlock more premium features by upgrading to Premium.
               </p>
-              <button className="mt-2 px-4 py-2 bg-gradient-to-r from-yellow-400 to-yellow-600 text-white rounded-md hover:from-yellow-500 hover:to-yellow-700 transition-colors text-sm font-medium">
-                Upgrade Now
-              </button>
+              <Link href="/premium">
+                <button className="mt-2 px-4 py-2 bg-gradient-to-r from-yellow-400 to-yellow-600 text-white rounded-md hover:from-yellow-500 hover:to-yellow-700 transition-colors text-sm font-medium">
+                  Upgrade Now
+                </button>
+              </Link>
             </div>
           </div>
         </div>
