@@ -5,6 +5,17 @@ import { Sparkles } from './Sparkles';
 import { WeeklyProgress } from './WeeklyProgress';
 import { LevelUpCelebration } from './LevelUpCelebration';
 import { format, addDays, subDays, isToday } from 'date-fns';
+import { useAuth } from '@/contexts/AuthContext';
+import { 
+  Habit as FirestoreHabit,
+  UserStats as FirestoreUserStats,
+  saveHabits,
+  getHabits,
+  subscribeToHabits,
+  saveUserStats,
+  getUserStats,
+  subscribeToUserStats
+} from '@/lib/firestoreService';
 
 interface Habit {
   id: number;
@@ -93,6 +104,8 @@ function CheckmarkIcon({ checked, animate = false }: { checked: boolean; animate
 }
 
 export default function HabitTracker() {
+  const { user } = useAuth();
+  
   const [habits, setHabits] = useState<Habit[]>(() => {
     if (typeof window !== 'undefined') {
       const savedHabits = localStorage.getItem('habits');
@@ -148,10 +161,77 @@ export default function HabitTracker() {
 
   const [selectedDate, setSelectedDate] = useState(() => new Date());
 
+  // Load data from Firestore if user is authenticated
   useEffect(() => {
+    if (!user) return;
+
+    // Set up subscriptions to Firestore data
+    const unsubscribeHabits = subscribeToHabits(user.uid, (firestoreHabits) => {
+      if (firestoreHabits && firestoreHabits.length > 0) {
+        setHabits(firestoreHabits);
+      }
+    });
+
+    const unsubscribeStats = subscribeToUserStats(user.uid, (firestoreStats) => {
+      if (firestoreStats) {
+        setStats(firestoreStats);
+      }
+    });
+
+    // Fallback to localStorage if Firestore data is not available yet
+    const loadFromLocalStorage = async () => {
+      const firestoreHabits = await getHabits(user.uid);
+      const firestoreStats = await getUserStats(user.uid);
+      
+      if (firestoreHabits.length === 0 && typeof window !== 'undefined') {
+        const savedHabits = localStorage.getItem('habits');
+        if (savedHabits) {
+          const parsedHabits = JSON.parse(savedHabits);
+          setHabits(parsedHabits);
+          
+          // Save to Firestore
+          saveHabits(user.uid, parsedHabits as FirestoreHabit[])
+            .catch(error => console.error('Error saving habits to Firestore:', error));
+        }
+      }
+      
+      if (!firestoreStats && typeof window !== 'undefined') {
+        const savedStats = localStorage.getItem('habitStats');
+        if (savedStats) {
+          const parsedStats = JSON.parse(savedStats);
+          setStats(parsedStats);
+          
+          // Save to Firestore
+          saveUserStats(user.uid, parsedStats as FirestoreUserStats)
+            .catch(error => console.error('Error saving stats to Firestore:', error));
+        }
+      }
+    };
+
+    loadFromLocalStorage();
+
+    // Clean up subscriptions
+    return () => {
+      unsubscribeHabits();
+      unsubscribeStats();
+    };
+  }, [user]);
+
+  // Save data to localStorage and Firestore when it changes
+  useEffect(() => {
+    // Always save to localStorage as fallback
     localStorage.setItem('habits', JSON.stringify(habits));
     localStorage.setItem('habitStats', JSON.stringify(stats));
-  }, [habits, stats]);
+    
+    // Save to Firestore if user is authenticated
+    if (user) {
+      saveHabits(user.uid, habits as FirestoreHabit[])
+        .catch(error => console.error('Error saving habits to Firestore:', error));
+      
+      saveUserStats(user.uid, stats as FirestoreUserStats)
+        .catch(error => console.error('Error saving stats to Firestore:', error));
+    }
+  }, [habits, stats, user]);
 
   useEffect(() => {
     const today = new Date().toISOString().split('T')[0];

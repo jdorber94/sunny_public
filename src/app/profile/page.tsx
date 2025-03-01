@@ -6,6 +6,17 @@ import SunnyEvolution from '@/components/SunnyEvolution';
 import { useTheme } from '@/components/ThemeProvider';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
+import { 
+  UserProfile as FirestoreUserProfile, 
+  saveUserProfile, 
+  getUserProfile, 
+  subscribeToUserProfile,
+  getUserStats,
+  subscribeToUserStats,
+  saveUserStats,
+  getHabits,
+  subscribeToHabits
+} from '@/lib/firestoreService';
 
 interface UserProfile {
   name: string;
@@ -106,55 +117,126 @@ function ProfileContent() {
     }
   });
 
-  // Load actual stats from localStorage
+  // Load data from Firestore or localStorage
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      // Load habits
-      const savedHabits = localStorage.getItem('habits');
-      const habits = savedHabits ? JSON.parse(savedHabits) : [];
-      
-      // Load stats
-      const savedStats = localStorage.getItem('habitStats');
-      const stats = savedStats ? JSON.parse(savedStats) : { totalXP: 0 };
-      
-      // Calculate level from XP
-      const level = calculateLevel(stats.totalXP);
-      
-      // Calculate streak and days active
-      const currentStreak = calculateStreak(habits);
-      const daysActive = calculateDaysActive(habits);
-      
-      // Get join date (or use current date if not available)
-      const savedProfile = localStorage.getItem('userProfile');
-      const joinDate = savedProfile 
-        ? JSON.parse(savedProfile).joinDate 
-        : new Date().toISOString().split('T')[0];
-      
-      // Update profile with actual data
-      setProfile(prev => ({
-        ...prev,
-        name: user?.displayName || prev.name,
-        email: user?.email || prev.email,
-        avatar: user?.displayName ? user.displayName.charAt(0).toUpperCase() : prev.avatar,
-        level,
-        totalXP: stats.totalXP || 0,
-        daysActive,
-        currentStreak,
-        joinDate,
-        preferences: {
-          ...prev.preferences,
-          darkMode: isDarkMode
+    if (!user) return;
+
+    // Set up subscriptions to Firestore data
+    const unsubscribeProfile = subscribeToUserProfile(user.uid, (firestoreProfile) => {
+      if (firestoreProfile) {
+        setProfile(prev => ({
+          ...prev,
+          name: firestoreProfile.name,
+          email: firestoreProfile.email,
+          avatar: firestoreProfile.avatar,
+          level: firestoreProfile.level,
+          totalXP: firestoreProfile.totalXP,
+          daysActive: firestoreProfile.daysActive,
+          currentStreak: firestoreProfile.currentStreak,
+          joinDate: firestoreProfile.joinDate,
+          preferences: firestoreProfile.preferences
+        }));
+      }
+    });
+
+    const unsubscribeStats = subscribeToUserStats(user.uid, (stats) => {
+      if (stats) {
+        const level = calculateLevel(stats.totalXP);
+        setProfile(prev => ({
+          ...prev,
+          level,
+          totalXP: stats.totalXP
+        }));
+      }
+    });
+
+    const unsubscribeHabits = subscribeToHabits(user.uid, (habits) => {
+      if (habits && habits.length > 0) {
+        const currentStreak = calculateStreak(habits);
+        const daysActive = calculateDaysActive(habits);
+        
+        setProfile(prev => ({
+          ...prev,
+          currentStreak,
+          daysActive
+        }));
+      }
+    });
+
+    // Fallback to localStorage if Firestore data is not available yet
+    const loadFromLocalStorage = async () => {
+      if (typeof window !== 'undefined') {
+        // Check if we have data in Firestore first
+        const firestoreProfile = await getUserProfile(user.uid);
+        const firestoreStats = await getUserStats(user.uid);
+        const firestoreHabits = await getHabits(user.uid);
+        
+        // If we don't have Firestore data, use localStorage
+        if (!firestoreProfile || !firestoreStats || firestoreHabits.length === 0) {
+          // Load habits
+          const savedHabits = localStorage.getItem('habits');
+          const habits = savedHabits ? JSON.parse(savedHabits) : [];
+          
+          // Load stats
+          const savedStats = localStorage.getItem('habitStats');
+          const stats = savedStats ? JSON.parse(savedStats) : { totalXP: 0 };
+          
+          // Calculate level from XP
+          const level = calculateLevel(stats.totalXP);
+          
+          // Calculate streak and days active
+          const currentStreak = calculateStreak(habits);
+          const daysActive = calculateDaysActive(habits);
+          
+          // Get join date (or use current date if not available)
+          const savedProfile = localStorage.getItem('userProfile');
+          const joinDate = savedProfile 
+            ? JSON.parse(savedProfile).joinDate 
+            : new Date().toISOString().split('T')[0];
+          
+          // Update profile with actual data
+          setProfile(prev => ({
+            ...prev,
+            name: user?.displayName || prev.name,
+            email: user?.email || prev.email,
+            avatar: user?.displayName ? user.displayName.charAt(0).toUpperCase() : prev.avatar,
+            level,
+            totalXP: stats.totalXP || 0,
+            daysActive,
+            currentStreak,
+            joinDate,
+            preferences: {
+              ...prev.preferences,
+              darkMode: isDarkMode
+            }
+          }));
         }
-      }));
-    }
+      }
+    };
+
+    loadFromLocalStorage();
+
+    // Clean up subscriptions
+    return () => {
+      unsubscribeProfile();
+      unsubscribeStats();
+      unsubscribeHabits();
+    };
   }, [user, isDarkMode]);
 
-  // Save profile to localStorage when it changes
+  // Save profile to Firestore when it changes
   useEffect(() => {
+    if (!user) return;
+    
+    // Save to Firestore
+    saveUserProfile(user.uid, profile as FirestoreUserProfile)
+      .catch(error => console.error('Error saving profile to Firestore:', error));
+    
+    // Also save to localStorage as fallback
     if (typeof window !== 'undefined') {
       localStorage.setItem('userProfile', JSON.stringify(profile));
     }
-  }, [profile]);
+  }, [profile, user]);
 
   const [isEditing, setIsEditing] = useState(false);
   const [editedProfile, setEditedProfile] = useState(profile);
@@ -183,8 +265,6 @@ function ProfileContent() {
   const handleSave = () => {
     setProfile(editedProfile);
     setIsEditing(false);
-    // Save to localStorage
-    localStorage.setItem('userProfile', JSON.stringify(editedProfile));
     
     // Update dark mode if changed
     if (editedProfile.preferences.darkMode !== isDarkMode) {
@@ -244,7 +324,15 @@ function ProfileContent() {
         level: calculateLevel(newXP)
       }));
       
-      // Update habitStats in localStorage
+      // Update habitStats in Firestore and localStorage
+      if (user) {
+        saveUserStats(user.uid, {
+          totalXP: newXP,
+          dailyXP: { date: new Date().toISOString().split('T')[0], xp: 0 }
+        }).catch(error => console.error('Error saving stats to Firestore:', error));
+      }
+      
+      // Also update localStorage as fallback
       if (typeof window !== 'undefined') {
         const savedStats = localStorage.getItem('habitStats');
         const stats = savedStats ? JSON.parse(savedStats) : { 
@@ -269,7 +357,15 @@ function ProfileContent() {
       level: newLevel
     }));
     
-    // Update habitStats in localStorage
+    // Update habitStats in Firestore and localStorage
+    if (user) {
+      saveUserStats(user.uid, {
+        totalXP: newXP,
+        dailyXP: { date: new Date().toISOString().split('T')[0], xp: 0 }
+      }).catch(error => console.error('Error saving stats to Firestore:', error));
+    }
+    
+    // Also update localStorage as fallback
     if (typeof window !== 'undefined') {
       const savedStats = localStorage.getItem('habitStats');
       const stats = savedStats ? JSON.parse(savedStats) : { 
