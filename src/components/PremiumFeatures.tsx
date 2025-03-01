@@ -7,6 +7,9 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { stripePromise } from '@/lib/stripe';
 import { toast } from 'react-hot-toast';
 
+// Set the price display here (should match what's in your Stripe dashboard)
+const PRICE_DISPLAY = '$0.99/month';
+
 export default function PremiumFeatures() {
   const { user, upgradeToPremium } = useAuth();
   const [upgrading, setUpgrading] = useState(false);
@@ -32,7 +35,10 @@ export default function PremiumFeatures() {
   }, [searchParams]);
 
   const handleUpgrade = async () => {
-    if (!user) return;
+    if (!user) {
+      setError('You must be logged in to upgrade.');
+      return;
+    }
     
     setUpgrading(true);
     setError('');
@@ -50,20 +56,25 @@ export default function PremiumFeatures() {
         }),
       });
       
-      const { url, error: checkoutError } = await response.json();
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to create checkout session');
+      }
       
-      if (checkoutError) {
-        throw new Error(checkoutError);
+      const data = await response.json();
+      
+      if (data.error) {
+        throw new Error(data.error);
       }
       
       // Redirect to Stripe Checkout
-      if (url) {
-        window.location.href = url;
+      if (data.url) {
+        window.location.href = data.url;
       } else {
         throw new Error('No checkout URL returned');
       }
-    } catch (error) {
-      setError('Failed to start the checkout process. Please try again later.');
+    } catch (error: any) {
+      setError(`Failed to start the checkout process: ${error.message || 'Unknown error'}`);
       console.error('Error starting checkout:', error);
     } finally {
       setUpgrading(false);
@@ -162,7 +173,7 @@ export default function PremiumFeatures() {
         disabled={upgrading}
         className="w-full py-3 px-4 bg-gradient-to-r from-yellow-400 to-yellow-600 hover:from-yellow-500 hover:to-yellow-700 text-white font-medium rounded-lg shadow-sm transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
       >
-        {upgrading ? 'Processing...' : 'Upgrade for $4.99/month'}
+        {upgrading ? 'Processing...' : `Upgrade for ${PRICE_DISPLAY}`}
       </button>
       
       <p className="text-xs text-gray-500 dark:text-gray-400 text-center mt-4">

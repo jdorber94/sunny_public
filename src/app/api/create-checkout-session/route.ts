@@ -25,8 +25,17 @@ export async function POST(request: Request) {
       );
     }
     
+    // Log environment variables (be careful not to log the full secret key in production)
+    console.log('App URL:', process.env.NEXT_PUBLIC_APP_URL);
+    console.log('Price ID available:', !!process.env.NEXT_PUBLIC_STRIPE_PREMIUM_PRICE_ID);
+    console.log('Price ID from import:', PREMIUM_PRICE_ID);
+    
     // Get Stripe instance only when needed
     const stripe = getStripeInstance();
+    
+    if (!PREMIUM_PRICE_ID) {
+      throw new Error('Missing Stripe premium price ID');
+    }
     
     // Create a Stripe checkout session
     const session = await stripe.checkout.sessions.create({
@@ -38,8 +47,8 @@ export async function POST(request: Request) {
         },
       ],
       mode: 'subscription',
-      success_url: `${process.env.NEXT_PUBLIC_APP_URL}/premium?success=true&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/premium?canceled=true`,
+      success_url: `${process.env.NEXT_PUBLIC_APP_URL || 'https://your-app-url.com'}/premium?success=true&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${process.env.NEXT_PUBLIC_APP_URL || 'https://your-app-url.com'}/premium?canceled=true`,
       customer_email: email,
       client_reference_id: userId, // Store the user ID for reference
       metadata: {
@@ -48,10 +57,15 @@ export async function POST(request: Request) {
     });
     
     return NextResponse.json({ sessionId: session.id, url: session.url });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error creating checkout session:', error);
+    console.error('Error message:', error.message);
+    if (error.stack) {
+      console.error('Error stack:', error.stack);
+    }
+    
     return NextResponse.json(
-      { error: 'Failed to create checkout session' },
+      { error: `Failed to create checkout session: ${error.message}` },
       { status: 500 }
     );
   }
