@@ -34,6 +34,26 @@ export default function RootLayout({
     <html lang="en" className="h-full">
       <head>
         <link rel="icon" href="/favicon.ico" />
+        {/* Script to prevent flash of wrong theme */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                try {
+                  const savedTheme = localStorage.getItem('theme');
+                  if (savedTheme === 'dark' || 
+                      (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                    document.documentElement.classList.add('dark');
+                  } else {
+                    document.documentElement.classList.remove('dark');
+                  }
+                } catch (e) {
+                  console.error('Error applying theme:', e);
+                }
+              })();
+            `,
+          }}
+        />
       </head>
       <body className={`${inter.className} h-full`}>
         <AuthProvider>

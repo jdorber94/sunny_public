@@ -12,7 +12,10 @@ interface ThemeContextType {
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
+  // Initialize with false, but we'll update immediately in useEffect
   const [isDarkMode, setIsDarkMode] = useState<boolean>(false);
+  // Add a state to track if we've initialized from localStorage
+  const [isInitialized, setIsInitialized] = useState<boolean>(false);
 
   // Initialize theme from localStorage or system preference
   useEffect(() => {
@@ -25,11 +28,18 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       // Check system preference
       const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
       setIsDarkMode(prefersDark);
+      // Save the system preference to localStorage
+      localStorage.setItem('theme', prefersDark ? 'dark' : 'light');
     }
+    
+    setIsInitialized(true);
   }, []);
 
   // Update document class when theme changes
   useEffect(() => {
+    // Only apply changes after initialization to prevent flash
+    if (!isInitialized) return;
+    
     if (isDarkMode) {
       document.documentElement.classList.add('dark');
     } else {
@@ -38,7 +48,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     
     // Save preference to localStorage
     localStorage.setItem('theme', isDarkMode ? 'dark' : 'light');
-  }, [isDarkMode]);
+  }, [isDarkMode, isInitialized]);
 
   // Listen for system preference changes
   useEffect(() => {
