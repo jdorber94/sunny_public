@@ -1,9 +1,15 @@
+'use client';
+
+import { Suspense } from 'react';
 import PremiumFeatures from '@/components/PremiumFeatures';
 
-export const metadata = {
-  title: 'Premium Features - Quest Master',
-  description: 'Upgrade to premium to unlock all features of Quest Master',
-};
+function PremiumLoading() {
+  return (
+    <div className="flex justify-center items-center py-12">
+      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-yellow-500"></div>
+    </div>
+  );
+}
 
 export default function PremiumPage() {
   return (
@@ -12,7 +18,9 @@ export default function PremiumPage() {
         Premium Features
       </h1>
       <div className="max-w-md mx-auto">
-        <PremiumFeatures />
+        <Suspense fallback={<PremiumLoading />}>
+          <PremiumFeatures />
+        </Suspense>
       </div>
     </div>
   );
