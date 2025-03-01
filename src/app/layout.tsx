@@ -3,7 +3,7 @@ import { Inter, Montserrat } from 'next/font/google';
 import './globals.css';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { ThemeProvider } from '@/components/ThemeProvider';
-import { Navigation } from '@/components/Navigation';
+import Navigation from '@/components/Navigation';
 
 const montserrat = Montserrat({ 
   subsets: ['latin'],
