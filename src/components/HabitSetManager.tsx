@@ -187,31 +187,25 @@ export default function HabitSetManager() {
   return (
     <div className="flex h-full">
       {/* Habit Sets Sidebar */}
-      <div className={`bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 h-full transition-all duration-300 ${sidebarOpen ? 'w-72' : 'w-16'}`}>
+      <div className="bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 h-full w-72">
         <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-          <h2 className={`font-semibold text-gray-800 dark:text-white ${sidebarOpen ? 'block' : 'hidden'}`}>
+          <h2 className="font-semibold text-gray-800 dark:text-white">
             Habit Sets
           </h2>
-          <button 
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="p-1 rounded-md text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700"
-          >
-            <ChevronRightIcon className={`w-5 h-5 transition-transform ${sidebarOpen ? 'rotate-180' : ''}`} />
-          </button>
         </div>
         
         <div className="p-3">
-          {/* Create New Set Button */}
-          {canCreateNewSet ? (
-            <button
-              onClick={() => setShowNewSetForm(true)}
-              className={`flex items-center justify-center space-x-2 w-full p-2 mb-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-sm transition-colors ${!sidebarOpen && 'p-1'}`}
-            >
-              <PlusIcon className="w-5 h-5 text-white" />
-              {sidebarOpen && <span>New Habit Set</span>}
-            </button>
-          ) : (
-            <div className={`mb-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg ${!sidebarOpen && 'hidden'}`}>
+          {/* Create New Set Button - Always visible and prominent */}
+          <button
+            onClick={() => setShowNewSetForm(true)}
+            className="flex items-center justify-center space-x-2 w-full p-3 mb-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-md transition-colors"
+          >
+            <PlusIcon className="w-5 h-5 text-white" />
+            <span className="font-medium">New Habit Set</span>
+          </button>
+          
+          {!canCreateNewSet && habitSets.length > 0 && (
+            <div className="mb-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
               <div className="flex items-start space-x-2">
                 <SparklesIcon className="w-5 h-5 text-yellow-500 flex-shrink-0" />
                 <div>
@@ -246,7 +240,7 @@ export default function HabitSetManager() {
                 >
                   <div className="p-3 flex items-center justify-between">
                     {/* Set Info */}
-                    <div className={`flex-1 min-w-0 ${!sidebarOpen && 'hidden'}`}>
+                    <div className="flex-1 min-w-0">
                       <div className="flex items-center">
                         <h3 className="font-medium text-gray-900 dark:text-white truncate">
                           {set.name}
@@ -263,7 +257,7 @@ export default function HabitSetManager() {
                     </div>
                     
                     {/* Set Actions */}
-                    <div className={`flex items-center space-x-1 ${!sidebarOpen ? 'mx-auto' : ''}`}>
+                    <div className="flex items-center space-x-1">
                       {!set.isActive && (
                         <button
                           onClick={() => handleSetActive(set.id)}
@@ -291,7 +285,7 @@ export default function HabitSetManager() {
                   </div>
                   
                   {/* Active Indicator */}
-                  {set.isActive && sidebarOpen && (
+                  {set.isActive && (
                     <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-500"></div>
                   )}
                 </motion.div>
@@ -299,7 +293,7 @@ export default function HabitSetManager() {
             </AnimatePresence>
             
             {habitSets.length === 0 && !showNewSetForm && (
-              <div className={`text-center p-4 text-gray-500 dark:text-gray-400 ${!sidebarOpen && 'hidden'}`}>
+              <div className="text-center p-4 text-gray-500 dark:text-gray-400">
                 <p className="text-sm">No habit sets yet.</p>
                 <button
                   onClick={() => setShowNewSetForm(true)}
