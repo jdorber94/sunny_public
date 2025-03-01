@@ -44,6 +44,8 @@ export default function PremiumFeatures() {
     setError('');
     
     try {
+      console.log('Starting checkout process with user:', user.uid);
+      
       // Create a checkout session
       const response = await fetch('/api/create-checkout-session', {
         method: 'POST',
@@ -56,12 +58,16 @@ export default function PremiumFeatures() {
         }),
       });
       
+      console.log('Checkout response status:', response.status);
+      
       if (!response.ok) {
         const errorData = await response.json();
+        console.error('Checkout error response:', errorData);
         throw new Error(errorData.error || 'Failed to create checkout session');
       }
       
       const data = await response.json();
+      console.log('Checkout session created:', data.sessionId ? 'Success' : 'No session ID');
       
       if (data.error) {
         throw new Error(data.error);
@@ -69,11 +75,13 @@ export default function PremiumFeatures() {
       
       // Redirect to Stripe Checkout
       if (data.url) {
+        console.log('Redirecting to Stripe checkout...');
         window.location.href = data.url;
       } else {
         throw new Error('No checkout URL returned');
       }
     } catch (error: any) {
+      console.error('Error details:', error);
       setError(`Failed to start the checkout process: ${error.message || 'Unknown error'}`);
       console.error('Error starting checkout:', error);
     } finally {
