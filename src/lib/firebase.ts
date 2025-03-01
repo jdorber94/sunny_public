@@ -1,9 +1,17 @@
 // Import the functions you need from the SDKs you need
-import { initializeApp, getApps } from 'firebase/app';
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut as firebaseSignOut, 
-  onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, 
-  updateProfile, User } from 'firebase/auth';
+import { initializeApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
+import { 
+  getAuth, 
+  signInWithPopup, 
+  GoogleAuthProvider, 
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  updateProfile,
+  signOut as firebaseSignOut,
+  onAuthStateChanged,
+  User
+} from 'firebase/auth';
 
 // Your web app's Firebase configuration
 // For Firebase JS SDK v7.20.0 and later, measurementId is optional
@@ -14,76 +22,44 @@ const firebaseConfig = {
   storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
+  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
 };
 
 // Initialize Firebase
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
+const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
-const googleProvider = new GoogleAuthProvider();
 
-// Sign in with Google
-const signInWithGoogle = async () => {
-  try {
-    const result = await signInWithPopup(auth, googleProvider);
-    return result.user;
-  } catch (error) {
-    console.error('Error signing in with Google', error);
-    throw error;
-  }
+// Authentication functions
+export const signInWithGoogle = async (): Promise<User> => {
+  const provider = new GoogleAuthProvider();
+  const result = await signInWithPopup(auth, provider);
+  return result.user;
 };
 
-// Sign in with email/password
-const signInWithEmail = async (email: string, password: string) => {
-  try {
-    const result = await signInWithEmailAndPassword(auth, email, password);
-    return result.user;
-  } catch (error) {
-    console.error('Error signing in with email/password', error);
-    throw error;
-  }
+export const signInWithEmail = async (email: string, password: string): Promise<User> => {
+  const result = await signInWithEmailAndPassword(auth, email, password);
+  return result.user;
 };
 
-// Create a new user with email/password
-const createUser = async (email: string, password: string, displayName: string) => {
-  try {
-    const result = await createUserWithEmailAndPassword(auth, email, password);
-    await updateProfile(result.user, { displayName });
-    return result.user;
-  } catch (error) {
-    console.error('Error creating user', error);
-    throw error;
-  }
+export const createUser = async (email: string, password: string, displayName: string): Promise<User> => {
+  const result = await createUserWithEmailAndPassword(auth, email, password);
+  await updateProfile(result.user, { displayName });
+  return result.user;
 };
 
-// Sign out
-const signOut = async () => {
-  try {
-    await firebaseSignOut(auth);
-  } catch (error) {
-    console.error('Error signing out', error);
-    throw error;
-  }
+export const signOut = async (): Promise<void> => {
+  return firebaseSignOut(auth);
 };
 
-// Listen to auth state changes
-const subscribeToAuthChanges = (callback: (user: User | null) => void) => {
+export const subscribeToAuthChanges = (callback: (user: User | null) => void) => {
   return onAuthStateChanged(auth, callback);
 };
 
-// Get current user
-const getCurrentUser = () => {
+// Get current user (returns null if not authenticated)
+export const getCurrentUser = (): User | null => {
   return auth.currentUser;
 };
 
-export {
-  auth,
-  db,
-  signInWithGoogle,
-  signInWithEmail,
-  createUser,
-  signOut,
-  subscribeToAuthChanges,
-  getCurrentUser,
-}; 
+// Export Firebase instances
+export { db, auth }; 
