@@ -205,9 +205,9 @@ export default function HabitSetManager() {
           {canCreateNewSet ? (
             <button
               onClick={() => setShowNewSetForm(true)}
-              className={`flex items-center justify-center space-x-2 w-full p-2 mb-4 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-900/30 dark:hover:bg-indigo-800/50 text-indigo-600 dark:text-indigo-300 rounded-lg transition-colors ${!sidebarOpen && 'p-1'}`}
+              className={`flex items-center justify-center space-x-2 w-full p-2 mb-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-sm transition-colors ${!sidebarOpen && 'p-1'}`}
             >
-              <PlusIcon className="w-5 h-5" />
+              <PlusIcon className="w-5 h-5 text-white" />
               {sidebarOpen && <span>New Habit Set</span>}
             </button>
           ) : (
@@ -314,7 +314,7 @@ export default function HabitSetManager() {
       </div>
       
       {/* Main Content Area */}
-      <div className="flex-1 p-6 bg-gray-50 dark:bg-gray-900">
+      <div className="flex-1 p-6 bg-gray-50 dark:bg-gray-900 relative">
         {/* New Set Form */}
         <AnimatePresence>
           {showNewSetForm && (
@@ -467,6 +467,19 @@ export default function HabitSetManager() {
                   )}
                 </p>
                 
+                {/* Add prominent button for creating new habit set */}
+                {canCreateNewSet && (
+                  <div className="flex justify-center my-6">
+                    <button
+                      onClick={() => setShowNewSetForm(true)}
+                      className="flex items-center justify-center space-x-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-md transition-colors"
+                    >
+                      <PlusIcon className="w-5 h-5" />
+                      <span>Add New Habit Set</span>
+                    </button>
+                  </div>
+                )}
+                
                 <div className="bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-lg">
                   <h3 className="font-medium text-indigo-800 dark:text-indigo-300 mb-2">Tips:</h3>
                   <ul className="list-disc list-inside text-sm text-indigo-700 dark:text-indigo-300 space-y-1">
@@ -503,6 +516,17 @@ export default function HabitSetManager() {
           </div>
         )}
       </div>
+      
+      {/* Floating Action Button for Mobile */}
+      {canCreateNewSet && !showNewSetForm && !editingSet && (
+        <button
+          onClick={() => setShowNewSetForm(true)}
+          className="fixed bottom-6 right-6 p-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full shadow-lg md:hidden z-10"
+          aria-label="Add new habit set"
+        >
+          <PlusIcon className="w-6 h-6" />
+        </button>
+      )}
     </div>
   );
 } 
