@@ -89,6 +89,58 @@ export default function PremiumFeatures() {
     }
   };
 
+  const handleManualUpgrade = async () => {
+    if (!user) {
+      setError('You must be logged in to upgrade.');
+      return;
+    }
+    
+    setUpgrading(true);
+    setError('');
+    
+    try {
+      console.log('Starting manual upgrade process for user:', user.uid);
+      
+      // Call the manual upgrade endpoint
+      const response = await fetch('/api/upgrade-to-premium', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: user.uid,
+        }),
+      });
+      
+      console.log('Manual upgrade response status:', response.status);
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Manual upgrade error response:', errorData);
+        throw new Error(errorData.error || 'Failed to manually upgrade');
+      }
+      
+      const data = await response.json();
+      console.log('Manual upgrade result:', data);
+      
+      if (data.error) {
+        throw new Error(data.error);
+      }
+      
+      // Refresh the page to update the UI
+      toast.success('Manual upgrade successful! Refreshing...');
+      setTimeout(() => {
+        window.location.reload();
+      }, 2000);
+    } catch (error: any) {
+      console.error('Error details:', error);
+      setError(`Failed to manually upgrade: ${error.message || 'Unknown error'}`);
+      console.error('Error during manual upgrade:', error);
+    } finally {
+      setUpgrading(false);
+    }
+  };
+
   if (!user) {
     return (
       <div className="p-4 text-center">
@@ -187,6 +239,22 @@ export default function PremiumFeatures() {
       <p className="text-xs text-gray-500 dark:text-gray-400 text-center mt-4">
         Cancel anytime. Secure payment processing with Stripe.
       </p>
+      
+      {!user?.isPremium && (
+        <div className="mt-8 p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
+          <h3 className="text-lg font-semibold text-yellow-800 dark:text-yellow-200">Troubleshooting</h3>
+          <p className="text-sm text-yellow-700 dark:text-yellow-300 mb-4">
+            If you've already purchased premium but don't see your benefits, try the manual upgrade button below.
+          </p>
+          <button
+            onClick={handleManualUpgrade}
+            disabled={upgrading}
+            className="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {upgrading ? 'Processing...' : 'Manual Upgrade (Testing)'}
+          </button>
+        </div>
+      )}
     </div>
   );
 } 

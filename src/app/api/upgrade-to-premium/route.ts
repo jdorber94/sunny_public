@@ -28,11 +28,17 @@ export async function POST(request: Request) {
     // Save the updated profile
     await saveUserProfile(userId, userProfile);
     
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error('Error upgrading to premium:', error);
+    console.log(`User ${userId} manually upgraded to premium`);
+    
+    return NextResponse.json({ 
+      success: true, 
+      message: 'User upgraded to premium successfully' 
+    });
+  } catch (error: any) {
+    console.error('Error upgrading user to premium:', error);
+    
     return NextResponse.json(
-      { error: 'Failed to upgrade to premium' },
+      { error: `Failed to upgrade user to premium: ${error.message}` },
       { status: 500 }
     );
   }
