@@ -54,6 +54,17 @@ export async function POST(request: Request) {
       metadata: {
         userId: userId,
       },
+      // Add custom branding for Quest Master
+      payment_intent_data: {
+        description: 'Quest Master Premium Subscription',
+      },
+      // Add custom information about the subscription
+      subscription_data: {
+        metadata: {
+          userId: userId,
+          product: 'Quest Master Premium',
+        },
+      },
     });
     
     return NextResponse.json({ sessionId: session.id, url: session.url });
