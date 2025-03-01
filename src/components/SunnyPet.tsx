@@ -6,9 +6,10 @@ import { useTheme } from './ThemeProvider';
 interface SunnyPetProps {
   level: number;
   onClick?: () => void;
+  size?: 'small' | 'medium' | 'large';
 }
 
-export default function SunnyPet({ level, onClick }: SunnyPetProps) {
+export default function SunnyPet({ level, onClick, size = 'medium' }: SunnyPetProps) {
   const [isAnimating, setIsAnimating] = useState(false);
   const [showTooltip, setShowTooltip] = useState(false);
   const { isDarkMode } = useTheme();
@@ -51,6 +52,19 @@ export default function SunnyPet({ level, onClick }: SunnyPetProps) {
     }
   };
 
+  // Get size class based on size prop
+  const getSizeClass = () => {
+    switch (size) {
+      case 'small': return 'w-12 h-12 text-2xl';
+      case 'large': return 'w-24 h-24 text-5xl';
+      case 'medium':
+      default: return 'w-16 h-16 text-3xl';
+    }
+  };
+
+  const sizeClass = getSizeClass();
+  const levelBadgeClass = size === 'large' ? 'w-8 h-8 text-sm' : 'w-6 h-6 text-xs';
+
   // Handle animation when clicked
   const handleClick = () => {
     if (onClick) onClick();
@@ -68,16 +82,16 @@ export default function SunnyPet({ level, onClick }: SunnyPetProps) {
       >
         {/* Sun body - simple emoji-based approach */}
         <div 
-          className={`relative w-16 h-16 rounded-full ${bgColor} dark:bg-opacity-80 shadow-lg flex items-center justify-center z-10
-            ${isAnimating ? 'animate-bounce-small' : ''}`}
+          className={`relative rounded-full ${bgColor} dark:bg-opacity-80 shadow-lg flex items-center justify-center z-10
+            ${sizeClass} ${isAnimating ? 'animate-bounce-small' : ''}`}
         >
-          <span className="text-3xl" role="img" aria-label="Sunny">
+          <span role="img" aria-label="Sunny">
             {emoji}
           </span>
         </div>
         
         {/* Level indicator */}
-        <div className="absolute -bottom-1 -right-1 bg-indigo-600 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center border-2 border-white dark:border-slate-800">
+        <div className={`absolute -bottom-1 -right-1 bg-indigo-600 text-white font-bold rounded-full flex items-center justify-center border-2 border-white dark:border-slate-800 ${levelBadgeClass}`}>
           {level}
         </div>
       </div>

@@ -1,8 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface NavItem {
   name: string;
@@ -96,6 +97,47 @@ const profileItem: NavItem = {
 export function Navigation() {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
+  const { user, signOut } = useAuth();
+  const router = useRouter();
+
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      router.push('/login');
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
+  };
+
+  const authItem = user ? (
+    <div className="flex flex-col space-y-2">
+      <div className="flex items-center px-4 py-2 text-sm text-slate-600 dark:text-slate-300">
+        <span className="w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-300 mr-3">
+          {user.displayName ? user.displayName.charAt(0).toUpperCase() : user.email?.charAt(0).toUpperCase()}
+        </span>
+        <span className="truncate max-w-[140px]">{user.displayName || user.email}</span>
+      </div>
+      <button
+        onClick={handleSignOut}
+        className="flex items-center px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors dark:text-red-400 dark:hover:bg-red-900/20"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 mr-3">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75" />
+        </svg>
+        Sign out
+      </button>
+    </div>
+  ) : (
+    <Link
+      href="/login"
+      className="flex items-center px-4 py-3 rounded-lg transition-all duration-200 text-slate-600 hover:bg-slate-50 hover:text-indigo-600 dark:text-slate-300 dark:hover:bg-slate-700/50 dark:hover:text-indigo-300"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 mr-3 text-slate-400">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9" />
+      </svg>
+      Sign in
+    </Link>
+  );
 
   return (
     <>
@@ -144,7 +186,7 @@ export function Navigation() {
           </nav>
 
           <div className="border-t border-slate-100 dark:border-slate-700 p-4 mt-auto">
-            {(() => {
+            {user && (() => {
               const isActive = pathname === profileItem.path;
               return (
                 <Link
@@ -162,6 +204,7 @@ export function Navigation() {
                 </Link>
               );
             })()}
+            {authItem}
           </div>
         </div>
       </aside>
@@ -227,7 +270,7 @@ export function Navigation() {
 
           <nav className="flex-1 overflow-y-auto p-4">
             <div className="space-y-1">
-              {[...navItems, profileItem].map((item) => {
+              {navItems.map((item) => {
                 const isActive = pathname === item.path;
                 return (
                   <Link
@@ -247,15 +290,39 @@ export function Navigation() {
                   </Link>
                 );
               })}
+              
+              {user && (() => {
+                const isActive = pathname === profileItem.path;
+                return (
+                  <Link
+                    href={profileItem.path}
+                    onClick={() => setIsOpen(false)}
+                    className={`flex items-center px-4 py-3 rounded-lg transition-all duration-200 
+                      ${isActive 
+                        ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300' 
+                        : 'text-slate-600 hover:bg-slate-50 hover:text-indigo-600 dark:text-slate-300 dark:hover:bg-slate-700/50 dark:hover:text-indigo-300'}`}
+                  >
+                    <span className="mr-3">{profileItem.icon(isActive)}</span>
+                    <span className="font-medium">{profileItem.name}</span>
+                    {isActive && (
+                      <span className="ml-auto w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
+                    )}
+                  </Link>
+                );
+              })()}
             </div>
           </nav>
+          
+          <div className="border-t border-slate-100 dark:border-slate-700 p-4 mt-auto">
+            {authItem}
+          </div>
         </div>
       </aside>
 
       {/* Mobile Bottom Navigation Bar */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 z-40 lg:hidden pb-safe dark:bg-slate-800 dark:border-slate-700">
         <nav className="flex justify-around items-center">
-          {[...navItems, profileItem].map((item) => {
+          {navItems.map((item) => {
             const isActive = pathname === item.path;
             return (
               <Link
@@ -271,6 +338,34 @@ export function Navigation() {
               </Link>
             );
           })}
+          
+          {user && (() => {
+            const isActive = pathname === profileItem.path;
+            return (
+              <Link
+                href={profileItem.path}
+                className={`flex flex-col items-center py-2 px-3 ${
+                  isActive ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-500 dark:text-slate-400'
+                }`}
+              >
+                {profileItem.icon(isActive)}
+                <span className="text-xs mt-1">{profileItem.name}</span>
+                {isActive && <span className="absolute top-0 w-full h-0.5 bg-indigo-500"></span>}
+              </Link>
+            );
+          })()}
+          
+          {!user && (
+            <Link
+              href="/login"
+              className="flex flex-col items-center py-2 px-3 text-slate-500 dark:text-slate-400"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6 text-slate-400">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9" />
+              </svg>
+              <span className="text-xs mt-1">Sign in</span>
+            </Link>
+          )}
         </nav>
       </div>
     </>

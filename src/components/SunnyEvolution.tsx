@@ -3,13 +3,16 @@
 import { useState, useEffect } from 'react';
 
 interface SunnyEvolutionProps {
-  show: boolean;
+  level: number;
   onClose: () => void;
-  evolutionStage: number;
 }
 
-export default function SunnyEvolution({ show, onClose, evolutionStage }: SunnyEvolutionProps) {
+export default function SunnyEvolution({ level, onClose }: SunnyEvolutionProps) {
   const [particles, setParticles] = useState<Array<{ id: number; x: number; y: number; size: number; color: string; speed: number; angle: number }>>([]);
+  const [show, setShow] = useState(true);
+  
+  // Calculate evolution stage from level
+  const evolutionStage = Math.ceil(level / 5);
   
   useEffect(() => {
     if (show) {
@@ -33,6 +36,7 @@ export default function SunnyEvolution({ show, onClose, evolutionStage }: SunnyE
       
       // Auto close after animation
       const timer = setTimeout(() => {
+        setShow(false);
         onClose();
       }, 5000);
       
