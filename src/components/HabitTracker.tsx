@@ -71,7 +71,7 @@ export default function HabitTracker() {
   const [showLevelUp, setShowLevelUp] = useState(false);
   const [previousLevel, setPreviousLevel] = useState(1);
   const [currentLevel, setCurrentLevel] = useState(1);
-  const [showHabitSetManager, setShowHabitSetManager] = useState(false);
+  const [showHabitSetManager, setShowHabitSetManager] = useState(true);
   const [activeHabitSet, setActiveHabitSet] = useState<{ id: string; name: string } | null>(null);
   
   const unsubscribeRef = useRef<(() => void) | null>(null);
@@ -305,14 +305,37 @@ export default function HabitTracker() {
     : 0;
 
   return (
-    <div className="max-w-md mx-auto p-4">
+    <div className="max-w-4xl mx-auto p-4">
       {/* Level Up Celebration */}
       {showLevelUp && (
-        <LevelUpCelebration 
+        <LevelUpCelebration
           level={currentLevel}
-          onClose={() => setShowLevelUp(false)} 
+          onClose={() => setShowLevelUp(false)}
         />
       )}
+      
+      {/* Header with level info */}
+      <div className="flex justify-between items-center mb-8">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+            Habit Tracker
+          </h1>
+          <p className="text-gray-600 dark:text-gray-400">
+            Track your daily habits and build consistency
+          </p>
+        </div>
+        
+        {/* Add prominent button for Habit Set Manager */}
+        <button
+          onClick={() => setShowHabitSetManager(!showHabitSetManager)}
+          className="flex items-center space-x-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-md transition-colors"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+            <path d="M5 3a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2V5a2 2 0 00-2-2H5zM5 11a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2v-2a2 2 0 00-2-2H5zM11 5a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V5zM14 11a1 1 0 011 1v1h1a1 1 0 110 2h-1v1a1 1 0 11-2 0v-1h-1a1 1 0 110-2h1v-1a1 1 0 011-1z" />
+          </svg>
+          <span>{showHabitSetManager ? 'Hide Habit Sets' : 'Manage Habit Sets'}</span>
+        </button>
+      </div>
       
       {/* Header with Level and XP */}
       <div className="mb-6 flex justify-between items-center">
@@ -339,18 +362,12 @@ export default function HabitTracker() {
               Active Set: {activeHabitSet.name}
             </span>
           </div>
-          <button
-            onClick={() => setShowHabitSetManager(!showHabitSetManager)}
-            className="text-xs bg-indigo-100 hover:bg-indigo-200 dark:bg-indigo-800 dark:hover:bg-indigo-700 text-indigo-800 dark:text-indigo-200 px-2 py-1 rounded"
-          >
-            {showHabitSetManager ? 'Hide Sets' : 'Manage Sets'}
-          </button>
         </div>
       )}
       
       {/* Habit Set Manager */}
       {showHabitSetManager && (
-        <div className="mb-6">
+        <div className="mb-6 h-[500px] border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
           <HabitSetManager />
         </div>
       )}
