@@ -3,9 +3,16 @@ import Stripe from 'stripe';
 import { PREMIUM_PRICE_ID } from '@/lib/stripe';
 
 // Initialize Stripe with the secret key
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
-  apiVersion: '2023-10-16' as any, // Type assertion to avoid version mismatch
-});
+// Use a function to initialize Stripe only when the route is called
+const getStripeInstance = () => {
+  const secretKey = process.env.STRIPE_SECRET_KEY;
+  if (!secretKey) {
+    throw new Error('Missing Stripe secret key');
+  }
+  return new Stripe(secretKey, {
+    apiVersion: '2023-10-16' as any, // Type assertion to avoid version mismatch
+  });
+};
 
 export async function POST(request: Request) {
   try {
@@ -17,6 +24,9 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
+    
+    // Get Stripe instance only when needed
+    const stripe = getStripeInstance();
     
     // Create a Stripe checkout session
     const session = await stripe.checkout.sessions.create({

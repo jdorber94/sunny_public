@@ -3,21 +3,34 @@ import Stripe from 'stripe';
 import { headers } from 'next/headers';
 import { getUserProfile, saveUserProfile } from '@/lib/firestoreService';
 
-// Initialize Stripe with the secret key
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
-  apiVersion: '2023-10-16' as any,
-});
+// Use a function to initialize Stripe only when the route is called
+const getStripeInstance = () => {
+  const secretKey = process.env.STRIPE_SECRET_KEY;
+  if (!secretKey) {
+    throw new Error('Missing Stripe secret key');
+  }
+  return new Stripe(secretKey, {
+    apiVersion: '2023-10-16' as any,
+  });
+};
 
 // This is your Stripe webhook secret for testing your endpoint locally
-const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET as string;
+const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
 export async function POST(request: Request) {
   const body = await request.text();
   const sig = headers().get('stripe-signature') as string;
 
+  if (!endpointSecret) {
+    return NextResponse.json({ error: 'Missing Stripe webhook secret' }, { status: 500 });
+  }
+
   let event: Stripe.Event;
 
   try {
+    // Get Stripe instance only when needed
+    const stripe = getStripeInstance();
+    
     // Verify the event came from Stripe
     event = stripe.webhooks.constructEvent(body, sig, endpointSecret);
   } catch (err: any) {
