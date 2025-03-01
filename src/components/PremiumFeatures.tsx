@@ -109,6 +109,7 @@ export default function PremiumFeatures() {
         },
         body: JSON.stringify({
           userId: user.uid,
+          email: user.email,
         }),
       });
       

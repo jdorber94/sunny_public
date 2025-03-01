@@ -3,7 +3,7 @@ import { getUserProfile, saveUserProfile } from '@/lib/firestoreService';
 
 export async function POST(request: Request) {
   try {
-    const { userId } = await request.json();
+    const { userId, email } = await request.json();
     
     if (!userId) {
       return NextResponse.json(
@@ -13,16 +13,62 @@ export async function POST(request: Request) {
     }
     
     // Get the user's profile
-    const userProfile = await getUserProfile(userId);
+    let userProfile = await getUserProfile(userId);
     
+    // If profile doesn't exist, create a new one
     if (!userProfile) {
-      return NextResponse.json(
-        { error: 'User profile not found' },
-        { status: 404 }
-      );
+      console.log(`User profile not found for ${userId}, creating a new one`);
+      
+      // Create a basic profile if email is provided
+      if (email) {
+        userProfile = {
+          name: email.split('@')[0],
+          email: email,
+          avatar: '',
+          level: 1,
+          totalXP: 0,
+          daysActive: 0,
+          currentStreak: 0,
+          joinDate: new Date().toISOString(),
+          isPremium: true, // Set to premium immediately
+          preferences: {
+            notifications: true,
+            darkMode: false,
+            weekStartsOn: 'monday'
+          }
+        };
+      } else {
+        // Create a minimal profile if no email
+        userProfile = {
+          name: 'User',
+          email: 'unknown@example.com',
+          avatar: '',
+          level: 1,
+          totalXP: 0,
+          daysActive: 0,
+          currentStreak: 0,
+          joinDate: new Date().toISOString(),
+          isPremium: true,
+          preferences: {
+            notifications: true,
+            darkMode: false,
+            weekStartsOn: 'monday'
+          }
+        };
+      }
+      
+      // Save the new profile
+      await saveUserProfile(userId, userProfile);
+      
+      console.log(`Created new premium profile for user ${userId}`);
+      
+      return NextResponse.json({ 
+        success: true, 
+        message: 'New premium user profile created successfully' 
+      });
     }
     
-    // Update the profile with premium status
+    // Update the existing profile with premium status
     userProfile.isPremium = true;
     
     // Save the updated profile
