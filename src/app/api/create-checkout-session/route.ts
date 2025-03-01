@@ -53,10 +53,7 @@ export async function POST(request: Request) {
       client_reference_id: userId, // Store the user ID for reference
       metadata: {
         userId: userId,
-      },
-      // Add custom branding for Quest Master
-      payment_intent_data: {
-        description: 'Quest Master Premium Subscription',
+        product: 'Quest Master Premium',
       },
       // Add custom information about the subscription
       subscription_data: {
@@ -64,6 +61,7 @@ export async function POST(request: Request) {
           userId: userId,
           product: 'Quest Master Premium',
         },
+        description: 'Quest Master Premium Subscription',
       },
     });
     
