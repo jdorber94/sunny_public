@@ -15,10 +15,21 @@ export async function GET() {
   const secretKeyPrefix = process.env.STRIPE_SECRET_KEY 
     ? `${process.env.STRIPE_SECRET_KEY.substring(0, 7)}...` 
     : 'not set';
+    
+  // Show app URL for debugging redirects
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'not set';
+  
+  // Check if all required variables are set
+  const allVariablesSet = Object.values(envStatus).every(Boolean);
   
   return NextResponse.json({
     envStatus,
     secretKeyPrefix,
+    appUrl,
     nodeEnv: process.env.NODE_ENV,
+    allVariablesSet,
+    message: allVariablesSet 
+      ? 'All environment variables are set correctly!' 
+      : 'Some environment variables are missing. Please check the envStatus field.',
   });
 } 
