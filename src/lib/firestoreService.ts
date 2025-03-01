@@ -11,7 +11,11 @@ import {
   onSnapshot,
   Timestamp,
   serverTimestamp,
-  writeBatch
+  writeBatch,
+  deleteDoc,
+  addDoc,
+  orderBy,
+  limit
 } from 'firebase/firestore';
 import { db } from './firebase';
 import { User } from 'firebase/auth';
@@ -28,6 +32,16 @@ export interface Habit {
   updatedAt?: Timestamp;
 }
 
+export interface HabitSet {
+  id: string;
+  name: string;
+  description?: string;
+  isPremium: boolean;
+  isActive: boolean;
+  createdAt?: Timestamp;
+  updatedAt?: Timestamp;
+}
+
 export interface UserProfile {
   name: string;
   email: string;
@@ -37,6 +51,7 @@ export interface UserProfile {
   daysActive: number;
   currentStreak: number;
   joinDate: string;
+  isPremium: boolean;
   preferences: {
     notifications: boolean;
     darkMode: boolean;
@@ -64,6 +79,16 @@ const getUserDocRef = (userId: string) => {
 // Helper function to get habits collection reference for a user
 const getHabitsCollectionRef = (userId: string) => {
   return collection(db, 'users', userId, 'habits');
+};
+
+// Helper function to get habit sets collection reference for a user
+const getHabitSetsCollectionRef = (userId: string) => {
+  return collection(db, 'users', userId, 'habitSets');
+};
+
+// Helper function to get habits collection reference for a specific habit set
+const getHabitSetHabitsCollectionRef = (userId: string, habitSetId: string) => {
+  return collection(db, 'users', userId, 'habitSets', habitSetId, 'habits');
 };
 
 // Save user profile to Firestore
@@ -128,11 +153,140 @@ export const subscribeToUserProfile = (userId: string, callback: (profile: UserP
   });
 };
 
-// Save habits to Firestore
-export const saveHabits = async (userId: string, habits: Habit[]) => {
+// Create a new habit set
+export const createHabitSet = async (userId: string, habitSet: Omit<HabitSet, 'id'>) => {
+  try {
+    const habitSetsCollectionRef = getHabitSetsCollectionRef(userId);
+    
+    // Add timestamps
+    const habitSetWithTimestamps = {
+      ...habitSet,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    };
+    
+    // Add the new habit set
+    const docRef = await addDoc(habitSetsCollectionRef, habitSetWithTimestamps);
+    
+    return { id: docRef.id, ...habitSet };
+  } catch (error) {
+    console.error('Error creating habit set:', error);
+    return null;
+  }
+};
+
+// Get all habit sets for a user
+export const getHabitSets = async (userId: string): Promise<HabitSet[]> => {
+  try {
+    const habitSetsCollectionRef = getHabitSetsCollectionRef(userId);
+    const q = query(habitSetsCollectionRef, orderBy('createdAt', 'asc'));
+    const querySnapshot = await getDocs(q);
+    
+    const habitSets: HabitSet[] = [];
+    querySnapshot.forEach((doc) => {
+      habitSets.push({ id: doc.id, ...doc.data() } as HabitSet);
+    });
+    
+    return habitSets;
+  } catch (error) {
+    console.error('Error getting habit sets:', error);
+    return [];
+  }
+};
+
+// Subscribe to habit sets changes
+export const subscribeToHabitSets = (userId: string, callback: (habitSets: HabitSet[]) => void) => {
+  const habitSetsCollectionRef = getHabitSetsCollectionRef(userId);
+  const q = query(habitSetsCollectionRef, orderBy('createdAt', 'asc'));
+  
+  return onSnapshot(q, (querySnapshot) => {
+    const habitSets: HabitSet[] = [];
+    querySnapshot.forEach((doc) => {
+      habitSets.push({ id: doc.id, ...doc.data() } as HabitSet);
+    });
+    callback(habitSets);
+  });
+};
+
+// Update a habit set
+export const updateHabitSet = async (userId: string, habitSetId: string, updates: Partial<HabitSet>) => {
+  try {
+    const habitSetDocRef = doc(db, 'users', userId, 'habitSets', habitSetId);
+    
+    // Add timestamp
+    const updatesWithTimestamp = {
+      ...updates,
+      updatedAt: serverTimestamp()
+    };
+    
+    await updateDoc(habitSetDocRef, updatesWithTimestamp);
+    return true;
+  } catch (error) {
+    console.error('Error updating habit set:', error);
+    return false;
+  }
+};
+
+// Delete a habit set
+export const deleteHabitSet = async (userId: string, habitSetId: string) => {
+  try {
+    const habitSetDocRef = doc(db, 'users', userId, 'habitSets', habitSetId);
+    await deleteDoc(habitSetDocRef);
+    return true;
+  } catch (error) {
+    console.error('Error deleting habit set:', error);
+    return false;
+  }
+};
+
+// Set a habit set as active
+export const setActiveHabitSet = async (userId: string, habitSetId: string) => {
   try {
     const batch = writeBatch(db);
-    const habitsCollectionRef = getHabitsCollectionRef(userId);
+    const habitSetsCollectionRef = getHabitSetsCollectionRef(userId);
+    const querySnapshot = await getDocs(habitSetsCollectionRef);
+    
+    // Set all habit sets to inactive
+    querySnapshot.forEach((doc) => {
+      batch.update(doc.ref, { isActive: false, updatedAt: serverTimestamp() });
+    });
+    
+    // Set the selected habit set to active
+    const habitSetDocRef = doc(db, 'users', userId, 'habitSets', habitSetId);
+    batch.update(habitSetDocRef, { isActive: true, updatedAt: serverTimestamp() });
+    
+    await batch.commit();
+    return true;
+  } catch (error) {
+    console.error('Error setting active habit set:', error);
+    return false;
+  }
+};
+
+// Get the active habit set
+export const getActiveHabitSet = async (userId: string): Promise<HabitSet | null> => {
+  try {
+    const habitSetsCollectionRef = getHabitSetsCollectionRef(userId);
+    const q = query(habitSetsCollectionRef, where('isActive', '==', true), limit(1));
+    const querySnapshot = await getDocs(q);
+    
+    if (!querySnapshot.empty) {
+      const doc = querySnapshot.docs[0];
+      return { id: doc.id, ...doc.data() } as HabitSet;
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('Error getting active habit set:', error);
+    return null;
+  }
+};
+
+// Save habits to a specific habit set
+export const saveHabitsToSet = async (userId: string, habitSetId: string, habits: Habit[]) => {
+  try {
+    const batch = writeBatch(db);
+    const habitsCollectionRef = getHabitSetHabitsCollectionRef(userId, habitSetId);
     
     // Delete existing habits (we'll replace them all)
     const existingHabits = await getDocs(habitsCollectionRef);
@@ -153,15 +307,15 @@ export const saveHabits = async (userId: string, habits: Habit[]) => {
     await batch.commit();
     return true;
   } catch (error) {
-    console.error('Error saving habits:', error);
+    console.error('Error saving habits to set:', error);
     return false;
   }
 };
 
-// Get habits from Firestore
-export const getHabits = async (userId: string): Promise<Habit[]> => {
+// Get habits from a specific habit set
+export const getHabitsFromSet = async (userId: string, habitSetId: string): Promise<Habit[]> => {
   try {
-    const habitsCollectionRef = getHabitsCollectionRef(userId);
+    const habitsCollectionRef = getHabitSetHabitsCollectionRef(userId, habitSetId);
     const querySnapshot = await getDocs(habitsCollectionRef);
     
     const habits: Habit[] = [];
@@ -171,14 +325,14 @@ export const getHabits = async (userId: string): Promise<Habit[]> => {
     
     return habits;
   } catch (error) {
-    console.error('Error getting habits:', error);
+    console.error('Error getting habits from set:', error);
     return [];
   }
 };
 
-// Subscribe to habits changes
-export const subscribeToHabits = (userId: string, callback: (habits: Habit[]) => void) => {
-  const habitsCollectionRef = getHabitsCollectionRef(userId);
+// Subscribe to habits changes for a specific habit set
+export const subscribeToHabitsInSet = (userId: string, habitSetId: string, callback: (habits: Habit[]) => void) => {
+  const habitsCollectionRef = getHabitSetHabitsCollectionRef(userId, habitSetId);
   
   return onSnapshot(habitsCollectionRef, (querySnapshot) => {
     const habits: Habit[] = [];
@@ -187,6 +341,119 @@ export const subscribeToHabits = (userId: string, callback: (habits: Habit[]) =>
     });
     callback(habits);
   });
+};
+
+// Initialize a default habit set for a new user
+export const initializeDefaultHabitSet = async (userId: string) => {
+  try {
+    const defaultHabitSet: Omit<HabitSet, 'id'> = {
+      name: 'Default Set',
+      description: 'Your first habit set',
+      isPremium: false,
+      isActive: true,
+      createdAt: serverTimestamp() as any,
+      updatedAt: serverTimestamp() as any
+    };
+    
+    const habitSet = await createHabitSet(userId, defaultHabitSet);
+    return habitSet;
+  } catch (error) {
+    console.error('Error initializing default habit set:', error);
+    return null;
+  }
+};
+
+// Check if a user can create a new habit set (based on premium status)
+export const canCreateHabitSet = async (userId: string): Promise<boolean> => {
+  try {
+    // Get user profile to check premium status
+    const userProfile = await getUserProfile(userId);
+    if (userProfile?.isPremium) {
+      return true; // Premium users can create unlimited sets
+    }
+    
+    // Non-premium users can only have one set
+    const habitSets = await getHabitSets(userId);
+    return habitSets.length < 1;
+  } catch (error) {
+    console.error('Error checking if user can create habit set:', error);
+    return false;
+  }
+};
+
+// Save habits to Firestore (legacy function for backward compatibility)
+export const saveHabits = async (userId: string, habits: Habit[]) => {
+  try {
+    // Get the active habit set
+    const activeHabitSet = await getActiveHabitSet(userId);
+    
+    if (activeHabitSet) {
+      // Save to the active habit set
+      return saveHabitsToSet(userId, activeHabitSet.id, habits);
+    } else {
+      // Create a default habit set and save to it
+      const defaultHabitSet = await initializeDefaultHabitSet(userId);
+      if (defaultHabitSet) {
+        return saveHabitsToSet(userId, defaultHabitSet.id, habits);
+      }
+    }
+    
+    return false;
+  } catch (error) {
+    console.error('Error saving habits:', error);
+    return false;
+  }
+};
+
+// Get habits from Firestore (legacy function for backward compatibility)
+export const getHabits = async (userId: string): Promise<Habit[]> => {
+  try {
+    // Get the active habit set
+    const activeHabitSet = await getActiveHabitSet(userId);
+    
+    if (activeHabitSet) {
+      // Get habits from the active habit set
+      return getHabitsFromSet(userId, activeHabitSet.id);
+    } else {
+      // Try to get habits from the legacy location
+      const habitsCollectionRef = getHabitsCollectionRef(userId);
+      const querySnapshot = await getDocs(habitsCollectionRef);
+      
+      const habits: Habit[] = [];
+      querySnapshot.forEach((doc) => {
+        habits.push(doc.data() as Habit);
+      });
+      
+      return habits;
+    }
+  } catch (error) {
+    console.error('Error getting habits:', error);
+    return [];
+  }
+};
+
+// Subscribe to habits changes (legacy function for backward compatibility)
+export const subscribeToHabits = (userId: string, callback: (habits: Habit[]) => void) => {
+  // First try to get the active habit set
+  getActiveHabitSet(userId).then((activeHabitSet) => {
+    if (activeHabitSet) {
+      // Subscribe to habits in the active habit set
+      return subscribeToHabitsInSet(userId, activeHabitSet.id, callback);
+    } else {
+      // Subscribe to habits in the legacy location
+      const habitsCollectionRef = getHabitsCollectionRef(userId);
+      return onSnapshot(habitsCollectionRef, (querySnapshot) => {
+        const habits: Habit[] = [];
+        querySnapshot.forEach((doc) => {
+          habits.push(doc.data() as Habit);
+        });
+        callback(habits);
+      });
+    }
+  });
+  
+  // Return a dummy unsubscribe function that will be replaced
+  return () => {};
 };
 
 // Save user stats to Firestore
@@ -251,41 +518,47 @@ export const subscribeToUserStats = (userId: string, callback: (stats: UserStats
   });
 };
 
-// Initialize user data in Firestore from localStorage
+// Initialize user data
 export const initializeUserData = async (user: User) => {
   try {
-    // Check if user already has data in Firestore
+    // Check if user profile exists
     const userProfile = await getUserProfile(user.uid);
     
     if (!userProfile) {
-      // User doesn't have data in Firestore yet, initialize from localStorage
-      if (typeof window !== 'undefined') {
-        // Get profile from localStorage
-        const savedProfile = localStorage.getItem('userProfile');
-        if (savedProfile) {
-          const profile = JSON.parse(savedProfile);
-          await saveUserProfile(user.uid, {
-            ...profile,
-            name: user.displayName || profile.name,
-            email: user.email || profile.email,
-            avatar: user.displayName ? user.displayName.charAt(0).toUpperCase() : profile.avatar
-          });
+      // Create default user profile
+      const defaultProfile: UserProfile = {
+        name: user.displayName || '',
+        email: user.email || '',
+        avatar: user.photoURL || '',
+        level: 1,
+        totalXP: 0,
+        daysActive: 1,
+        currentStreak: 1,
+        joinDate: new Date().toISOString(),
+        isPremium: false,
+        preferences: {
+          notifications: true,
+          darkMode: false,
+          weekStartsOn: 'monday'
         }
-        
-        // Get habits from localStorage
-        const savedHabits = localStorage.getItem('habits');
-        if (savedHabits) {
-          const habits = JSON.parse(savedHabits);
-          await saveHabits(user.uid, habits);
+      };
+      
+      await saveUserProfile(user.uid, defaultProfile);
+      
+      // Create default stats
+      const today = new Date().toISOString().split('T')[0];
+      const defaultStats: UserStats = {
+        totalXP: 0,
+        dailyXP: {
+          date: today,
+          xp: 0
         }
-        
-        // Get stats from localStorage
-        const savedStats = localStorage.getItem('habitStats');
-        if (savedStats) {
-          const stats = JSON.parse(savedStats);
-          await saveUserStats(user.uid, stats);
-        }
-      }
+      };
+      
+      await saveUserStats(user.uid, defaultStats);
+      
+      // Create default habit set
+      await initializeDefaultHabitSet(user.uid);
     }
     
     return true;

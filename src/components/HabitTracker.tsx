@@ -1,506 +1,459 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Sparkles } from './Sparkles';
 import { WeeklyProgress } from './WeeklyProgress';
 import { LevelUpCelebration } from './LevelUpCelebration';
-import { format, addDays, subDays, isToday } from 'date-fns';
+import { format, isToday } from 'date-fns';
 import { useAuth } from '@/contexts/AuthContext';
 import { 
-  Habit as FirestoreHabit,
-  UserStats as FirestoreUserStats,
-  saveHabits,
-  getHabits,
-  subscribeToHabits,
-  saveUserStats,
-  getUserStats,
-  subscribeToUserStats
+  Habit, 
+  UserStats, 
+  saveHabits, 
+  getHabits, 
+  subscribeToHabits, 
+  saveUserStats, 
+  getUserStats, 
+  subscribeToUserStats,
+  getActiveHabitSet
 } from '@/lib/firestoreService';
+import HabitSetManager from './HabitSetManager';
 
-interface Habit {
-  id: number;
-  name: string;
-  logs: string[];
-  xp: number;
-}
-
-interface UserStats {
-  totalXP: number;
-  dailyXP: {
-    date: string;
-    xp: number;
-  };
-}
-
+// Constants
 const MAX_HABITS = 5;
-const XP_PER_COMPLETION = 20;
-const MAX_DAILY_XP = 100;
+const XP_PER_COMPLETION = 10;
+const MAX_DAILY_XP = 50;
 
-const calculateLevel = (xp: number) => {
-  // Each level requires double XP of the previous level
-  // Level 1: 0-60
-  // Level 2: 60-180 (60 + 120)
-  // Level 3: 180-420 (180 + 240)
-  // Level 4: 420-900 (420 + 480)
-  // and so on...
-  const getRequiredXP = (level: number): number => {
-    if (level === 1) return 60;
-    return getRequiredXP(level - 1) * 2;
-  };
-
-  let level = 1;
-  let totalRequired = 60; // First level requirement
-
-  while (xp >= totalRequired) {
-    level++;
-    totalRequired += getRequiredXP(level);
-  }
-
-  const prevLevelXP = level === 1 ? 0 : totalRequired - getRequiredXP(level);
-  const currentLevelXP = xp - prevLevelXP;
-  const nextLevelXP = getRequiredXP(level);
-
-  return { level, currentLevelXP, nextLevelXP };
+// Calculate level based on XP
+const calculateLevel = (xp: number, level = 1, requiredXP = 100): number => {
+  if (xp < requiredXP) return level;
+  return calculateLevel(xp - requiredXP, level + 1, Math.floor(requiredXP * 1.5));
 };
 
-function CheckmarkIcon({ checked, animate = false }: { checked: boolean; animate?: boolean }) {
-  return checked ? (
-    <div className="relative">
-      {animate && (
-        <>
-          <div className="absolute inset-0 animate-ping opacity-30 rounded-full bg-[#00B971]" />
-          <div className="absolute inset-[-8px] animate-scale-up rounded-full border-2 border-[#00B971]" />
-        </>
-      )}
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        viewBox="0 0 24 24"
-        fill="currentColor"
-        className={`w-6 h-6 ${animate ? 'animate-bounce-small' : ''}`}
-      >
-        <path
-          fillRule="evenodd"
-          d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm13.36-1.814a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z"
-          clipRule="evenodd"
-        />
-      </svg>
-    </div>
-  ) : (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      fill="none"
-      viewBox="0 0 24 24"
-      strokeWidth={2}
-      stroke="currentColor"
-      className="w-6 h-6"
+// Checkmark icon component with animation
+const CheckmarkIcon = ({ checked, onClick }: { checked: boolean; onClick: () => void }) => {
+  return (
+    <button
+      className={`w-6 h-6 rounded-full border flex items-center justify-center ${
+        checked 
+          ? 'bg-green-500 border-green-600' 
+          : 'bg-white border-gray-300 dark:bg-gray-800 dark:border-gray-600'
+      }`}
+      onClick={onClick}
     >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-      />
-    </svg>
+      {checked && (
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          className="h-4 w-4 text-white"
+          viewBox="0 0 20 20"
+          fill="currentColor"
+        >
+          <path
+            fillRule="evenodd"
+            d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+            clipRule="evenodd"
+          />
+        </svg>
+      )}
+    </button>
   );
-}
+};
 
 export default function HabitTracker() {
   const { user } = useAuth();
-  
-  const [habits, setHabits] = useState<Habit[]>(() => {
-    if (typeof window !== 'undefined') {
-      const savedHabits = localStorage.getItem('habits');
-      return savedHabits ? JSON.parse(savedHabits) : [];
-    }
-    return [];
-  });
-
+  const [habits, setHabits] = useState<Habit[]>([]);
   const [newHabit, setNewHabit] = useState('');
   const [error, setError] = useState('');
-  const [stats, setStats] = useState<UserStats>(() => {
+  const [stats, setStats] = useState<UserStats>({
+    totalXP: 0,
+    dailyXP: { date: new Date().toISOString().split('T')[0], xp: 0 }
+  });
+  const [showLevelUp, setShowLevelUp] = useState(false);
+  const [previousLevel, setPreviousLevel] = useState(1);
+  const [currentLevel, setCurrentLevel] = useState(1);
+  const [showHabitSetManager, setShowHabitSetManager] = useState(false);
+  const [activeHabitSet, setActiveHabitSet] = useState<{ id: string; name: string } | null>(null);
+  
+  const unsubscribeRef = useRef<(() => void) | null>(null);
+  const statsUnsubscribeRef = useRef<(() => void) | null>(null);
+
+  // Initialize habits from localStorage or Firestore
+  useEffect(() => {
+    // Initialize habits from localStorage
     if (typeof window !== 'undefined') {
-      const savedStats = localStorage.getItem('habitStats');
-      const today = new Date().toISOString().split('T')[0];
+      const savedHabits = localStorage.getItem('habits');
+      if (savedHabits) {
+        setHabits(JSON.parse(savedHabits));
+      }
       
+      const savedStats = localStorage.getItem('habitStats');
       if (savedStats) {
         const parsedStats = JSON.parse(savedStats);
+        
         // Reset daily XP if it's a new day
+        const today = new Date().toISOString().split('T')[0];
         if (parsedStats.dailyXP.date !== today) {
-          return {
-            totalXP: parsedStats.totalXP,
-            dailyXP: {
-              date: today,
-              xp: 0
-            }
-          };
+          parsedStats.dailyXP = { date: today, xp: 0 };
         }
-        return parsedStats;
+        
+        setStats(parsedStats);
+        setCurrentLevel(calculateLevel(parsedStats.totalXP));
+        setPreviousLevel(calculateLevel(parsedStats.totalXP));
       }
-      
-      return {
-        totalXP: 0,
-        dailyXP: {
-          date: today,
-          xp: 0
-        }
-      };
     }
-    return {
-      totalXP: 0,
-      dailyXP: {
-        date: new Date().toISOString().split('T')[0],
-        xp: 0
-      }
-    };
-  });
-
-  const [celebrateHabitId, setCelebrateHabitId] = useState<number | null>(null);
-  const [celebrateProgress, setCelebrateProgress] = useState(false);
-  const [showLevelUp, setShowLevelUp] = useState(false);
-
-  const { level, currentLevelXP, nextLevelXP } = calculateLevel(stats.totalXP);
-
-  const [selectedDate, setSelectedDate] = useState(() => new Date());
-
-  // Load data from Firestore if user is authenticated
-  useEffect(() => {
-    if (!user) return;
-
-    // Set up subscriptions to Firestore data
-    const unsubscribeHabits = subscribeToHabits(user.uid, (firestoreHabits) => {
-      if (firestoreHabits && firestoreHabits.length > 0) {
-        setHabits(firestoreHabits);
-      }
-    });
-
-    const unsubscribeStats = subscribeToUserStats(user.uid, (firestoreStats) => {
-      if (firestoreStats) {
-        setStats(firestoreStats);
-      }
-    });
-
-    // Fallback to localStorage if Firestore data is not available yet
-    const loadFromLocalStorage = async () => {
-      const firestoreHabits = await getHabits(user.uid);
-      const firestoreStats = await getUserStats(user.uid);
-      
-      if (firestoreHabits.length === 0 && typeof window !== 'undefined') {
-        const savedHabits = localStorage.getItem('habits');
-        if (savedHabits) {
-          const parsedHabits = JSON.parse(savedHabits);
-          setHabits(parsedHabits);
-          
-          // Save to Firestore
-          saveHabits(user.uid, parsedHabits as FirestoreHabit[])
-            .catch(error => console.error('Error saving habits to Firestore:', error));
-        }
-      }
-      
-      if (!firestoreStats && typeof window !== 'undefined') {
-        const savedStats = localStorage.getItem('habitStats');
-        if (savedStats) {
-          const parsedStats = JSON.parse(savedStats);
-          setStats(parsedStats);
-          
-          // Save to Firestore
-          saveUserStats(user.uid, parsedStats as FirestoreUserStats)
-            .catch(error => console.error('Error saving stats to Firestore:', error));
-        }
-      }
-    };
-
-    loadFromLocalStorage();
-
-    // Clean up subscriptions
-    return () => {
-      unsubscribeHabits();
-      unsubscribeStats();
-    };
-  }, [user]);
-
-  // Save data to localStorage and Firestore when it changes
-  useEffect(() => {
-    // Always save to localStorage as fallback
-    localStorage.setItem('habits', JSON.stringify(habits));
-    localStorage.setItem('habitStats', JSON.stringify(stats));
     
-    // Save to Firestore if user is authenticated
+    // If user is authenticated, subscribe to Firestore data
     if (user) {
-      saveHabits(user.uid, habits as FirestoreHabit[])
-        .catch(error => console.error('Error saving habits to Firestore:', error));
-      
-      saveUserStats(user.uid, stats as FirestoreUserStats)
-        .catch(error => console.error('Error saving stats to Firestore:', error));
-    }
-  }, [habits, stats, user]);
-
-  useEffect(() => {
-    const today = new Date().toISOString().split('T')[0];
-    if (stats.dailyXP.date !== today) {
-      setStats(prev => ({
-        totalXP: prev.totalXP,
-        dailyXP: {
-          date: today,
-          xp: 0
+      // Get active habit set
+      getActiveHabitSet(user.uid).then(habitSet => {
+        if (habitSet) {
+          setActiveHabitSet({
+            id: habitSet.id,
+            name: habitSet.name
+          });
         }
-      }));
+      });
+      
+      // Subscribe to habits
+      const unsubscribe = subscribeToHabits(user.uid, (firestoreHabits) => {
+        if (firestoreHabits.length > 0) {
+          setHabits(firestoreHabits);
+          // Also update localStorage
+          localStorage.setItem('habits', JSON.stringify(firestoreHabits));
+        }
+      });
+      
+      unsubscribeRef.current = unsubscribe;
+      
+      // Subscribe to user stats
+      const statsUnsubscribe = subscribeToUserStats(user.uid, (firestoreStats) => {
+        if (firestoreStats) {
+          // Reset daily XP if it's a new day
+          const today = new Date().toISOString().split('T')[0];
+          if (firestoreStats.dailyXP.date !== today) {
+            firestoreStats.dailyXP = { date: today, xp: 0 };
+            // Update Firestore with the reset daily XP
+            saveUserStats(user.uid, firestoreStats);
+          }
+          
+          setStats(firestoreStats);
+          
+          // Check for level up
+          const newLevel = calculateLevel(firestoreStats.totalXP);
+          if (newLevel > currentLevel) {
+            setPreviousLevel(currentLevel);
+            setCurrentLevel(newLevel);
+            setShowLevelUp(true);
+          } else {
+            setCurrentLevel(newLevel);
+          }
+          
+          // Also update localStorage
+          localStorage.setItem('habitStats', JSON.stringify(firestoreStats));
+        }
+      });
+      
+      statsUnsubscribeRef.current = statsUnsubscribe;
     }
-  }, [selectedDate]);
-
-  const addHabit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newHabit.trim()) return;
     
-    if (habits.length >= MAX_HABITS) {
-      setError(`Maximum ${MAX_HABITS} habits allowed`);
+    return () => {
+      // Cleanup subscriptions
+      if (unsubscribeRef.current) {
+        unsubscribeRef.current();
+      }
+      if (statsUnsubscribeRef.current) {
+        statsUnsubscribeRef.current();
+      }
+    };
+  }, [user, currentLevel]);
+
+  // Add a new habit
+  const addHabit = async () => {
+    if (!newHabit.trim()) {
+      setError('Habit name cannot be empty');
       return;
     }
-
+    
+    if (habits.length >= MAX_HABITS) {
+      setError(`You can only track up to ${MAX_HABITS} habits at a time`);
+      return;
+    }
+    
     const habit: Habit = {
       id: Date.now(),
-      name: newHabit,
+      name: newHabit.trim(),
       logs: [],
       xp: 0
     };
     
-    setHabits([...habits, habit]);
+    const updatedHabits = [...habits, habit];
+    setHabits(updatedHabits);
     setNewHabit('');
     setError('');
+    
+    // Save to localStorage
+    localStorage.setItem('habits', JSON.stringify(updatedHabits));
+    
+    // Save to Firestore if user is authenticated
+    if (user) {
+      await saveHabits(user.uid, updatedHabits);
+    }
   };
 
-  const toggleHabit = (habitId: number) => {
-    const dateStr = format(selectedDate, 'yyyy-MM-dd');
+  // Delete a habit
+  const deleteHabit = async (id: number) => {
+    const updatedHabits = habits.filter(habit => habit.id !== id);
+    setHabits(updatedHabits);
+    
+    // Save to localStorage
+    localStorage.setItem('habits', JSON.stringify(updatedHabits));
+    
+    // Save to Firestore if user is authenticated
+    if (user) {
+      await saveHabits(user.uid, updatedHabits);
+    }
+  };
+
+  // Toggle habit completion for today
+  const toggleHabitCompletion = async (id: number) => {
     const today = new Date().toISOString().split('T')[0];
     
-    // Only allow toggling if selected date is today
-    if (!isToday(selectedDate)) return;
-    
-    setHabits(habits.map(habit => {
-      if (habit.id === habitId) {
-        const hasLog = habit.logs.includes(dateStr);
+    const updatedHabits = habits.map(habit => {
+      if (habit.id === id) {
+        const isCompleted = habit.logs.includes(today);
+        let logs = [...habit.logs];
+        let xpChange = 0;
         
-        if (!hasLog && stats.dailyXP.xp < MAX_DAILY_XP) {
-          setCelebrateHabitId(habitId);
-          setCelebrateProgress(true);
-          setTimeout(() => {
-            setCelebrateHabitId(null);
-            setCelebrateProgress(false);
-          }, 1000);
-
-          setStats(prev => ({
-            totalXP: prev.totalXP + XP_PER_COMPLETION,
-            dailyXP: {
-              date: today, // Always use today's date for XP tracking
-              xp: prev.dailyXP.xp + XP_PER_COMPLETION
-            }
-          }));
-
-          return {
-            ...habit,
-            logs: [...habit.logs, dateStr],
-            xp: habit.xp + XP_PER_COMPLETION
-          };
-        } else if (hasLog) {
-          setStats(prev => ({
-            totalXP: prev.totalXP - XP_PER_COMPLETION,
-            dailyXP: {
-              date: today, // Always use today's date for XP tracking
-              xp: prev.dailyXP.xp - XP_PER_COMPLETION
-            }
-          }));
-
-          return {
-            ...habit,
-            logs: habit.logs.filter(date => date !== dateStr),
-            xp: habit.xp - XP_PER_COMPLETION
-          };
+        if (isCompleted) {
+          // Remove today's log
+          logs = logs.filter(date => date !== today);
+          xpChange = -XP_PER_COMPLETION;
+        } else {
+          // Add today's log
+          logs.push(today);
+          xpChange = XP_PER_COMPLETION;
         }
+        
+        return { ...habit, logs, xp: habit.xp + xpChange };
       }
       return habit;
-    }));
+    });
+    
+    setHabits(updatedHabits);
+    
+    // Update stats
+    const isCompleted = habits.find(h => h.id === id)?.logs.includes(today) || false;
+    
+    // Only update XP if we're not already at max daily XP
+    // or if we're removing XP (unchecking a habit)
+    let updatedStats = { ...stats };
+    if (isCompleted || stats.dailyXP.xp < MAX_DAILY_XP) {
+      const xpChange = isCompleted ? -XP_PER_COMPLETION : XP_PER_COMPLETION;
+      
+      // Ensure we don't go over the daily XP limit
+      let newDailyXP = stats.dailyXP.xp + xpChange;
+      if (!isCompleted && newDailyXP > MAX_DAILY_XP) {
+        newDailyXP = MAX_DAILY_XP;
+        alert(`You've reached your daily XP limit of ${MAX_DAILY_XP}!`);
+      }
+      
+      updatedStats = {
+        totalXP: stats.totalXP + xpChange,
+        dailyXP: {
+          date: today,
+          xp: newDailyXP
+        }
+      };
+      
+      setStats(updatedStats);
+      
+      // Check for level up
+      const newLevel = calculateLevel(updatedStats.totalXP);
+      if (newLevel > currentLevel) {
+        setPreviousLevel(currentLevel);
+        setCurrentLevel(newLevel);
+        setShowLevelUp(true);
+      }
+    }
+    
+    // Save to localStorage
+    localStorage.setItem('habits', JSON.stringify(updatedHabits));
+    localStorage.setItem('habitStats', JSON.stringify(updatedStats));
+    
+    // Save to Firestore if user is authenticated
+    if (user) {
+      await saveHabits(user.uid, updatedHabits);
+      await saveUserStats(user.uid, updatedStats);
+    }
   };
 
-  const deleteHabit = (habitId: number) => {
-    setHabits(habits.filter(habit => habit.id !== habitId));
-  };
+  // Get today's date in a readable format
+  const today = new Date().toLocaleDateString('en-US', {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric'
+  });
 
-  const isHabitCompletedForDate = (habit: Habit, date: Date) => {
-    return habit.logs.includes(format(date, 'yyyy-MM-dd'));
-  };
+  // Calculate progress percentage for today
+  const todayHabits = habits.filter(habit => {
+    const today = new Date().toISOString().split('T')[0];
+    return habit.logs.includes(today);
+  });
+  
+  const progressPercentage = habits.length > 0
+    ? Math.round((todayHabits.length / habits.length) * 100)
+    : 0;
 
   return (
-    <div className="px-4 py-8 sm:px-6 lg:px-8 min-h-screen bg-gradient-to-br from-indigo-50 to-purple-50">
-      <div className="max-w-4xl mx-auto">
-        <header className="mb-8">
-          <h1 className="text-3xl font-bold text-indigo-900 mb-2"></h1>
-          <p className="text-slate-600"></p>
-        </header>
-        
-        {showLevelUp && (
-          <div className="mb-8">
-            <LevelUpCelebration level={level} onClose={() => setShowLevelUp(false)} />
+    <div className="max-w-md mx-auto p-4">
+      {/* Level Up Celebration */}
+      {showLevelUp && (
+        <LevelUpCelebration 
+          level={currentLevel}
+          onClose={() => setShowLevelUp(false)} 
+        />
+      )}
+      
+      {/* Header with Level and XP */}
+      <div className="mb-6 flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Quest Master</h1>
+          <p className="text-gray-600 dark:text-gray-300">{today}</p>
+        </div>
+        <div className="flex items-center">
+          <div className="mr-2 text-right">
+            <p className="text-sm text-gray-600 dark:text-gray-400">Level {currentLevel}</p>
+            <p className="text-xs text-gray-500 dark:text-gray-500">{stats.totalXP} XP</p>
           </div>
-        )}
-
-        <div className="grid grid-cols-1 md:grid-cols-7 gap-6 mb-8">
-          <div className="md:col-span-5">
-            <div className="glass-card p-6 mb-6">
-              <div className="flex items-center justify-between mb-6">
-                <div>
-                  <h2 className="font-semibold text-slate-700 text-xl">Today's Quests</h2>
-                  <p className="text-slate-500 text-sm">{format(selectedDate, 'EEEE, MMMM d')}</p>
-                </div>
-                <div className="flex items-center space-x-3">
-                  <button 
-                    onClick={() => setSelectedDate(subDays(selectedDate, 1))}
-                    className="p-2 rounded-full hover:bg-indigo-100 transition-colors"
-                    title="Previous day"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                    </svg>
-                  </button>
-                  <button
-                    onClick={() => setSelectedDate(new Date())}
-                    className={`text-sm px-3 py-1 rounded-full ${isToday(selectedDate) ? 'bg-indigo-100 text-indigo-700' : 'text-slate-500 hover:bg-indigo-50'} transition-colors`}
-                  >
-                    Today
-                  </button>
-                  <button 
-                    onClick={() => setSelectedDate(addDays(selectedDate, 1))}
-                    className="p-2 rounded-full hover:bg-indigo-100 transition-colors"
-                    title="Next day"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-
-              {habits.length > 0 ? (
-                <ul className="space-y-3">
-                  {habits.map((habit) => {
-                    const isCompleted = isHabitCompletedForDate(habit, selectedDate);
-                    return (
-                      <li 
-                        key={habit.id}
-                        className={`flex items-center justify-between p-4 rounded-xl border transition-all duration-200 ${
-                          isCompleted 
-                            ? 'bg-green-50 border-green-200' 
-                            : 'bg-white border-slate-200 hover:border-indigo-200 hover:shadow-sm'
-                        }`}
-                      >
-                        <div className="flex items-center">
-                          <button
-                            onClick={() => toggleHabit(habit.id)}
-                            className={`flex-shrink-0 w-6 h-6 rounded-full mr-3 flex items-center justify-center transition-all duration-200 ${
-                              isCompleted
-                                ? 'bg-green-500 text-white'
-                                : 'border-2 border-slate-300 hover:border-indigo-400'
-                            }`}
-                          >
-                            <CheckmarkIcon checked={isCompleted} animate={true} />
-                          </button>
-                          <span className={`text-slate-700 font-medium ${isCompleted ? 'line-through text-slate-500' : ''}`}>
-                            {habit.name}
-                          </span>
-                        </div>
-                        <div className="flex items-center">
-                          <span className="text-xs text-slate-500 mr-2">{habit.xp} XP</span>
-                          <button
-                            onClick={() => deleteHabit(habit.id)}
-                            className="text-slate-400 hover:text-red-500 transition-colors p-1"
-                            title="Delete habit"
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
-                          </button>
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
-              ) : (
-                <div className="text-center p-8">
-                  <div className="inline-block p-3 rounded-full bg-indigo-100 mb-4">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                    </svg>
-                  </div>
-                  <h3 className="text-slate-700 font-medium mb-1">No quests yet</h3>
-                  <p className="text-slate-500 text-sm mb-4">Start by adding your first daily quest</p>
-                </div>
-              )}
-
-              {habits.length < MAX_HABITS && (
-                <div className="mt-6">
-                  <form onSubmit={addHabit} className="flex items-center">
-                    <input
-                      type="text"
-                      value={newHabit}
-                      onChange={(e) => setNewHabit(e.target.value)}
-                      placeholder="Enter a new quest..."
-                      className="flex-1 rounded-l-lg border border-slate-300 p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                    />
-                    <button
-                      type="submit"
-                      disabled={!newHabit.trim()}
-                      className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-3 rounded-r-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      Add Quest
-                    </button>
-                  </form>
-                </div>
-              )}
-            </div>
-            
-            <WeeklyProgress habits={habits} />
-          </div>
-          
-          <div className="md:col-span-2 space-y-6">
-            <div className="glass-card p-6">
-              <div className="flex flex-col items-center text-center">
-                <div className="relative mb-2">
-                  <div className="w-20 h-20 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-xl font-bold">
-                    {level}
-                  </div>
-                  {stats.dailyXP.xp > 0 && (
-                    <div className="absolute -bottom-1 -right-1 bg-green-500 text-white text-xs rounded-full h-6 w-6 flex items-center justify-center">
-                      +{stats.dailyXP.xp}
-                    </div>
-                  )}
-                </div>
-                <h3 className="text-xl font-semibold text-slate-700">Level {level}</h3>
-                <p className="text-slate-500 text-sm mb-4">Quest Master</p>
-                
-                <div className="w-full bg-slate-200 rounded-full h-2 mb-2">
-                  <div 
-                    className="bg-indigo-600 h-2 rounded-full transition-all duration-500"
-                    style={{ width: `${(currentLevelXP / nextLevelXP) * 100}%` }}
-                  ></div>
-                </div>
-                <p className="text-sm text-slate-600">{stats.totalXP} XP total</p>
-              </div>
-            </div>
-            
-            <div className="glass-card p-6">
-              <h3 className="text-lg font-semibold text-slate-700 mb-4">Today's Progress</h3>
-              <div className="flex items-center mb-2">
-                <div className="w-full bg-slate-200 rounded-full h-2 mr-2">
-                  <div 
-                    className="bg-green-500 h-2 rounded-full transition-all duration-500"
-                    style={{ width: `${(stats.dailyXP.xp / MAX_DAILY_XP) * 100}%` }}
-                  ></div>
-                </div>
-                <span className="text-sm text-slate-600 whitespace-nowrap">{stats.dailyXP.xp}/{MAX_DAILY_XP} XP</span>
-              </div>
-              <p className="text-sm text-slate-500">
-                {habits.filter(habit => isHabitCompletedForDate(habit, new Date())).length} of {habits.length} quests completed today
-              </p>
-            </div>
+          <div className="bg-yellow-100 dark:bg-yellow-900 p-2 rounded-full">
+            <Sparkles />
           </div>
         </div>
+      </div>
+      
+      {/* Active Habit Set Info */}
+      {activeHabitSet && (
+        <div className="mb-4 flex justify-between items-center">
+          <div className="flex items-center">
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              Active Set: {activeHabitSet.name}
+            </span>
+          </div>
+          <button
+            onClick={() => setShowHabitSetManager(!showHabitSetManager)}
+            className="text-xs bg-indigo-100 hover:bg-indigo-200 dark:bg-indigo-800 dark:hover:bg-indigo-700 text-indigo-800 dark:text-indigo-200 px-2 py-1 rounded"
+          >
+            {showHabitSetManager ? 'Hide Sets' : 'Manage Sets'}
+          </button>
+        </div>
+      )}
+      
+      {/* Habit Set Manager */}
+      {showHabitSetManager && (
+        <div className="mb-6">
+          <HabitSetManager />
+        </div>
+      )}
+      
+      {/* Progress Bar */}
+      <div className="mb-6">
+        <div className="flex justify-between items-center mb-2">
+          <h2 className="text-lg font-semibold text-gray-800 dark:text-white">Today's Progress</h2>
+          <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
+            {todayHabits.length}/{habits.length} completed
+          </span>
+        </div>
+        <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
+          <div 
+            className="bg-green-500 h-2.5 rounded-full transition-all duration-500"
+            style={{ width: `${progressPercentage}%` }}
+          ></div>
+        </div>
+      </div>
+      
+      {/* Weekly Progress */}
+      <div className="mb-6">
+        <h2 className="text-lg font-semibold text-gray-800 dark:text-white mb-2">Weekly Overview</h2>
+        <WeeklyProgress habits={habits} />
+      </div>
+      
+      {/* Habits List */}
+      <div className="mb-6">
+        <h2 className="text-lg font-semibold text-gray-800 dark:text-white mb-2">Your Habits</h2>
+        {habits.length === 0 ? (
+          <p className="text-gray-500 dark:text-gray-400 text-center py-4">
+            You haven't added any habits yet. Add your first habit below!
+          </p>
+        ) : (
+          <ul className="space-y-2">
+            {habits.map(habit => {
+              const today = new Date().toISOString().split('T')[0];
+              const isCompleted = habit.logs.includes(today);
+              
+              return (
+                <li 
+                  key={habit.id}
+                  className={`p-3 rounded-lg border flex justify-between items-center ${
+                    isCompleted 
+                      ? 'bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800' 
+                      : 'bg-white border-gray-200 dark:bg-gray-800 dark:border-gray-700'
+                  }`}
+                >
+                  <div className="flex items-center">
+                    <CheckmarkIcon 
+                      checked={isCompleted} 
+                      onClick={() => toggleHabitCompletion(habit.id)} 
+                    />
+                    <span className={`ml-3 ${
+                      isCompleted 
+                        ? 'text-gray-500 dark:text-gray-400 line-through' 
+                        : 'text-gray-800 dark:text-white'
+                    }`}>
+                      {habit.name}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => deleteHabit(habit.id)}
+                    className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
+      
+      {/* Add New Habit Form */}
+      <div>
+        <h2 className="text-lg font-semibold text-gray-800 dark:text-white mb-2">Add New Habit</h2>
+        {error && <p className="text-red-500 text-sm mb-2">{error}</p>}
+        <div className="flex">
+          <input
+            type="text"
+            value={newHabit}
+            onChange={(e) => setNewHabit(e.target.value)}
+            placeholder="Enter a new habit..."
+            className="flex-grow p-2 border border-gray-300 dark:border-gray-700 rounded-l-md bg-white dark:bg-gray-800 text-gray-800 dark:text-white"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                addHabit();
+              }
+            }}
+          />
+          <button
+            onClick={addHabit}
+            className="bg-indigo-600 text-white px-4 py-2 rounded-r-md hover:bg-indigo-700 transition-colors"
+          >
+            Add
+          </button>
+        </div>
+        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+          You can add up to {MAX_HABITS} habits. Each completed habit earns you {XP_PER_COMPLETION} XP (max {MAX_DAILY_XP} XP per day).
+        </p>
       </div>
     </div>
   );
