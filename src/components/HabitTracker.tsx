@@ -623,16 +623,16 @@ export default function HabitTracker() {
       
       // 4. Create the new set
       const newSetRef = doc(collection(db, 'users', user.uid, 'habitSets'));
-      const newSet = {
+      const newSetData = {
         name: newSetName.trim(),
-        description: newSetDescription.trim() || null,
+        description: newSetDescription.trim() || undefined,
         isActive: true,
         isPremium: false,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       };
       
-      batch.set(newSetRef, newSet);
+      batch.set(newSetRef, newSetData);
       
       // 5. Commit all changes in one transaction
       await batch.commit();
@@ -646,7 +646,18 @@ export default function HabitTracker() {
       // 7. Clear habits since this is a new set
       setHabits([]);
       
-      // 8. Reset form and close modal
+      // 8. Add the new set to the local habitSets state
+      const newSetWithId: HabitSet = {
+        id: newSetRef.id,
+        name: newSetName.trim(),
+        description: newSetDescription.trim() || undefined,
+        isActive: true,
+        isPremium: false
+      };
+      
+      setHabitSets(prevSets => [...prevSets, newSetWithId]);
+      
+      // 9. Reset form and close modal
       setNewSetName('');
       setNewSetDescription('');
       setShowCreateSetModal(false);
