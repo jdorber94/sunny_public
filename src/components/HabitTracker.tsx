@@ -467,24 +467,35 @@ export default function HabitTracker() {
 
   // Add a new habit
   const addHabit = async () => {
+    console.log("=== ADD HABIT FUNCTION CALLED ===");
+    console.log("Current user:", user ? `Authenticated: ${user.uid}` : "Not authenticated");
+    console.log("Active habit set:", activeHabitSetState);
+    console.log("New habit name:", newHabitName);
+    
     if (!user) {
+      console.log("Error: No user authenticated");
       toast.error("You must be logged in to add habits");
       return;
     }
     
     if (!activeHabitSetState || !activeHabitSetState.id) {
+      console.log("Error: No active habit set found");
       toast.error("No active habit set found. Please create or select a habit set first.");
       return;
     }
 
     if (!newHabitName.trim()) {
+      console.log("Error: Empty habit name");
       toast.error("Please enter a habit name");
       return;
     }
 
     try {
+      console.log(`Adding new habit "${newHabitName}" to set: ${activeHabitSetState.id}`);
+      
       // Generate a unique ID for the new habit
       const habitId = Date.now();
+      console.log(`Generated habit ID: ${habitId}`);
       
       // Create the new habit object with proper typing
       const newHabitObj = {
@@ -494,11 +505,18 @@ export default function HabitTracker() {
         xp: 0
       };
       
+      console.log("New habit object:", newHabitObj);
+      
       // Update local state immediately for instant feedback
-      setHabits(prevHabits => [...prevHabits, newHabitObj as Habit]);
+      console.log("Updating local state with new habit");
+      setHabits(prevHabits => {
+        const updatedHabits = [...prevHabits, newHabitObj as Habit];
+        console.log("Updated habits array:", updatedHabits);
+        return updatedHabits;
+      });
       setNewHabitName("");
       
-      console.log(`Adding new habit "${newHabitName}" to set: ${activeHabitSetState.id}`);
+      console.log(`Preparing to save habit to Firestore in set: ${activeHabitSetState.id}`);
       
       // Firestore object with timestamps
       const firestoreHabitObj = {
@@ -518,14 +536,17 @@ export default function HabitTracker() {
         habitId.toString()
       );
       
+      console.log(`Saving habit to Firestore at path: users/${user.uid}/habitSets/${activeHabitSetState.id}/habits/${habitId}`);
       await setDoc(habitRef, firestoreHabitObj);
       
+      console.log(`Successfully saved habit to Firestore`);
       toast.success(`Added habit: ${newHabitName}`);
     } catch (error) {
       console.error("Error adding habit:", error);
       toast.error("Failed to add habit");
       
       // Revert local state if Firestore save fails
+      console.log("Reverting local state due to error");
       setHabits(prevHabits => prevHabits.filter(h => h.id !== Date.now()));
     }
   };
