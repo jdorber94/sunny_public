@@ -18,7 +18,8 @@ import {
   getActiveHabitSet,
   setActiveHabitSet,
   HabitSet,
-  subscribeToHabitSets
+  subscribeToHabitSets,
+  createHabitSet
 } from '@/lib/firestoreService';
 import HabitSetManager from './HabitSetManager';
 import { toast } from 'react-hot-toast';
@@ -78,6 +79,9 @@ export default function HabitTracker() {
   const [currentLevel, setCurrentLevel] = useState(1);
   const [showHabitSetManager, setShowHabitSetManager] = useState(true);
   const [activeHabitSetState, setActiveHabitSetState] = useState<{ id: string; name: string } | null>(null);
+  const [showNewSetForm, setShowNewSetForm] = useState(false);
+  const [newSetName, setNewSetName] = useState('');
+  const [newSetDescription, setNewSetDescription] = useState('');
   
   const unsubscribeRef = useRef<(() => void) | null>(null);
   const statsUnsubscribeRef = useRef<(() => void) | null>(null);
@@ -365,6 +369,38 @@ export default function HabitTracker() {
     ? Math.round((todayHabits.length / habits.length) * 100)
     : 0;
 
+  // Handle creating a new habit set
+  const handleCreateSet = async () => {
+    if (!user) return;
+    
+    if (!newSetName.trim()) {
+      setError('Habit set name cannot be empty');
+      return;
+    }
+    
+    try {
+      const newSet: Omit<HabitSet, 'id'> = {
+        name: newSetName.trim(),
+        description: newSetDescription.trim(),
+        isActive: habitSets.length === 0, // First set is active by default
+        isPremium: habitSets.length > 1, // First two sets are free, others are premium
+      };
+      
+      await createHabitSet(user.uid, newSet);
+      
+      // Reset form
+      setNewSetName('');
+      setNewSetDescription('');
+      setShowNewSetForm(false);
+      setError('');
+      
+      toast.success('Habit set created successfully!');
+    } catch (error) {
+      console.error('Error creating habit set:', error);
+      toast.error('Failed to create habit set');
+    }
+  };
+
   return (
     <div className="max-w-4xl mx-auto p-4">
       {/* Level Up Celebration */}
@@ -450,6 +486,70 @@ export default function HabitTracker() {
               <div className="p-4 space-y-3">
                 {user && (
                   <>
+                    {/* Create New Set Button */}
+                    <button
+                      onClick={() => setShowNewSetForm(!showNewSetForm)}
+                      className="flex items-center justify-center space-x-2 w-full p-3 mb-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-md transition-colors"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
+                      </svg>
+                      <span className="font-medium">New Habit Set</span>
+                    </button>
+                    
+                    {/* New Set Form */}
+                    {showNewSetForm && (
+                      <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg mb-4 border border-gray-200 dark:border-gray-600">
+                        <h3 className="font-medium text-gray-900 dark:text-white mb-3">Create New Habit Set</h3>
+                        <div className="space-y-3">
+                          <div>
+                            <label htmlFor="setName" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                              Name
+                            </label>
+                            <input
+                              type="text"
+                              id="setName"
+                              value={newSetName}
+                              onChange={(e) => setNewSetName(e.target.value)}
+                              className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-800 dark:text-white"
+                              placeholder="e.g., Morning Routine"
+                            />
+                          </div>
+                          <div>
+                            <label htmlFor="setDescription" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                              Description (optional)
+                            </label>
+                            <textarea
+                              id="setDescription"
+                              value={newSetDescription}
+                              onChange={(e) => setNewSetDescription(e.target.value)}
+                              className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-800 dark:text-white"
+                              placeholder="e.g., Habits to start my day right"
+                              rows={2}
+                            />
+                          </div>
+                          <div className="flex space-x-2 pt-2">
+                            <button
+                              onClick={handleCreateSet}
+                              className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-4 rounded-md transition-colors"
+                            >
+                              Create Set
+                            </button>
+                            <button
+                              onClick={() => {
+                                setShowNewSetForm(false);
+                                setNewSetName('');
+                                setNewSetDescription('');
+                              }}
+                              className="py-2 px-4 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    
                     {habitSets.map((set) => (
                       <div 
                         key={set.id}
