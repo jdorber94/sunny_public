@@ -26,7 +26,7 @@ import {
 } from '@/lib/firestoreService';
 import HabitSetManager from './HabitSetManager';
 import { toast } from 'react-hot-toast';
-import { collection, writeBatch, getDocs, doc, serverTimestamp, setDoc, deleteDoc, updateDoc } from 'firebase/firestore';
+import { collection, writeBatch, getDocs, doc, serverTimestamp, setDoc, deleteDoc, updateDoc, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
 // Constants
@@ -148,25 +148,41 @@ export default function HabitTracker() {
     
     // Clean up previous subscription if it exists
     if (habitsUnsubscribeRef.current) {
+      console.log("Cleaning up previous habits subscription");
       habitsUnsubscribeRef.current();
+      habitsUnsubscribeRef.current = null;
     }
     
     // Subscribe to habits for this specific set
-    const unsubscribe = subscribeToHabitsInSet(userId, activeSetId, (firestoreHabits) => {
-      console.log(`Received ${firestoreHabits.length} habits for set ${activeSetId}`);
+    const habitsCollectionRef = collection(db, 'users', userId, 'habitSets', activeSetId, 'habits');
+    
+    console.log(`Setting up onSnapshot for habits collection: users/${userId}/habitSets/${activeSetId}/habits`);
+    
+    const unsubscribe = onSnapshot(habitsCollectionRef, (querySnapshot) => {
+      console.log(`Received snapshot with ${querySnapshot.size} habits for set ${activeSetId}`);
+      
+      const firestoreHabits: Habit[] = [];
+      querySnapshot.forEach((doc) => {
+        const habitData = doc.data() as Habit;
+        firestoreHabits.push(habitData);
+      });
       
       // Only update if we actually got habits or if we have no habits
       // This prevents clearing habits when there's a temporary network issue
       if (firestoreHabits.length > 0 || habits.length === 0) {
+        console.log(`Updating habits state with ${firestoreHabits.length} habits`);
         setHabits(firestoreHabits);
         // Also update localStorage
         localStorage.setItem('habits', JSON.stringify(firestoreHabits));
       } else {
         console.log(`No habits received for set ${activeSetId}, keeping current habits`);
       }
+    }, (error) => {
+      console.error(`Error in habits subscription for set ${activeSetId}:`, error);
     });
     
     habitsUnsubscribeRef.current = unsubscribe;
+    return unsubscribe;
   };
 
   // Function to directly save habits to a specific set
@@ -208,7 +224,15 @@ export default function HabitTracker() {
       return;
     }
 
+    // Don't do anything if we're already on this set
+    if (activeHabitSetState?.id === setId) {
+      console.log(`Already on habit set ${setName}, no need to switch`);
+      return;
+    }
+
     try {
+      console.log(`Switching to habit set: ${setId} - ${setName}`);
+      
       // Show loading state
       toast.success(`Switching to ${setName}...`);
       
@@ -255,19 +279,20 @@ export default function HabitTracker() {
         name: setName
       });
       
-      // 7. Load habits from the new set
-      const habitsRef = collection(db, 'users', user.uid, 'habitSets', setId, 'habits');
-      const habitsSnapshot = await getDocs(habitsRef);
+      // 7. Clear current habits
+      setHabits([]);
       
-      const newHabits: Habit[] = [];
-      habitsSnapshot.forEach(doc => {
-        newHabits.push(doc.data() as Habit);
-      });
+      // 8. Subscribe to habits from the new set
+      if (habitsUnsubscribeRef.current) {
+        console.log("Unsubscribing from previous habits subscription");
+        habitsUnsubscribeRef.current();
+      }
       
-      // 8. Update local habits state
-      setHabits(newHabits);
+      // 9. Subscribe to habits for the new set
+      console.log(`Subscribing to habits for set: ${setId}`);
+      subscribeToActiveSetHabits(user.uid, setId);
       
-      console.log(`Successfully switched to set ${setName} with ${newHabits.length} habits`);
+      console.log(`Successfully switched to set ${setName}`);
       toast.success(`Switched to ${setName}`);
     } catch (error) {
       console.error("Error switching habit set:", error);
