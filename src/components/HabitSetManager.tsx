@@ -77,14 +77,14 @@ export default function HabitSetManager() {
       // Check if user can create more sets
       const canCreate = await canCreateHabitSet(user.uid);
       if (!canCreate) {
-        toast.error('You need to upgrade to premium to create more habit sets');
+        toast.error('You need to upgrade to premium to create more than 2 habit sets');
         return;
       }
       
       const newSet: Omit<HabitSet, 'id'> = {
         name: newSetName.trim(),
         description: newSetDescription.trim(),
-        isPremium: habitSets.length > 0, // First set is free, others are premium
+        isPremium: habitSets.length > 1, // First two sets are free, others are premium
         isActive: habitSets.length === 0, // First set is active by default
       };
       
@@ -210,7 +210,7 @@ export default function HabitSetManager() {
                 <SparklesIcon className="w-5 h-5 text-yellow-500 flex-shrink-0" />
                 <div>
                   <p className="text-sm text-yellow-700 dark:text-yellow-300">
-                    Upgrade to premium to create more habit sets!
+                    Upgrade to premium to create more than 2 habit sets!
                   </p>
                   <Link
                     href="/premium"

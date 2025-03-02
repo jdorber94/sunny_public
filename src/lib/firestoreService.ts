@@ -366,15 +366,15 @@ export const initializeDefaultHabitSet = async (userId: string) => {
 // Check if a user can create a new habit set (based on premium status)
 export const canCreateHabitSet = async (userId: string): Promise<boolean> => {
   try {
-    // Get user profile to check premium status
+    // Check if user is premium
     const userProfile = await getUserProfile(userId);
-    if (userProfile?.isPremium) {
-      return true; // Premium users can create unlimited sets
-    }
+    const isPremium = userProfile?.isPremium || false;
     
-    // Non-premium users can only have one set
+    // Get current habit sets
     const habitSets = await getHabitSets(userId);
-    return habitSets.length < 1;
+    
+    // Free users can have up to 2 habit sets, premium users can have unlimited
+    return isPremium || habitSets.length < 2;
   } catch (error) {
     console.error('Error checking if user can create habit set:', error);
     return false;
