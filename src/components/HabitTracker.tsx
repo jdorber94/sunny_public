@@ -20,7 +20,9 @@ import {
   HabitSet,
   subscribeToHabitSets,
   createHabitSet,
-  subscribeToHabitsInSet
+  subscribeToHabitsInSet,
+  saveHabitsToSet,
+  getHabitsFromSet
 } from '@/lib/firestoreService';
 import HabitSetManager from './HabitSetManager';
 import { toast } from 'react-hot-toast';
@@ -116,12 +118,50 @@ export default function HabitTracker() {
     habitsUnsubscribeRef.current = unsubscribe;
   };
 
+  // Function to directly save habits to a specific set
+  const saveHabitsToCurrentSet = async () => {
+    if (!user || !activeHabitSetState || habits.length === 0) return;
+    
+    try {
+      console.log(`Directly saving ${habits.length} habits to set ${activeHabitSetState.id}`);
+      const success = await saveHabitsToSet(user.uid, activeHabitSetState.id, habits);
+      if (success) {
+        console.log(`Successfully saved habits to set ${activeHabitSetState.id}`);
+      } else {
+        console.error(`Failed to save habits to set ${activeHabitSetState.id}`);
+      }
+    } catch (error) {
+      console.error('Error saving habits to current set:', error);
+    }
+  };
+
+  // Function to load habits from a specific set
+  const loadHabitsFromSet = async (setId: string) => {
+    if (!user) return;
+    
+    try {
+      console.log(`Directly loading habits from set ${setId}`);
+      const loadedHabits = await getHabitsFromSet(user.uid, setId);
+      console.log(`Loaded ${loadedHabits.length} habits from set ${setId}`);
+      setHabits(loadedHabits);
+      localStorage.setItem('habits', JSON.stringify(loadedHabits));
+    } catch (error) {
+      console.error(`Error loading habits from set ${setId}:`, error);
+    }
+  };
+
   // Handle switching to a different habit set
   const handleSwitchHabitSet = async (setId: string, setName: string) => {
     if (!user) return;
     
     try {
       console.log(`Switching to habit set ${setId} (${setName})`);
+      
+      // Save current habits to the current set before switching
+      if (activeHabitSetState) {
+        console.log(`Saving current habits to set ${activeHabitSetState.id} before switching`);
+        await saveHabitsToSet(user.uid, activeHabitSetState.id, habits);
+      }
       
       // Clear current habits immediately to avoid showing previous set's habits
       setHabits([]);
@@ -135,7 +175,10 @@ export default function HabitTracker() {
         name: setName
       });
       
-      // Subscribe to habits for this set
+      // Load habits for the new set
+      await loadHabitsFromSet(setId);
+      
+      // Subscribe to habits for this set for real-time updates
       subscribeToActiveSetHabits(user.uid, setId);
       
       toast.success(`Switched to habit set: ${setName}`);
@@ -275,8 +318,10 @@ export default function HabitTracker() {
     
     // Save to Firestore if user is authenticated
     if (user && activeHabitSetState) {
-      console.log(`Saving habits to active set ${activeHabitSetState.id}`);
-      await saveHabits(user.uid, updatedHabits);
+      console.log(`Saving habits to active set ${activeHabitSetState.id} after adding new habit`);
+      await saveHabitsToSet(user.uid, activeHabitSetState.id, updatedHabits);
+      // Also save directly to ensure persistence
+      await saveHabitsToCurrentSet();
     }
   };
 
@@ -291,7 +336,9 @@ export default function HabitTracker() {
     // Save to Firestore if user is authenticated
     if (user && activeHabitSetState) {
       console.log(`Saving updated habits to active set ${activeHabitSetState.id} after deletion`);
-      await saveHabits(user.uid, updatedHabits);
+      await saveHabitsToSet(user.uid, activeHabitSetState.id, updatedHabits);
+      // Also save directly to ensure persistence
+      await saveHabitsToCurrentSet();
     }
   };
 
@@ -365,8 +412,10 @@ export default function HabitTracker() {
     // Save to Firestore if user is authenticated
     if (user && activeHabitSetState) {
       console.log(`Saving updated habits to active set ${activeHabitSetState.id} after completion toggle`);
-      await saveHabits(user.uid, updatedHabits);
+      await saveHabitsToSet(user.uid, activeHabitSetState.id, updatedHabits);
       await saveUserStats(user.uid, updatedStats);
+      // Also save directly to ensure persistence
+      await saveHabitsToCurrentSet();
     }
   };
 
@@ -397,6 +446,12 @@ export default function HabitTracker() {
     }
     
     try {
+      // Save current habits to the current set before creating a new one
+      if (activeHabitSetState && habits.length > 0) {
+        console.log(`Saving current habits to set ${activeHabitSetState.id} before creating new set`);
+        await saveHabitsToSet(user.uid, activeHabitSetState.id, habits);
+      }
+      
       const newSet: Omit<HabitSet, 'id'> = {
         name: newSetName.trim(),
         description: newSetDescription.trim(),
@@ -422,12 +477,37 @@ export default function HabitTracker() {
         
         // Switch to the new set
         await handleSwitchHabitSet(createdSet.id, createdSet.name);
+        
+        // Initialize with empty habits array
+        await saveHabitsToSet(user.uid, createdSet.id, []);
       }
     } catch (error) {
       console.error('Error creating habit set:', error);
       toast.error('Failed to create habit set');
     }
   };
+
+  // Save habits whenever they change
+  useEffect(() => {
+    if (user && activeHabitSetState && habits.length > 0) {
+      console.log(`Auto-saving ${habits.length} habits to set ${activeHabitSetState.id} due to habit change`);
+      const saveTimer = setTimeout(() => {
+        saveHabitsToSet(user.uid, activeHabitSetState.id, habits)
+          .then(success => {
+            if (success) {
+              console.log(`Auto-save successful for set ${activeHabitSetState.id}`);
+            } else {
+              console.error(`Auto-save failed for set ${activeHabitSetState.id}`);
+            }
+          })
+          .catch(error => {
+            console.error('Error during auto-save:', error);
+          });
+      }, 1000); // Debounce for 1 second
+      
+      return () => clearTimeout(saveTimer);
+    }
+  }, [habits, user, activeHabitSetState]);
 
   return (
     <div className="max-w-4xl mx-auto p-4">
