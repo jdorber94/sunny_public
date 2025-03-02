@@ -347,7 +347,29 @@ export default function HabitTracker() {
       
       // Subscribe to habit sets
       const habitSetsUnsubscribe = subscribeToHabitSets(user.uid, (sets) => {
-        console.log(`Received ${sets.length} habit sets`);
+        console.log(`Received ${sets.length} habit sets from Firestore`);
+        
+        // Find the active set
+        const activeSet = sets.find(set => set.isActive);
+        
+        if (activeSet) {
+          console.log(`Found active set: ${activeSet.id} - ${activeSet.name}`);
+          
+          // Update active habit set state
+          setActiveHabitSetState({
+            id: activeSet.id,
+            name: activeSet.name
+          });
+          
+          // Load habits from the active set
+          loadHabitsFromSet(activeSet.id);
+        } else if (sets.length > 0) {
+          // If no active set but sets exist, set the first one as active
+          console.log(`No active set found. Setting first set as active: ${sets[0].id}`);
+          handleSwitchHabitSet(sets[0].id, sets[0].name);
+        }
+        
+        // Update habit sets state
         setHabitSets(sets);
       });
       
@@ -593,11 +615,14 @@ export default function HabitTracker() {
     }
 
     try {
+      console.log("Starting to create new habit set:", newSetName);
       toast.success("Creating new habit set...");
       
       // 1. Get all habit sets to find the current active one
       const habitSetsRef = collection(db, 'users', user.uid, 'habitSets');
       const habitSetsSnapshot = await getDocs(habitSetsRef);
+      
+      console.log(`Found ${habitSetsSnapshot.size} existing habit sets`);
       
       // Find the currently active set
       let currentActiveSetId = null;
@@ -605,6 +630,7 @@ export default function HabitTracker() {
         const setData = doc.data();
         if (setData.isActive) {
           currentActiveSetId = doc.id;
+          console.log(`Found active set: ${doc.id}`);
         }
       });
       
@@ -623,21 +649,27 @@ export default function HabitTracker() {
       
       // 4. Create the new set
       const newSetRef = doc(collection(db, 'users', user.uid, 'habitSets'));
+      console.log(`Creating new set with ID: ${newSetRef.id}`);
+      
       const newSetData = {
         name: newSetName.trim(),
-        description: newSetDescription.trim() || undefined,
+        description: newSetDescription.trim() || "",
         isActive: true,
         isPremium: false,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       };
       
+      console.log("New set data:", newSetData);
       batch.set(newSetRef, newSetData);
       
       // 5. Commit all changes in one transaction
+      console.log("Committing batch...");
       await batch.commit();
+      console.log("Batch committed successfully");
       
       // 6. Update local state
+      console.log("Updating local state...");
       setActiveHabitSetState({
         id: newSetRef.id,
         name: newSetName.trim()
@@ -655,6 +687,7 @@ export default function HabitTracker() {
         isPremium: false
       };
       
+      console.log("Adding new set to local state:", newSetWithId);
       setHabitSets(prevSets => [...prevSets, newSetWithId]);
       
       // 9. Reset form and close modal
@@ -818,14 +851,31 @@ export default function HabitTracker() {
       {/* Debug Button - Only visible in development */}
       {process.env.NODE_ENV === 'development' && (
         <div className="mb-4 p-2 bg-yellow-100 border border-yellow-300 rounded-md">
-          <button 
-            onClick={debugHabitSets}
-            className="w-full py-2 px-4 bg-yellow-500 hover:bg-yellow-600 text-white font-medium rounded-md"
-          >
-            Debug Habit Sets
-          </button>
+          <div className="flex space-x-2">
+            <button 
+              onClick={debugHabitSets}
+              className="flex-1 py-2 px-4 bg-yellow-500 hover:bg-yellow-600 text-white font-medium rounded-md"
+            >
+              Debug Habit Sets
+            </button>
+            <button 
+              onClick={() => {
+                console.log("Direct create set button clicked");
+                const testSetName = "Test Set " + new Date().toLocaleTimeString();
+                setNewSetName(testSetName);
+                setNewSetDescription("Created via debug button");
+                setTimeout(() => {
+                  console.log("Calling handleCreateSet with:", testSetName);
+                  handleCreateSet();
+                }, 100);
+              }}
+              className="flex-1 py-2 px-4 bg-green-500 hover:bg-green-600 text-white font-medium rounded-md"
+            >
+              Create Test Set
+            </button>
+          </div>
           <p className="text-xs text-yellow-800 mt-1">
-            This button will inspect and fix issues with habit sets and habits
+            These buttons will help debug habit set issues
           </p>
         </div>
       )}
@@ -1087,7 +1137,10 @@ export default function HabitTracker() {
                 Cancel
               </button>
               <button
-                onClick={handleCreateSet}
+                onClick={() => {
+                  console.log("Create button clicked");
+                  handleCreateSet();
+                }}
                 disabled={!newSetName.trim()}
                 className={`px-4 py-2 rounded-md text-white font-medium ${
                   !newSetName.trim()
