@@ -275,51 +275,75 @@ export default function HabitTracker() {
     }
   };
 
-  // Initialize habits from localStorage or Firestore
+  // Effect to initialize data
   useEffect(() => {
-    // Initialize habits from localStorage
-    if (typeof window !== 'undefined') {
+    console.log("Initializing HabitTracker component...");
+    
+    // Initialize from localStorage if not authenticated
+    if (!user) {
+      console.log("No user authenticated, loading from localStorage");
       const savedHabits = localStorage.getItem('habits');
+      const savedStats = localStorage.getItem('habitStats');
+      
       if (savedHabits) {
         setHabits(JSON.parse(savedHabits));
       }
       
-      const savedStats = localStorage.getItem('habitStats');
       if (savedStats) {
+        setStats(JSON.parse(savedStats));
+        
+        // Calculate level
         const parsedStats = JSON.parse(savedStats);
-        
-        // Reset daily XP if it's a new day
-        const today = new Date().toISOString().split('T')[0];
-        if (parsedStats.dailyXP.date !== today) {
-          parsedStats.dailyXP = { date: today, xp: 0 };
-        }
-        
-        setStats(parsedStats);
-        setCurrentLevel(calculateLevel(parsedStats.totalXP));
-        setPreviousLevel(calculateLevel(parsedStats.totalXP));
+        const level = calculateLevel(parsedStats.totalXP);
+        setCurrentLevel(level);
       }
     }
     
     // If user is authenticated, subscribe to Firestore data
     if (user) {
-      // Get active habit set
-      getActiveHabitSet(user.uid).then(habitSet => {
-        if (habitSet) {
-          console.log(`Found active habit set: ${habitSet.id} (${habitSet.name})`);
+      console.log(`User authenticated: ${user.uid}, loading from Firestore`);
+      
+      // Subscribe to habit sets first
+      const habitSetsUnsubscribe = subscribeToHabitSets(user.uid, (sets) => {
+        console.log(`Received ${sets.length} habit sets from Firestore`);
+        
+        // Update habit sets state
+        setHabitSets(sets);
+        
+        // Find the active set
+        const activeSet = sets.find(set => set.isActive);
+        
+        if (activeSet) {
+          console.log(`Found active set: ${activeSet.id} - ${activeSet.name}`);
+          
+          // Update active habit set state
           setActiveHabitSetState({
-            id: habitSet.id,
-            name: habitSet.name
+            id: activeSet.id,
+            name: activeSet.name
           });
           
-          // Subscribe to habits for this set
-          subscribeToActiveSetHabits(user.uid, habitSet.id);
+          // Load habits from the active set
+          subscribeToActiveSetHabits(user.uid, activeSet.id);
+        } else if (sets.length > 0) {
+          // If no active set but sets exist, set the first one as active
+          console.log(`No active set found but ${sets.length} sets exist. Setting first set as active: ${sets[0].id}`);
+          handleSwitchHabitSet(sets[0].id, sets[0].name);
         } else {
-          console.log('No active habit set found');
-          // Clear habits if no active set
-          setHabits([]);
-          localStorage.removeItem('habits');
+          console.log('No habit sets found. Creating a default set...');
+          // Create a default set if none exist
+          const defaultSetName = "My Habits";
+          setNewSetName(defaultSetName);
+          setNewSetDescription("Your default habit set");
+          
+          // Use setTimeout to ensure state is updated before creating the set
+          setTimeout(() => {
+            console.log("Creating default habit set");
+            handleCreateSet();
+          }, 100);
         }
       });
+      
+      habitSetsUnsubscribeRef.current = habitSetsUnsubscribe;
       
       // Subscribe to user stats
       const statsUnsubscribe = subscribeToUserStats(user.uid, (firestoreStats) => {
@@ -350,36 +374,6 @@ export default function HabitTracker() {
       });
       
       statsUnsubscribeRef.current = statsUnsubscribe;
-      
-      // Subscribe to habit sets
-      const habitSetsUnsubscribe = subscribeToHabitSets(user.uid, (sets) => {
-        console.log(`Received ${sets.length} habit sets from Firestore`);
-        
-        // Find the active set
-        const activeSet = sets.find(set => set.isActive);
-        
-        if (activeSet) {
-          console.log(`Found active set: ${activeSet.id} - ${activeSet.name}`);
-          
-          // Update active habit set state
-          setActiveHabitSetState({
-            id: activeSet.id,
-            name: activeSet.name
-          });
-          
-          // Load habits from the active set
-          loadHabitsFromSet(activeSet.id);
-        } else if (sets.length > 0) {
-          // If no active set but sets exist, set the first one as active
-          console.log(`No active set found. Setting first set as active: ${sets[0].id}`);
-          handleSwitchHabitSet(sets[0].id, sets[0].name);
-        }
-        
-        // Update habit sets state
-        setHabitSets(sets);
-      });
-      
-      habitSetsUnsubscribeRef.current = habitSetsUnsubscribe;
     }
     
     return () => {
