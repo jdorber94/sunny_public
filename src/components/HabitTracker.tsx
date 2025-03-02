@@ -491,42 +491,22 @@ export default function HabitTracker() {
     }
 
     try {
-      console.log(`Adding new habit "${newHabitName}" to set: ${activeHabitSetState.id}`);
-      
       // Generate a unique ID for the new habit
       const habitId = Date.now();
       console.log(`Generated habit ID: ${habitId}`);
       
-      // Create the new habit object with proper typing
-      const newHabitObj = {
+      // Create the new habit object
+      const newHabit: Habit = {
         id: habitId,
         name: newHabitName.trim(),
-        logs: [] as string[],
+        logs: [],
         xp: 0
       };
       
-      console.log("New habit object:", newHabitObj);
+      console.log("New habit object:", newHabit);
       
-      // Update local state immediately for instant feedback
-      console.log("Updating local state with new habit");
-      setHabits(prevHabits => {
-        const updatedHabits = [...prevHabits, newHabitObj as Habit];
-        console.log("Updated habits array:", updatedHabits);
-        return updatedHabits;
-      });
-      setNewHabitName("");
-      
-      console.log(`Preparing to save habit to Firestore in set: ${activeHabitSetState.id}`);
-      
-      // Firestore object with timestamps
-      const firestoreHabitObj = {
-        ...newHabitObj,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
-      };
-      
-      // Save directly to Firestore
-      const habitRef = doc(
+      // Create the Firestore document reference
+      const habitDocRef = doc(
         db, 
         'users', 
         user.uid, 
@@ -536,18 +516,34 @@ export default function HabitTracker() {
         habitId.toString()
       );
       
-      console.log(`Saving habit to Firestore at path: users/${user.uid}/habitSets/${activeHabitSetState.id}/habits/${habitId}`);
-      await setDoc(habitRef, firestoreHabitObj);
+      // Create the Firestore object with timestamps
+      const firestoreHabit = {
+        ...newHabit,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      };
       
-      console.log(`Successfully saved habit to Firestore`);
-      toast.success(`Added habit: ${newHabitName}`);
+      console.log(`Saving habit to Firestore at path: users/${user.uid}/habitSets/${activeHabitSetState.id}/habits/${habitId}`);
+      
+      // Save to Firestore
+      await setDoc(habitDocRef, firestoreHabit);
+      
+      console.log("Successfully saved habit to Firestore");
+      
+      // Update local state after successful Firestore save
+      setHabits(prevHabits => {
+        const updatedHabits = [...prevHabits, newHabit];
+        console.log("Updated habits array:", updatedHabits);
+        return updatedHabits;
+      });
+      
+      // Clear the input field
+      setNewHabitName("");
+      
+      toast.success(`Added habit: ${newHabit.name}`);
     } catch (error) {
       console.error("Error adding habit:", error);
       toast.error("Failed to add habit");
-      
-      // Revert local state if Firestore save fails
-      console.log("Reverting local state due to error");
-      setHabits(prevHabits => prevHabits.filter(h => h.id !== Date.now()));
     }
   };
 
@@ -592,12 +588,16 @@ export default function HabitTracker() {
 
   // Toggle habit completion for today
   const toggleHabitCompletion = async (id: number) => {
+    console.log(`=== TOGGLE HABIT COMPLETION CALLED FOR ID: ${id} ===`);
+    
     if (!user) {
+      console.log("Error: No user authenticated");
       toast.error("You must be logged in to update habits");
       return;
     }
     
     if (!activeHabitSetState || !activeHabitSetState.id) {
+      console.log("Error: No active habit set found");
       toast.error("No active habit set found");
       return;
     }
@@ -606,60 +606,75 @@ export default function HabitTracker() {
       // Find the habit
       const habitIndex = habits.findIndex(h => h.id === id);
       if (habitIndex === -1) {
+        console.log(`Error: Habit with ID ${id} not found`);
         toast.error("Habit not found");
         return;
       }
       
       const habit = habits[habitIndex];
+      console.log("Found habit:", habit);
+      
       const today = new Date().toISOString().split('T')[0];
+      console.log(`Today's date: ${today}`);
       
       // Check if already completed today
       const isCompletedToday = habit.logs.includes(today);
+      console.log(`Habit is completed today: ${isCompletedToday}`);
       
-      // Update the habit
+      // Create a copy of the habit to update
       const updatedHabit = { ...habit };
       
+      // Update logs and XP
       if (isCompletedToday) {
-        // Remove today's date
+        // Remove today's log
         updatedHabit.logs = habit.logs.filter(date => date !== today);
-        updatedHabit.xp = Math.max(0, (habit.xp || 0) - 10); // Subtract XP, minimum 0
+        updatedHabit.xp = Math.max(0, habit.xp - 10); // Subtract XP, minimum 0
+        console.log("Removing today's completion and reducing XP");
       } else {
-        // Add today's date
+        // Add today's log
         updatedHabit.logs = [...habit.logs, today];
-        updatedHabit.xp = (habit.xp || 0) + 10; // Add XP
+        updatedHabit.xp = habit.xp + 10; // Add XP
+        console.log("Adding today's completion and increasing XP");
       }
+      
+      console.log("Updated habit:", updatedHabit);
       
       // Update local state immediately for instant feedback
       const updatedHabits = [...habits];
       updatedHabits[habitIndex] = updatedHabit;
       setHabits(updatedHabits);
       
-      // Update user stats immediately
-      const newXP = isCompletedToday 
-        ? Math.max(0, stats.totalXP - 10) 
-        : stats.totalXP + 10;
+      // Update user stats
+      const newStats = { ...stats };
+      if (isCompletedToday) {
+        // Decrease XP
+        newStats.totalXP = Math.max(0, stats.totalXP - 10);
+        newStats.dailyXP.xp = Math.max(0, stats.dailyXP.xp - 10);
+      } else {
+        // Increase XP
+        newStats.totalXP += 10;
+        newStats.dailyXP.xp += 10;
+      }
       
-      const newStats = {
-        ...stats,
-        totalXP: newXP
-      };
-      
+      console.log("Updated stats:", newStats);
       setStats(newStats);
       
       // Check for level up
-      const newLevel = calculateLevel(newXP);
+      const newLevel = calculateLevel(newStats.totalXP);
       if (newLevel > currentLevel) {
         setPreviousLevel(currentLevel);
         setCurrentLevel(newLevel);
         setShowLevelUp(true);
       }
       
-      // Add timestamp for Firestore
-      updatedHabit.updatedAt = serverTimestamp() as any;
-      
-      console.log(`Updating habit ${id} in set: ${activeHabitSetState.id}`);
+      // Create Firestore object with timestamp
+      const firestoreHabit = {
+        ...updatedHabit,
+        updatedAt: serverTimestamp()
+      };
       
       // Update in Firestore
+      console.log(`Updating habit in Firestore at path: users/${user.uid}/habitSets/${activeHabitSetState.id}/habits/${id}`);
       const habitRef = doc(
         db, 
         'users', 
@@ -670,12 +685,15 @@ export default function HabitTracker() {
         id.toString()
       );
       
-      await updateDoc(habitRef, updatedHabit);
+      await updateDoc(habitRef, firestoreHabit);
+      console.log("Successfully updated habit in Firestore");
       
       // Save user stats to Firestore
       if (user) {
+        console.log("Saving updated user stats to Firestore");
         const userStatsRef = doc(db, 'users', user.uid, 'stats', 'userStats');
         await setDoc(userStatsRef, newStats, { merge: true });
+        console.log("Successfully saved user stats to Firestore");
       }
       
       toast.success(isCompletedToday ? "Habit marked as incomplete" : "Habit completed!");
@@ -685,6 +703,7 @@ export default function HabitTracker() {
       
       // Reload habits from Firestore if update fails
       if (activeHabitSetState && activeHabitSetState.id) {
+        console.log("Reloading habits from Firestore due to error");
         loadHabitsFromSet(activeHabitSetState.id);
       }
     }
