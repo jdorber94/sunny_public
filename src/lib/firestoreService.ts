@@ -285,16 +285,20 @@ export const getActiveHabitSet = async (userId: string): Promise<HabitSet | null
 // Save habits to a specific habit set
 export const saveHabitsToSet = async (userId: string, habitSetId: string, habits: Habit[]) => {
   try {
+    console.log(`Starting saveHabitsToSet for user ${userId}, habit set ${habitSetId} with ${habits.length} habits`);
     const batch = writeBatch(db);
     const habitsCollectionRef = getHabitSetHabitsCollectionRef(userId, habitSetId);
     
     // Delete existing habits (we'll replace them all)
+    console.log(`Getting existing habits from set ${habitSetId}`);
     const existingHabits = await getDocs(habitsCollectionRef);
+    console.log(`Found ${existingHabits.size} existing habits, deleting them`);
     existingHabits.forEach((doc) => {
       batch.delete(doc.ref);
     });
     
     // Add new habits
+    console.log(`Adding ${habits.length} new habits to set ${habitSetId}`);
     habits.forEach((habit) => {
       const habitDocRef = doc(habitsCollectionRef, habit.id.toString());
       batch.set(habitDocRef, {
@@ -304,10 +308,17 @@ export const saveHabitsToSet = async (userId: string, habitSetId: string, habits
       });
     });
     
+    console.log(`Committing batch write for habit set ${habitSetId}`);
     await batch.commit();
+    console.log(`Successfully saved ${habits.length} habits to set ${habitSetId}`);
+    
+    // Verify the habits were saved
+    const verifyHabits = await getDocs(habitsCollectionRef);
+    console.log(`Verification: Found ${verifyHabits.size} habits in set ${habitSetId} after save`);
+    
     return true;
   } catch (error) {
-    console.error('Error saving habits to set:', error);
+    console.error(`Error saving habits to set ${habitSetId}:`, error);
     return false;
   }
 };
@@ -389,12 +400,17 @@ export const saveHabits = async (userId: string, habits: Habit[]) => {
     
     if (activeHabitSet) {
       // Save to the active habit set
+      console.log(`Saving ${habits.length} habits to active habit set ${activeHabitSet.id}`);
       return saveHabitsToSet(userId, activeHabitSet.id, habits);
     } else {
       // Create a default habit set and save to it
+      console.log('No active habit set found, creating default habit set');
       const defaultHabitSet = await initializeDefaultHabitSet(userId);
       if (defaultHabitSet) {
+        console.log(`Created default habit set ${defaultHabitSet.id}, saving habits`);
         return saveHabitsToSet(userId, defaultHabitSet.id, habits);
+      } else {
+        console.error('Failed to create default habit set');
       }
     }
     
@@ -408,13 +424,19 @@ export const saveHabits = async (userId: string, habits: Habit[]) => {
 // Get habits from Firestore (legacy function for backward compatibility)
 export const getHabits = async (userId: string): Promise<Habit[]> => {
   try {
+    console.log(`Getting habits for user ${userId}`);
+    
     // Get the active habit set
     const activeHabitSet = await getActiveHabitSet(userId);
     
     if (activeHabitSet) {
+      console.log(`Found active habit set ${activeHabitSet.id}, getting habits from this set`);
       // Get habits from the active habit set
-      return getHabitsFromSet(userId, activeHabitSet.id);
+      const habits = await getHabitsFromSet(userId, activeHabitSet.id);
+      console.log(`Retrieved ${habits.length} habits from active habit set ${activeHabitSet.id}`);
+      return habits;
     } else {
+      console.log(`No active habit set found, checking legacy location`);
       // Try to get habits from the legacy location
       const habitsCollectionRef = getHabitsCollectionRef(userId);
       const querySnapshot = await getDocs(habitsCollectionRef);
@@ -423,6 +445,18 @@ export const getHabits = async (userId: string): Promise<Habit[]> => {
       querySnapshot.forEach((doc) => {
         habits.push(doc.data() as Habit);
       });
+      
+      console.log(`Retrieved ${habits.length} habits from legacy location`);
+      
+      // If we found habits in the legacy location, migrate them to a new habit set
+      if (habits.length > 0) {
+        console.log(`Migrating ${habits.length} habits from legacy location to a new habit set`);
+        const defaultHabitSet = await initializeDefaultHabitSet(userId);
+        if (defaultHabitSet) {
+          console.log(`Created default habit set ${defaultHabitSet.id}, saving migrated habits`);
+          await saveHabitsToSet(userId, defaultHabitSet.id, habits);
+        }
+      }
       
       return habits;
     }
@@ -434,26 +468,57 @@ export const getHabits = async (userId: string): Promise<Habit[]> => {
 
 // Subscribe to habits changes (legacy function for backward compatibility)
 export const subscribeToHabits = (userId: string, callback: (habits: Habit[]) => void) => {
+  console.log(`Setting up subscription to habits for user ${userId}`);
+  
+  // Keep track of the unsubscribe function
+  let unsubscribeFunction: () => void = () => {};
+  
   // First try to get the active habit set
   getActiveHabitSet(userId).then((activeHabitSet) => {
     if (activeHabitSet) {
+      console.log(`Found active habit set ${activeHabitSet.id}, subscribing to habits in this set`);
       // Subscribe to habits in the active habit set
-      return subscribeToHabitsInSet(userId, activeHabitSet.id, callback);
+      unsubscribeFunction = subscribeToHabitsInSet(userId, activeHabitSet.id, (habits) => {
+        console.log(`Received ${habits.length} habits from active habit set ${activeHabitSet.id}`);
+        callback(habits);
+      });
     } else {
+      console.log(`No active habit set found, subscribing to legacy location`);
       // Subscribe to habits in the legacy location
       const habitsCollectionRef = getHabitsCollectionRef(userId);
-      return onSnapshot(habitsCollectionRef, (querySnapshot) => {
+      unsubscribeFunction = onSnapshot(habitsCollectionRef, (querySnapshot) => {
         const habits: Habit[] = [];
         querySnapshot.forEach((doc) => {
           habits.push(doc.data() as Habit);
         });
+        console.log(`Received ${habits.length} habits from legacy location`);
         callback(habits);
+        
+        // If we found habits in the legacy location, migrate them to a new habit set
+        if (habits.length > 0) {
+          console.log(`Migrating ${habits.length} habits from legacy location to a new habit set`);
+          initializeDefaultHabitSet(userId).then(defaultHabitSet => {
+            if (defaultHabitSet) {
+              console.log(`Created default habit set ${defaultHabitSet.id}, saving migrated habits`);
+              saveHabitsToSet(userId, defaultHabitSet.id, habits).then(() => {
+                console.log(`Migration complete, resubscribing to the new habit set`);
+                // Unsubscribe from the legacy location
+                unsubscribeFunction();
+                // Subscribe to the new habit set
+                unsubscribeFunction = subscribeToHabitsInSet(userId, defaultHabitSet.id, callback);
+              });
+            }
+          });
+        }
       });
     }
   });
   
-  // Return a dummy unsubscribe function that will be replaced
-  return () => {};
+  // Return a function that will unsubscribe when called
+  return () => {
+    console.log(`Unsubscribing from habits for user ${userId}`);
+    unsubscribeFunction();
+  };
 };
 
 // Save user stats to Firestore
