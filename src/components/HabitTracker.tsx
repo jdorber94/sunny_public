@@ -15,9 +15,13 @@ import {
   saveUserStats, 
   getUserStats, 
   subscribeToUserStats,
-  getActiveHabitSet
+  getActiveHabitSet,
+  setActiveHabitSet,
+  HabitSet,
+  subscribeToHabitSets
 } from '@/lib/firestoreService';
 import HabitSetManager from './HabitSetManager';
+import { toast } from 'react-hot-toast';
 
 // Constants
 const MAX_HABITS = 5;
@@ -62,6 +66,7 @@ const CheckmarkIcon = ({ checked, onClick }: { checked: boolean; onClick: () => 
 export default function HabitTracker() {
   const { user } = useAuth();
   const [habits, setHabits] = useState<Habit[]>([]);
+  const [habitSets, setHabitSets] = useState<HabitSet[]>([]);
   const [newHabit, setNewHabit] = useState('');
   const [error, setError] = useState('');
   const [stats, setStats] = useState<UserStats>({
@@ -76,6 +81,54 @@ export default function HabitTracker() {
   
   const unsubscribeRef = useRef<(() => void) | null>(null);
   const statsUnsubscribeRef = useRef<(() => void) | null>(null);
+  const habitsUnsubscribeRef = useRef<(() => void) | null>(null);
+  const habitSetsUnsubscribeRef = useRef<(() => void) | null>(null);
+
+  // Function to subscribe to habits for the current active habit set
+  const subscribeToActiveSetHabits = (userId: string) => {
+    console.log(`Subscribing to habits for user ${userId}`);
+    
+    // Clean up previous subscription if it exists
+    if (habitsUnsubscribeRef.current) {
+      habitsUnsubscribeRef.current();
+    }
+    
+    // Subscribe to habits for this specific set
+    const unsubscribe = subscribeToHabits(userId, (firestoreHabits) => {
+      console.log(`Received ${firestoreHabits.length} habits`);
+      setHabits(firestoreHabits);
+      // Also update localStorage
+      localStorage.setItem('habits', JSON.stringify(firestoreHabits));
+    });
+    
+    habitsUnsubscribeRef.current = unsubscribe;
+  };
+
+  // Handle switching to a different habit set
+  const handleSwitchHabitSet = async (setId: string, setName: string) => {
+    if (!user) return;
+    
+    try {
+      console.log(`Switching to habit set ${setId} (${setName})`);
+      
+      // Set this set as active in Firestore
+      await setActiveHabitSet(user.uid, setId);
+      
+      // Update local state
+      setActiveHabitSet({
+        id: setId,
+        name: setName
+      });
+      
+      // Subscribe to habits for this set
+      subscribeToActiveSetHabits(user.uid);
+      
+      toast.success(`Switched to habit set: ${setName}`);
+    } catch (error) {
+      console.error('Error switching habit set:', error);
+      toast.error('Failed to switch habit set');
+    }
+  };
 
   // Initialize habits from localStorage or Firestore
   useEffect(() => {
@@ -107,23 +160,20 @@ export default function HabitTracker() {
       // Get active habit set
       getActiveHabitSet(user.uid).then(habitSet => {
         if (habitSet) {
+          console.log(`Found active habit set: ${habitSet.id} (${habitSet.name})`);
           setActiveHabitSet({
             id: habitSet.id,
             name: habitSet.name
           });
+          
+          // Subscribe to habits for this set
+          subscribeToActiveSetHabits(user.uid);
+        } else {
+          console.log('No active habit set found');
+          // Clear habits if no active set
+          setHabits([]);
         }
       });
-      
-      // Subscribe to habits
-      const unsubscribe = subscribeToHabits(user.uid, (firestoreHabits) => {
-        if (firestoreHabits.length > 0) {
-          setHabits(firestoreHabits);
-          // Also update localStorage
-          localStorage.setItem('habits', JSON.stringify(firestoreHabits));
-        }
-      });
-      
-      unsubscribeRef.current = unsubscribe;
       
       // Subscribe to user stats
       const statsUnsubscribe = subscribeToUserStats(user.uid, (firestoreStats) => {
@@ -154,18 +204,29 @@ export default function HabitTracker() {
       });
       
       statsUnsubscribeRef.current = statsUnsubscribe;
+      
+      // Subscribe to habit sets
+      const habitSetsUnsubscribe = subscribeToHabitSets(user.uid, (sets) => {
+        console.log(`Received ${sets.length} habit sets`);
+        setHabitSets(sets);
+      });
+      
+      habitSetsUnsubscribeRef.current = habitSetsUnsubscribe;
     }
     
     return () => {
       // Cleanup subscriptions
-      if (unsubscribeRef.current) {
-        unsubscribeRef.current();
+      if (habitsUnsubscribeRef.current) {
+        habitsUnsubscribeRef.current();
       }
       if (statsUnsubscribeRef.current) {
         statsUnsubscribeRef.current();
       }
+      if (habitSetsUnsubscribeRef.current) {
+        habitSetsUnsubscribeRef.current();
+      }
     };
-  }, [user, currentLevel]);
+  }, [user]);
 
   // Add a new habit
   const addHabit = async () => {
@@ -362,13 +423,86 @@ export default function HabitTracker() {
               Active Set: {activeHabitSet.name}
             </span>
           </div>
+          <button
+            onClick={() => setShowHabitSetManager(!showHabitSetManager)}
+            className="text-sm text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300"
+          >
+            {showHabitSetManager ? 'Hide Sets' : 'Show Sets'}
+          </button>
         </div>
       )}
       
       {/* Habit Set Manager */}
       {showHabitSetManager && (
         <div className="mb-6 h-[500px] border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-          <HabitSetManager />
+          <div className="h-full">
+            {/* Custom Habit Set Manager with Switch Functionality */}
+            <div className="bg-white dark:bg-gray-800 h-full overflow-auto">
+              <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 className="font-semibold text-gray-800 dark:text-white">
+                  Your Habit Sets
+                </h2>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Each set can have up to {MAX_HABITS} habits
+                </p>
+              </div>
+              
+              <div className="p-4 space-y-3">
+                {user && (
+                  <>
+                    {habitSets.map((set) => (
+                      <div 
+                        key={set.id}
+                        className={`p-3 rounded-lg border ${
+                          set.isActive 
+                            ? 'bg-indigo-50 border-indigo-200 dark:bg-indigo-900/20 dark:border-indigo-800' 
+                            : 'bg-white border-gray-200 dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'
+                        }`}
+                      >
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <h3 className="font-medium text-gray-900 dark:text-white flex items-center">
+                              {set.name}
+                              {set.isPremium && (
+                                <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
+                                  Premium
+                                </span>
+                              )}
+                            </h3>
+                            {set.description && (
+                              <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+                                {set.description}
+                              </p>
+                            )}
+                          </div>
+                          
+                          {set.isActive ? (
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                              Active
+                            </span>
+                          ) : (
+                            <button
+                              onClick={() => handleSwitchHabitSet(set.id, set.name)}
+                              className="px-3 py-1 text-sm bg-indigo-600 hover:bg-indigo-700 text-white rounded-md transition-colors"
+                            >
+                              Switch to this set
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                    
+                    {habitSets.length === 0 && (
+                      <div className="text-center p-6 text-gray-500 dark:text-gray-400">
+                        <p>You don't have any habit sets yet.</p>
+                        <p className="mt-1">Create one to get started!</p>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
       )}
       
