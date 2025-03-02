@@ -130,6 +130,12 @@ export default function HabitTracker() {
   const [newSetDescription, setNewSetDescription] = useState('');
   const [showCreateSetModal, setShowCreateSetModal] = useState(false);
   const [canCreateHabitSet, setCanCreateHabitSet] = useState(true);
+  const [showEditSetModal, setShowEditSetModal] = useState(false);
+  const [editSetId, setEditSetId] = useState('');
+  const [editSetName, setEditSetName] = useState('');
+  const [editSetDescription, setEditSetDescription] = useState('');
+  const [showDeleteSetModal, setShowDeleteSetModal] = useState(false);
+  const [deleteSetId, setDeleteSetId] = useState('');
   
   const unsubscribeRef = useRef<(() => void) | null>(null);
   const statsUnsubscribeRef = useRef<(() => void) | null>(null);
@@ -419,14 +425,18 @@ export default function HabitTracker() {
         xp: 0
       };
       
+      // Update local state immediately for instant feedback
+      setHabits(prevHabits => [...prevHabits, newHabitObj as Habit]);
+      setNewHabitName("");
+      
+      console.log(`Adding new habit "${newHabitName}" to set: ${activeHabitSetState.id}`);
+      
       // Firestore object with timestamps
       const firestoreHabitObj = {
         ...newHabitObj,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       };
-      
-      console.log(`Adding new habit "${newHabitName}" to set: ${activeHabitSetState.id}`);
       
       // Save directly to Firestore
       const habitRef = doc(
@@ -441,14 +451,13 @@ export default function HabitTracker() {
       
       await setDoc(habitRef, firestoreHabitObj);
       
-      // Update local state with the new habit (properly typed)
-      setHabits([...habits, newHabitObj as Habit]);
-      setNewHabitName("");
-      
       toast.success(`Added habit: ${newHabitName}`);
     } catch (error) {
       console.error("Error adding habit:", error);
       toast.error("Failed to add habit");
+      
+      // Revert local state if Firestore save fails
+      setHabits(prevHabits => prevHabits.filter(h => h.id !== Date.now()));
     }
   };
 
@@ -530,29 +539,12 @@ export default function HabitTracker() {
         updatedHabit.xp = (habit.xp || 0) + 10; // Add XP
       }
       
-      updatedHabit.updatedAt = serverTimestamp() as any;
-      
-      console.log(`Updating habit ${id} in set: ${activeHabitSetState.id}`);
-      
-      // Update in Firestore
-      const habitRef = doc(
-        db, 
-        'users', 
-        user.uid, 
-        'habitSets', 
-        activeHabitSetState.id, 
-        'habits', 
-        id.toString()
-      );
-      
-      await updateDoc(habitRef, updatedHabit);
-      
-      // Update local state
+      // Update local state immediately for instant feedback
       const updatedHabits = [...habits];
       updatedHabits[habitIndex] = updatedHabit;
       setHabits(updatedHabits);
       
-      // Update user stats
+      // Update user stats immediately
       const newXP = isCompletedToday 
         ? Math.max(0, stats.totalXP - 10) 
         : stats.totalXP + 10;
@@ -572,6 +564,24 @@ export default function HabitTracker() {
         setShowLevelUp(true);
       }
       
+      // Add timestamp for Firestore
+      updatedHabit.updatedAt = serverTimestamp() as any;
+      
+      console.log(`Updating habit ${id} in set: ${activeHabitSetState.id}`);
+      
+      // Update in Firestore
+      const habitRef = doc(
+        db, 
+        'users', 
+        user.uid, 
+        'habitSets', 
+        activeHabitSetState.id, 
+        'habits', 
+        id.toString()
+      );
+      
+      await updateDoc(habitRef, updatedHabit);
+      
       // Save user stats to Firestore
       if (user) {
         const userStatsRef = doc(db, 'users', user.uid, 'stats', 'userStats');
@@ -582,6 +592,11 @@ export default function HabitTracker() {
     } catch (error) {
       console.error("Error updating habit:", error);
       toast.error("Failed to update habit");
+      
+      // Reload habits from Firestore if update fails
+      if (activeHabitSetState && activeHabitSetState.id) {
+        loadHabitsFromSet(activeHabitSetState.id);
+      }
     }
   };
 
@@ -838,6 +853,118 @@ export default function HabitTracker() {
     }
   };
 
+  // Function to edit a habit set
+  const handleEditHabitSet = async (setId: string, newName: string, newDescription: string) => {
+    if (!user) {
+      toast.error("You must be logged in to edit habit sets");
+      return;
+    }
+
+    try {
+      console.log(`Editing habit set ${setId} to name: ${newName}`);
+      
+      // Update in Firestore
+      const setRef = doc(db, 'users', user.uid, 'habitSets', setId);
+      await updateDoc(setRef, { 
+        name: newName.trim(),
+        description: newDescription.trim() || undefined,
+        updatedAt: serverTimestamp()
+      });
+      
+      // Update local state
+      setHabitSets(prevSets => 
+        prevSets.map(set => 
+          set.id === setId 
+            ? { ...set, name: newName.trim(), description: newDescription.trim() || undefined } 
+            : set
+        )
+      );
+      
+      // If this is the active set, update the active set state
+      if (activeHabitSetState && activeHabitSetState.id === setId) {
+        setActiveHabitSetState({
+          id: setId,
+          name: newName.trim()
+        });
+      }
+      
+      toast.success("Habit set updated");
+      setShowEditSetModal(false);
+      setEditSetId("");
+      setEditSetName("");
+      setEditSetDescription("");
+    } catch (error) {
+      console.error("Error editing habit set:", error);
+      toast.error("Failed to edit habit set");
+    }
+  };
+  
+  // Function to delete a habit set
+  const handleDeleteHabitSet = async (setId: string) => {
+    if (!user) {
+      toast.error("You must be logged in to delete habit sets");
+      return;
+    }
+    
+    if (habitSets.length <= 1) {
+      toast.error("You cannot delete your only habit set");
+      return;
+    }
+
+    try {
+      console.log(`Deleting habit set ${setId}`);
+      
+      // Check if this is the active set
+      const isActiveSet = activeHabitSetState && activeHabitSetState.id === setId;
+      
+      // Find another set to make active if we're deleting the active set
+      let newActiveSetId = "";
+      if (isActiveSet) {
+        const otherSet = habitSets.find(set => set.id !== setId);
+        if (otherSet) {
+          newActiveSetId = otherSet.id;
+        }
+      }
+      
+      // Create a batch to handle all operations
+      const batch = writeBatch(db);
+      
+      // Delete the set
+      const setRef = doc(db, 'users', user.uid, 'habitSets', setId);
+      batch.delete(setRef);
+      
+      // If we're deleting the active set, make another set active
+      if (isActiveSet && newActiveSetId) {
+        const newActiveSetRef = doc(db, 'users', user.uid, 'habitSets', newActiveSetId);
+        batch.update(newActiveSetRef, { 
+          isActive: true,
+          updatedAt: serverTimestamp()
+        });
+      }
+      
+      // Commit the batch
+      await batch.commit();
+      
+      // Update local state
+      setHabitSets(prevSets => prevSets.filter(set => set.id !== setId));
+      
+      // If we deleted the active set, switch to the new active set
+      if (isActiveSet && newActiveSetId) {
+        const newActiveSet = habitSets.find(set => set.id === newActiveSetId);
+        if (newActiveSet) {
+          handleSwitchHabitSet(newActiveSetId, newActiveSet.name);
+        }
+      }
+      
+      toast.success("Habit set deleted");
+      setShowDeleteSetModal(false);
+      setDeleteSetId("");
+    } catch (error) {
+      console.error("Error deleting habit set:", error);
+      toast.error("Failed to delete habit set");
+    }
+  };
+
   return (
     <div className="max-w-4xl mx-auto p-4">
       {/* Level Up Celebration */}
@@ -934,13 +1061,43 @@ export default function HabitTracker() {
                 }`}
                 onClick={() => handleSwitchHabitSet(set.id, set.name)}
               >
-                <div className="flex items-center mb-2">
-                  {activeHabitSetState?.id === set.id && (
-                    <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
-                  )}
-                  <h3 className="font-medium text-gray-800 dark:text-white truncate">
-                    {set.name}
-                  </h3>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center">
+                    {activeHabitSetState?.id === set.id && (
+                      <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
+                    )}
+                    <h3 className="font-medium text-gray-800 dark:text-white truncate">
+                      {set.name}
+                    </h3>
+                  </div>
+                  <div className="flex space-x-1">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setEditSetId(set.id);
+                        setEditSetName(set.name);
+                        setEditSetDescription(set.description || '');
+                        setShowEditSetModal(true);
+                      }}
+                      className="text-gray-500 hover:text-indigo-600 dark:text-gray-400 dark:hover:text-indigo-400"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setDeleteSetId(set.id);
+                        setShowDeleteSetModal(true);
+                      }}
+                      className="text-gray-500 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
                 <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
                   {set.description || "No description"}
@@ -1149,6 +1306,98 @@ export default function HabitTracker() {
                 }`}
               >
                 Create
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Edit Set Modal */}
+      {showEditSetModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-6">
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+              Edit Habit Set
+            </h2>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Name
+                </label>
+                <input
+                  type="text"
+                  value={editSetName}
+                  onChange={(e) => setEditSetName(e.target.value)}
+                  className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-800 dark:text-white"
+                  placeholder="My Habit Set"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Description (optional)
+                </label>
+                <textarea
+                  value={editSetDescription}
+                  onChange={(e) => setEditSetDescription(e.target.value)}
+                  className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-800 dark:text-white"
+                  placeholder="What's this habit set for?"
+                  rows={3}
+                />
+              </div>
+            </div>
+            <div className="flex justify-end space-x-3 mt-6">
+              <button
+                onClick={() => {
+                  setShowEditSetModal(false);
+                  setEditSetId('');
+                  setEditSetName('');
+                  setEditSetDescription('');
+                }}
+                className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleEditHabitSet(editSetId, editSetName, editSetDescription)}
+                disabled={!editSetName.trim()}
+                className={`px-4 py-2 rounded-md text-white font-medium ${
+                  !editSetName.trim()
+                    ? 'bg-gray-400 cursor-not-allowed'
+                    : 'bg-indigo-600 hover:bg-indigo-700'
+                }`}
+              >
+                Save Changes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Delete Set Confirmation Modal */}
+      {showDeleteSetModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-6">
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+              Delete Habit Set
+            </h2>
+            <p className="text-gray-600 dark:text-gray-400 mb-4">
+              Are you sure you want to delete this habit set? This action cannot be undone and all habits in this set will be lost.
+            </p>
+            <div className="flex justify-end space-x-3 mt-6">
+              <button
+                onClick={() => {
+                  setShowDeleteSetModal(false);
+                  setDeleteSetId('');
+                }}
+                className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleDeleteHabitSet(deleteSetId)}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-md"
+              >
+                Delete
               </button>
             </div>
           </div>
