@@ -19,7 +19,8 @@ import {
   setActiveHabitSet,
   HabitSet,
   subscribeToHabitSets,
-  createHabitSet
+  createHabitSet,
+  subscribeToHabitsInSet
 } from '@/lib/firestoreService';
 import HabitSetManager from './HabitSetManager';
 import { toast } from 'react-hot-toast';
@@ -89,8 +90,8 @@ export default function HabitTracker() {
   const habitSetsUnsubscribeRef = useRef<(() => void) | null>(null);
 
   // Function to subscribe to habits for the current active habit set
-  const subscribeToActiveSetHabits = (userId: string) => {
-    console.log(`Subscribing to habits for user ${userId}`);
+  const subscribeToActiveSetHabits = (userId: string, activeSetId: string) => {
+    console.log(`Subscribing to habits for set ${activeSetId}`);
     
     // Clean up previous subscription if it exists
     if (habitsUnsubscribeRef.current) {
@@ -98,8 +99,8 @@ export default function HabitTracker() {
     }
     
     // Subscribe to habits for this specific set
-    const unsubscribe = subscribeToHabits(userId, (firestoreHabits) => {
-      console.log(`Received ${firestoreHabits.length} habits`);
+    const unsubscribe = subscribeToHabitsInSet(userId, activeSetId, (firestoreHabits) => {
+      console.log(`Received ${firestoreHabits.length} habits for set ${activeSetId}`);
       setHabits(firestoreHabits);
       // Also update localStorage
       localStorage.setItem('habits', JSON.stringify(firestoreHabits));
@@ -125,7 +126,7 @@ export default function HabitTracker() {
       });
       
       // Subscribe to habits for this set
-      subscribeToActiveSetHabits(user.uid);
+      subscribeToActiveSetHabits(user.uid, setId);
       
       toast.success(`Switched to habit set: ${setName}`);
     } catch (error) {
@@ -171,7 +172,7 @@ export default function HabitTracker() {
           });
           
           // Subscribe to habits for this set
-          subscribeToActiveSetHabits(user.uid);
+          subscribeToActiveSetHabits(user.uid, habitSet.id);
         } else {
           console.log('No active habit set found');
           // Clear habits if no active set
@@ -240,18 +241,20 @@ export default function HabitTracker() {
     }
     
     if (habits.length >= MAX_HABITS) {
-      setError(`You can only track up to ${MAX_HABITS} habits at a time`);
+      setError(`You can only have up to ${MAX_HABITS} habits per set`);
       return;
     }
     
-    const habit: Habit = {
+    // Create a new habit
+    const newHabitObj: Habit = {
       id: Date.now(),
       name: newHabit.trim(),
       logs: [],
       xp: 0
     };
     
-    const updatedHabits = [...habits, habit];
+    // Add to state
+    const updatedHabits = [...habits, newHabitObj];
     setHabits(updatedHabits);
     setNewHabit('');
     setError('');
@@ -260,7 +263,8 @@ export default function HabitTracker() {
     localStorage.setItem('habits', JSON.stringify(updatedHabits));
     
     // Save to Firestore if user is authenticated
-    if (user) {
+    if (user && activeHabitSetState) {
+      console.log(`Saving habits to active set ${activeHabitSetState.id}`);
       await saveHabits(user.uid, updatedHabits);
     }
   };
