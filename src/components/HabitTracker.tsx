@@ -282,7 +282,8 @@ export default function HabitTracker() {
     localStorage.setItem('habits', JSON.stringify(updatedHabits));
     
     // Save to Firestore if user is authenticated
-    if (user) {
+    if (user && activeHabitSetState) {
+      console.log(`Saving updated habits to active set ${activeHabitSetState.id} after deletion`);
       await saveHabits(user.uid, updatedHabits);
     }
   };
@@ -331,6 +332,7 @@ export default function HabitTracker() {
       }
       
       updatedStats = {
+        ...stats,
         totalXP: stats.totalXP + xpChange,
         dailyXP: {
           date: today,
@@ -354,7 +356,8 @@ export default function HabitTracker() {
     localStorage.setItem('habitStats', JSON.stringify(updatedStats));
     
     // Save to Firestore if user is authenticated
-    if (user) {
+    if (user && activeHabitSetState) {
+      console.log(`Saving updated habits to active set ${activeHabitSetState.id} after completion toggle`);
       await saveHabits(user.uid, updatedHabits);
       await saveUserStats(user.uid, updatedStats);
     }

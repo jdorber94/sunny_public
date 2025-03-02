@@ -304,7 +304,7 @@ export const saveHabitsToSet = async (userId: string, habitSetId: string, habits
       batch.set(habitDocRef, {
         ...habit,
         updatedAt: serverTimestamp(),
-        createdAt: serverTimestamp()
+        createdAt: habit.createdAt ? habit.createdAt : serverTimestamp()
       });
     });
     
