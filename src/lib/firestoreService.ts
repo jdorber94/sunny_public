@@ -521,21 +521,21 @@ export const subscribeToUserStats = (userId: string, callback: (stats: UserStats
 // Initialize user data
 export const initializeUserData = async (user: User) => {
   try {
-    // Check if user profile exists
+    // Check if user profile already exists
     const userProfile = await getUserProfile(user.uid);
     
     if (!userProfile) {
-      // Create default user profile
+      // Create default profile
       const defaultProfile: UserProfile = {
-        name: user.displayName || '',
+        name: user.displayName || 'User',
         email: user.email || '',
         avatar: user.photoURL || '',
         level: 1,
         totalXP: 0,
-        daysActive: 1,
-        currentStreak: 1,
-        joinDate: new Date().toISOString(),
-        isPremium: false,
+        daysActive: 0,
+        currentStreak: 0,
+        joinDate: new Date().toISOString().split('T')[0],
+        isPremium: false, // Ensure isPremium is set for all new users
         preferences: {
           notifications: true,
           darkMode: false,
@@ -543,21 +543,10 @@ export const initializeUserData = async (user: User) => {
         }
       };
       
+      // Save profile
       await saveUserProfile(user.uid, defaultProfile);
       
-      // Create default stats
-      const today = new Date().toISOString().split('T')[0];
-      const defaultStats: UserStats = {
-        totalXP: 0,
-        dailyXP: {
-          date: today,
-          xp: 0
-        }
-      };
-      
-      await saveUserStats(user.uid, defaultStats);
-      
-      // Create default habit set
+      // Initialize default habit set
       await initializeDefaultHabitSet(user.uid);
     }
     
