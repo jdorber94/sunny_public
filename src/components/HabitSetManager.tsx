@@ -9,7 +9,8 @@ import {
   updateHabitSet, 
   deleteHabitSet, 
   setActiveHabitSet,
-  canCreateHabitSet
+  canCreateHabitSet,
+  subscribeToHabitSets
 } from '@/lib/firestoreService';
 import { 
   PlusIcon, 
@@ -44,24 +45,21 @@ export default function HabitSetManager() {
       return;
     }
 
-    const loadHabitSets = async () => {
-      setLoading(true);
-      try {
-        const sets = await getHabitSets(user.uid);
-        setHabitSets(sets);
-        
-        // Check if user can create more sets
-        const canCreate = await canCreateHabitSet(user.uid);
-        setCanCreateNewSet(canCreate);
-      } catch (error) {
-        console.error('Error loading habit sets:', error);
-        toast.error('Failed to load habit sets');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadHabitSets();
+    setLoading(true);
+    
+    // Subscribe to habit sets for real-time updates
+    const unsubscribe = subscribeToHabitSets(user.uid, (sets) => {
+      setHabitSets(sets);
+      setLoading(false);
+    });
+    
+    // Check if user can create more sets
+    canCreateHabitSet(user.uid).then(canCreate => {
+      setCanCreateNewSet(canCreate);
+    });
+    
+    // Cleanup subscription on unmount
+    return () => unsubscribe();
   }, [user]);
 
   // Handle creating a new habit set
@@ -88,11 +86,9 @@ export default function HabitSetManager() {
         isActive: habitSets.length === 0, // First set is active by default
       };
       
-      const setId = await createHabitSet(user.uid, newSet);
+      await createHabitSet(user.uid, newSet);
       
-      // Refresh habit sets
-      const updatedSets = await getHabitSets(user.uid);
-      setHabitSets(updatedSets);
+      // No need to manually refresh - subscription will handle it
       
       // Reset form
       setNewSetName('');
@@ -121,9 +117,7 @@ export default function HabitSetManager() {
         description: editingSet.description?.trim() || '',
       });
       
-      // Refresh habit sets
-      const updatedSets = await getHabitSets(user.uid);
-      setHabitSets(updatedSets);
+      // No need to manually refresh - subscription will handle it
       
       // Reset form
       setEditingSet(null);
@@ -146,9 +140,7 @@ export default function HabitSetManager() {
     try {
       await deleteHabitSet(user.uid, setId);
       
-      // Refresh habit sets
-      const updatedSets = await getHabitSets(user.uid);
-      setHabitSets(updatedSets);
+      // No need to manually refresh - subscription will handle it
       
       toast.success('Habit set deleted successfully!');
     } catch (error) {
@@ -164,9 +156,7 @@ export default function HabitSetManager() {
     try {
       await setActiveHabitSet(user.uid, setId);
       
-      // Refresh habit sets
-      const updatedSets = await getHabitSets(user.uid);
-      setHabitSets(updatedSets);
+      // No need to manually refresh - subscription will handle it
       
       toast.success('Active habit set updated!');
     } catch (error) {
@@ -234,7 +224,7 @@ export default function HabitSetManager() {
                   exit={{ opacity: 0, height: 0 }}
                   className={`relative group rounded-lg overflow-hidden ${
                     set.isActive 
-                      ? 'bg-indigo-50 dark:bg-indigo-900/30 border-l-4 border-indigo-500' 
+                      ? 'bg-indigo-100 dark:bg-indigo-900/50 border-l-4 border-indigo-500 shadow-md' 
                       : 'bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700/50'
                   }`}
                 >
@@ -242,11 +232,18 @@ export default function HabitSetManager() {
                     {/* Set Info */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center">
-                        <h3 className="font-medium text-gray-900 dark:text-white truncate">
+                        <h3 className={`font-medium truncate ${
+                          set.isActive ? 'text-indigo-700 dark:text-indigo-300' : 'text-gray-900 dark:text-white'
+                        }`}>
                           {set.name}
                         </h3>
                         {set.isPremium && (
                           <SparklesIcon className="w-4 h-4 text-yellow-500 ml-1 flex-shrink-0" />
+                        )}
+                        {set.isActive && (
+                          <span className="ml-2 px-2 py-0.5 text-xs font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200 rounded-full">
+                            Active
+                          </span>
                         )}
                       </div>
                       {set.description && (
