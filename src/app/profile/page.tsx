@@ -17,6 +17,7 @@ import {
   getHabits,
   subscribeToHabits
 } from '@/lib/firestoreService';
+import PremiumStatusFixer from '@/components/PremiumStatusFixer';
 
 interface UserProfile {
   name: string;
@@ -382,6 +383,10 @@ function ProfileContent() {
 
   return (
     <div className="container mx-auto px-4 py-8">
+      {user && (
+        <PremiumStatusFixer />
+      )}
+      
       {showEvolution && (
         <SunnyEvolution 
           level={profile.level} 

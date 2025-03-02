@@ -6,6 +6,7 @@ import { SparklesIcon, CheckIcon } from '@heroicons/react/24/outline';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { stripePromise } from '@/lib/stripe';
 import { toast } from 'react-hot-toast';
+import PremiumStatusFixer from './PremiumStatusFixer';
 
 // Set the price display here (should match what's in your Stripe dashboard)
 const PRICE_DISPLAY = '$0.99/month';
@@ -255,6 +256,10 @@ export default function PremiumFeatures() {
             {upgrading ? 'Processing...' : 'Manual Upgrade (Testing)'}
           </button>
         </div>
+      )}
+
+      {user && (
+        <PremiumStatusFixer />
       )}
     </div>
   );
