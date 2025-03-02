@@ -77,7 +77,7 @@ export default function HabitTracker() {
   const [previousLevel, setPreviousLevel] = useState(1);
   const [currentLevel, setCurrentLevel] = useState(1);
   const [showHabitSetManager, setShowHabitSetManager] = useState(true);
-  const [activeHabitSet, setActiveHabitSet] = useState<{ id: string; name: string } | null>(null);
+  const [activeHabitSetState, setActiveHabitSetState] = useState<{ id: string; name: string } | null>(null);
   
   const unsubscribeRef = useRef<(() => void) | null>(null);
   const statsUnsubscribeRef = useRef<(() => void) | null>(null);
@@ -115,7 +115,7 @@ export default function HabitTracker() {
       await setActiveHabitSet(user.uid, setId);
       
       // Update local state
-      setActiveHabitSet({
+      setActiveHabitSetState({
         id: setId,
         name: setName
       });
@@ -161,7 +161,7 @@ export default function HabitTracker() {
       getActiveHabitSet(user.uid).then(habitSet => {
         if (habitSet) {
           console.log(`Found active habit set: ${habitSet.id} (${habitSet.name})`);
-          setActiveHabitSet({
+          setActiveHabitSetState({
             id: habitSet.id,
             name: habitSet.name
           });
@@ -416,11 +416,11 @@ export default function HabitTracker() {
       </div>
       
       {/* Active Habit Set Info */}
-      {activeHabitSet && (
+      {activeHabitSetState && (
         <div className="mb-4 flex justify-between items-center">
           <div className="flex items-center">
             <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-              Active Set: {activeHabitSet.name}
+              Active Set: {activeHabitSetState.name}
             </span>
           </div>
           <button
@@ -531,8 +531,8 @@ export default function HabitTracker() {
       {/* Habits List */}
       <div className="mb-6">
         <h2 className="text-lg font-semibold text-gray-800 dark:text-white mb-2">
-          {activeHabitSet 
-            ? `Your Habits - ${activeHabitSet.name}` 
+          {activeHabitSetState 
+            ? `Your Habits - ${activeHabitSetState.name}` 
             : "Your Habits"}
         </h2>
         {habits.length === 0 ? (
