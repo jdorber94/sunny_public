@@ -73,7 +73,7 @@ export default function HabitTracker() {
   const { user } = useAuth();
   const [habits, setHabits] = useState<Habit[]>([]);
   const [habitSets, setHabitSets] = useState<HabitSet[]>([]);
-  const [newHabit, setNewHabit] = useState('');
+  const [newHabitName, setNewHabitName] = useState('');
   const [error, setError] = useState('');
   const [stats, setStats] = useState<UserStats>({
     totalXP: 0,
@@ -154,87 +154,81 @@ export default function HabitTracker() {
 
   // Handle switching to a different habit set
   const handleSwitchHabitSet = async (setId: string, setName: string) => {
-    if (!user) return;
-    
+    if (!user) {
+      toast.error("You must be logged in to switch habit sets");
+      return;
+    }
+
     try {
-      console.log(`Switching to habit set ${setId} (${setName})`);
+      toast.success(`Switching to habit set: ${setName}`);
+      console.log(`Switching to habit set: ${setId} - ${setName}`);
       
-      // First, manually save current habits to the current set if we have any
-      if (activeHabitSetState && habits.length > 0) {
-        console.log(`Manually saving ${habits.length} habits to current set ${activeHabitSetState.id} before switching`);
+      // 1. Save current habits to the current active set if we have one
+      if (activeHabitSetState && activeHabitSetState.id) {
+        console.log(`Saving current habits to set: ${activeHabitSetState.id}`);
         
-        // Use direct Firestore operations to ensure habits are saved
-        const habitsCollectionRef = collection(db, 'users', user.uid, 'habitSets', activeHabitSetState.id, 'habits');
+        // Get the current active set reference
+        const currentSetRef = doc(db, 'users', user.uid, 'habitSets', activeHabitSetState.id);
         
-        // Create a batch write
-        const batch = writeBatch(db);
-        
-        // Get existing habits to know what to delete
-        const existingHabitsSnapshot = await getDocs(habitsCollectionRef);
-        const existingHabitIds = new Set<string>();
-        
-        existingHabitsSnapshot.forEach(doc => {
-          existingHabitIds.add(doc.id);
+        // Mark it as not active
+        await updateDoc(currentSetRef, { 
+          isActive: false,
+          updatedAt: serverTimestamp()
         });
         
-        // Add or update each habit
+        // Save all current habits to this set
+        const habitsCollectionRef = collection(db, 'users', user.uid, 'habitSets', activeHabitSetState.id, 'habits');
+        
+        // Use a batch to save all habits
+        const batch = writeBatch(db);
+        
+        // Process each habit
         for (const habit of habits) {
-          const habitId = habit.id.toString();
-          const habitDocRef = doc(habitsCollectionRef, habitId);
-          
-          batch.set(habitDocRef, {
+          const habitRef = doc(habitsCollectionRef, habit.id.toString());
+          batch.set(habitRef, {
             ...habit,
             updatedAt: serverTimestamp()
-          }, { merge: true });
-          
-          // Remove from the set as we've handled it
-          existingHabitIds.delete(habitId);
-        }
-        
-        // Delete any habits that are in Firestore but not in our current state
-        for (const habitId of Array.from(existingHabitIds)) {
-          const habitDocRef = doc(db, 'users', user.uid, 'habitSets', activeHabitSetState.id, 'habits', habitId.toString());
-          batch.delete(habitDocRef);
+          });
         }
         
         // Commit the batch
         await batch.commit();
-        console.log(`Successfully saved habits to set ${activeHabitSetState.id} before switching`);
+        console.log(`Saved ${habits.length} habits to set: ${activeHabitSetState.id}`);
       }
       
-      // Clear current habits immediately to avoid showing previous set's habits
-      setHabits([]);
+      // 2. Set the new set as active
+      const newSetRef = doc(db, 'users', user.uid, 'habitSets', setId);
+      await updateDoc(newSetRef, { 
+        isActive: true,
+        updatedAt: serverTimestamp()
+      });
       
-      // Set this set as active in Firestore
-      await setActiveHabitSet(user.uid, setId);
-      
-      // Update local state
+      // 3. Update local state
       setActiveHabitSetState({
         id: setId,
         name: setName
       });
       
-      // Directly load habits from the new set
-      console.log(`Directly loading habits from set ${setId}`);
+      // 4. Clear current habits to avoid showing previous habits
+      setHabits([]);
+      
+      // 5. Load habits from the new set
       const newHabitsCollectionRef = collection(db, 'users', user.uid, 'habitSets', setId, 'habits');
       const habitsSnapshot = await getDocs(newHabitsCollectionRef);
       
-      const loadedHabits: Habit[] = [];
+      const newHabits: Habit[] = [];
       habitsSnapshot.forEach(doc => {
-        loadedHabits.push(doc.data() as Habit);
+        const habitData = doc.data() as Habit;
+        newHabits.push(habitData);
       });
       
-      console.log(`Loaded ${loadedHabits.length} habits from set ${setId}`);
-      setHabits(loadedHabits);
-      localStorage.setItem('habits', JSON.stringify(loadedHabits));
-      
-      // Subscribe to habits for this set for real-time updates
-      subscribeToActiveSetHabits(user.uid, setId);
+      console.log(`Loaded ${newHabits.length} habits from set: ${setId}`);
+      setHabits(newHabits);
       
       toast.success(`Switched to habit set: ${setName}`);
     } catch (error) {
-      console.error('Error switching habit set:', error);
-      toast.error('Failed to switch habit set');
+      console.error("Error switching habit set:", error);
+      toast.error("Failed to switch habit set");
     }
   };
 
@@ -339,200 +333,191 @@ export default function HabitTracker() {
 
   // Add a new habit
   const addHabit = async () => {
-    if (!newHabit.trim()) {
-      setError('Habit name cannot be empty');
+    if (!user) {
+      toast.error("You must be logged in to add habits");
       return;
     }
     
-    if (habits.length >= MAX_HABITS) {
-      setError(`You can only have up to ${MAX_HABITS} habits per set`);
+    if (!activeHabitSetState || !activeHabitSetState.id) {
+      toast.error("No active habit set found. Please create or select a habit set first.");
       return;
     }
-    
-    // Create a new habit
-    const newHabitObj: Habit = {
-      id: Date.now(),
-      name: newHabit.trim(),
-      logs: [],
-      xp: 0
-    };
-    
-    // Add to state
-    const updatedHabits = [...habits, newHabitObj];
-    setHabits(updatedHabits);
-    setNewHabit('');
-    setError('');
-    
-    // Save to localStorage
-    localStorage.setItem('habits', JSON.stringify(updatedHabits));
-    
-    // Save to Firestore if user is authenticated
-    if (user && activeHabitSetState) {
-      try {
-        console.log(`Directly saving new habit to set ${activeHabitSetState.id}`);
-        
-        // Use direct Firestore operations
-        const habitDocRef = doc(
-          db, 
-          'users', 
-          user.uid, 
-          'habitSets', 
-          activeHabitSetState.id, 
-          'habits', 
-          newHabitObj.id.toString()
-        );
-        
-        await setDoc(habitDocRef, {
-          ...newHabitObj,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp()
-        });
-        
-        console.log(`Successfully saved new habit to set ${activeHabitSetState.id}`);
-      } catch (error) {
-        console.error('Error saving new habit:', error);
-        toast.error('Failed to save new habit');
-      }
+
+    if (!newHabitName.trim()) {
+      toast.error("Please enter a habit name");
+      return;
+    }
+
+    try {
+      // Generate a unique ID for the new habit
+      const habitId = Date.now();
+      
+      // Create the new habit object
+      const newHabitObj: Habit = {
+        id: habitId,
+        name: newHabitName.trim(),
+        logs: [],
+        xp: 0,
+        createdAt: serverTimestamp() as any,
+        updatedAt: serverTimestamp() as any
+      };
+      
+      console.log(`Adding new habit "${newHabitName}" to set: ${activeHabitSetState.id}`);
+      
+      // Save directly to Firestore
+      const habitRef = doc(
+        db, 
+        'users', 
+        user.uid, 
+        'habitSets', 
+        activeHabitSetState.id, 
+        'habits', 
+        habitId.toString()
+      );
+      
+      await setDoc(habitRef, newHabitObj);
+      
+      // Update local state
+      setHabits([...habits, newHabitObj]);
+      setNewHabitName("");
+      
+      toast.success(`Added habit: ${newHabitName}`);
+    } catch (error) {
+      console.error("Error adding habit:", error);
+      toast.error("Failed to add habit");
     }
   };
 
   // Delete a habit
   const deleteHabit = async (id: number) => {
-    const updatedHabits = habits.filter(habit => habit.id !== id);
-    setHabits(updatedHabits);
+    if (!user) {
+      toast.error("You must be logged in to delete habits");
+      return;
+    }
     
-    // Save to localStorage
-    localStorage.setItem('habits', JSON.stringify(updatedHabits));
-    
-    // Save to Firestore if user is authenticated
-    if (user && activeHabitSetState) {
-      try {
-        console.log(`Directly deleting habit ${id} from set ${activeHabitSetState.id}`);
-        
-        // Use direct Firestore operations
-        const habitDocRef = doc(
-          db, 
-          'users', 
-          user.uid, 
-          'habitSets', 
-          activeHabitSetState.id, 
-          'habits', 
-          id.toString()
-        );
-        
-        await deleteDoc(habitDocRef);
-        
-        console.log(`Successfully deleted habit ${id} from set ${activeHabitSetState.id}`);
-      } catch (error) {
-        console.error(`Error deleting habit ${id}:`, error);
-        toast.error('Failed to delete habit');
-      }
+    if (!activeHabitSetState || !activeHabitSetState.id) {
+      toast.error("No active habit set found");
+      return;
+    }
+
+    try {
+      console.log(`Deleting habit ${id} from set: ${activeHabitSetState.id}`);
+      
+      // Delete from Firestore
+      const habitRef = doc(
+        db, 
+        'users', 
+        user.uid, 
+        'habitSets', 
+        activeHabitSetState.id, 
+        'habits', 
+        id.toString()
+      );
+      
+      await deleteDoc(habitRef);
+      
+      // Update local state
+      const updatedHabits = habits.filter(habit => habit.id !== id);
+      setHabits(updatedHabits);
+      
+      toast.success("Habit deleted");
+    } catch (error) {
+      console.error("Error deleting habit:", error);
+      toast.error("Failed to delete habit");
     }
   };
 
   // Toggle habit completion for today
   const toggleHabitCompletion = async (id: number) => {
-    const today = new Date().toISOString().split('T')[0];
+    if (!user) {
+      toast.error("You must be logged in to update habits");
+      return;
+    }
     
-    const updatedHabits = habits.map(habit => {
-      if (habit.id === id) {
-        const isCompleted = habit.logs.includes(today);
-        let logs = [...habit.logs];
-        let xpChange = 0;
-        
-        if (isCompleted) {
-          // Remove today's log
-          logs = logs.filter(date => date !== today);
-          xpChange = -XP_PER_COMPLETION;
-        } else {
-          // Add today's log
-          logs.push(today);
-          xpChange = XP_PER_COMPLETION;
-        }
-        
-        return { ...habit, logs, xp: habit.xp + xpChange };
-      }
-      return habit;
-    });
-    
-    setHabits(updatedHabits);
-    
-    // Update stats
-    const isCompleted = habits.find(h => h.id === id)?.logs.includes(today) || false;
-    
-    // Only update XP if we're not already at max daily XP
-    // or if we're removing XP (unchecking a habit)
-    let updatedStats = { ...stats };
-    if (isCompleted || stats.dailyXP.xp < MAX_DAILY_XP) {
-      const xpChange = isCompleted ? -XP_PER_COMPLETION : XP_PER_COMPLETION;
-      
-      // Ensure we don't go over the daily XP limit
-      let newDailyXP = stats.dailyXP.xp + xpChange;
-      if (!isCompleted && newDailyXP > MAX_DAILY_XP) {
-        newDailyXP = MAX_DAILY_XP;
-        alert(`You've reached your daily XP limit of ${MAX_DAILY_XP}!`);
+    if (!activeHabitSetState || !activeHabitSetState.id) {
+      toast.error("No active habit set found");
+      return;
+    }
+
+    try {
+      // Find the habit
+      const habitIndex = habits.findIndex(h => h.id === id);
+      if (habitIndex === -1) {
+        toast.error("Habit not found");
+        return;
       }
       
-      updatedStats = {
+      const habit = habits[habitIndex];
+      const today = new Date().toISOString().split('T')[0];
+      
+      // Check if already completed today
+      const isCompletedToday = habit.logs.includes(today);
+      
+      // Update the habit
+      const updatedHabit = { ...habit };
+      
+      if (isCompletedToday) {
+        // Remove today's date
+        updatedHabit.logs = habit.logs.filter(date => date !== today);
+        updatedHabit.xp = Math.max(0, (habit.xp || 0) - 10); // Subtract XP, minimum 0
+      } else {
+        // Add today's date
+        updatedHabit.logs = [...habit.logs, today];
+        updatedHabit.xp = (habit.xp || 0) + 10; // Add XP
+      }
+      
+      updatedHabit.updatedAt = serverTimestamp() as any;
+      
+      console.log(`Updating habit ${id} in set: ${activeHabitSetState.id}`);
+      
+      // Update in Firestore
+      const habitRef = doc(
+        db, 
+        'users', 
+        user.uid, 
+        'habitSets', 
+        activeHabitSetState.id, 
+        'habits', 
+        id.toString()
+      );
+      
+      await updateDoc(habitRef, updatedHabit);
+      
+      // Update local state
+      const updatedHabits = [...habits];
+      updatedHabits[habitIndex] = updatedHabit;
+      setHabits(updatedHabits);
+      
+      // Update user stats
+      const newXP = isCompletedToday 
+        ? Math.max(0, stats.totalXP - 10) 
+        : stats.totalXP + 10;
+      
+      const newStats = {
         ...stats,
-        totalXP: stats.totalXP + xpChange,
-        dailyXP: {
-          date: today,
-          xp: newDailyXP
-        }
+        totalXP: newXP
       };
       
-      setStats(updatedStats);
+      setStats(newStats);
       
       // Check for level up
-      const newLevel = calculateLevel(updatedStats.totalXP);
+      const newLevel = calculateLevel(newXP);
       if (newLevel > currentLevel) {
         setPreviousLevel(currentLevel);
         setCurrentLevel(newLevel);
         setShowLevelUp(true);
       }
-    }
-    
-    // Save to localStorage
-    localStorage.setItem('habits', JSON.stringify(updatedHabits));
-    localStorage.setItem('habitStats', JSON.stringify(updatedStats));
-    
-    // Save to Firestore if user is authenticated
-    if (user && activeHabitSetState) {
-      try {
-        console.log(`Directly updating habit ${id} in set ${activeHabitSetState.id} after completion toggle`);
-        
-        // Get the updated habit
-        const updatedHabit = updatedHabits.find(h => h.id === id);
-        if (!updatedHabit) {
-          console.error(`Could not find habit ${id} in updated habits`);
-          return;
-        }
-        
-        // Use direct Firestore operations to update the habit
-        const habitDocRef = doc(
-          db, 
-          'users', 
-          user.uid, 
-          'habitSets', 
-          activeHabitSetState.id, 
-          'habits', 
-          id.toString()
-        );
-        
-        await updateDoc(habitDocRef, {
-          ...updatedHabit,
-          updatedAt: serverTimestamp()
-        });
-        
-        // Also update user stats
-        await saveUserStats(user.uid, updatedStats);
-        
-        console.log(`Successfully updated habit ${id} and user stats`);
-      } catch (error) {
-        console.error(`Error updating habit ${id}:`, error);
-        toast.error('Failed to update habit completion');
+      
+      // Save user stats to Firestore
+      if (user) {
+        const userStatsRef = doc(db, 'users', user.uid, 'stats', 'userStats');
+        await setDoc(userStatsRef, newStats, { merge: true });
       }
+      
+      toast.success(isCompletedToday ? "Habit marked as incomplete" : "Habit completed!");
+    } catch (error) {
+      console.error("Error updating habit:", error);
+      toast.error("Failed to update habit");
     }
   };
 
@@ -626,6 +611,119 @@ export default function HabitTracker() {
     }
   }, [habits, user, activeHabitSetState]);
 
+  // Debug function to inspect and fix habit sets
+  const debugHabitSets = async () => {
+    if (!user) {
+      toast.error("You must be logged in to debug habit sets");
+      return;
+    }
+    
+    try {
+      toast.success("Starting habit set debug...");
+      console.log("=== HABIT SET DEBUG START ===");
+      
+      // 1. Get all habit sets
+      const habitSetsCollectionRef = collection(db, 'users', user.uid, 'habitSets');
+      const habitSetsSnapshot = await getDocs(habitSetsCollectionRef);
+      
+      console.log(`Found ${habitSetsSnapshot.size} habit sets`);
+      
+      // Display all habit sets
+      const allSets: {id: string, name: string, isActive: boolean, habits: Habit[]}[] = [];
+      
+      // Process each habit set
+      for (const setDoc of habitSetsSnapshot.docs) {
+        const setData = setDoc.data() as HabitSet;
+        console.log(`Set: ${setDoc.id} - ${setData.name} (Active: ${setData.isActive})`);
+        
+        // Get habits for this set
+        const habitsCollectionRef = collection(db, 'users', user.uid, 'habitSets', setDoc.id, 'habits');
+        const habitsSnapshot = await getDocs(habitsCollectionRef);
+        
+        const setHabits: Habit[] = [];
+        habitsSnapshot.forEach(habitDoc => {
+          const habitData = habitDoc.data() as Habit;
+          setHabits.push(habitData);
+          console.log(`  - Habit: ${habitData.id} - ${habitData.name}`);
+        });
+        
+        allSets.push({
+          id: setDoc.id,
+          name: setData.name,
+          isActive: setData.isActive,
+          habits: setHabits
+        });
+      }
+      
+      // Find active set
+      const activeSet = allSets.find(set => set.isActive);
+      
+      if (!activeSet) {
+        console.log("No active set found. Setting the first set as active...");
+        
+        if (allSets.length > 0) {
+          // Set the first set as active
+          const firstSetRef = doc(db, 'users', user.uid, 'habitSets', allSets[0].id);
+          await updateDoc(firstSetRef, { isActive: true });
+          console.log(`Set ${allSets[0].name} as active`);
+          
+          // Update local state
+          setActiveHabitSetState({
+            id: allSets[0].id,
+            name: allSets[0].name
+          });
+          
+          // Load habits from this set
+          setHabits(allSets[0].habits);
+          
+          toast.success(`Fixed: Set "${allSets[0].name}" as active`);
+        } else {
+          console.log("No habit sets found. Creating a default set...");
+          
+          // Create a default set
+          const newSetRef = doc(collection(db, 'users', user.uid, 'habitSets'));
+          const defaultSet = {
+            name: "Default Set",
+            description: "Your default habit set",
+            isActive: true,
+            isPremium: false,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp()
+          };
+          
+          await setDoc(newSetRef, defaultSet);
+          console.log(`Created default set with ID: ${newSetRef.id}`);
+          
+          // Update local state
+          setActiveHabitSetState({
+            id: newSetRef.id,
+            name: "Default Set"
+          });
+          
+          toast.success("Fixed: Created a default habit set");
+        }
+      } else {
+        console.log(`Active set found: ${activeSet.name} with ${activeSet.habits.length} habits`);
+        
+        // Make sure local state matches
+        setActiveHabitSetState({
+          id: activeSet.id,
+          name: activeSet.name
+        });
+        
+        // Load habits from active set
+        setHabits(activeSet.habits);
+        
+        toast.success(`Debug complete: Active set is "${activeSet.name}" with ${activeSet.habits.length} habits`);
+      }
+      
+      console.log("=== HABIT SET DEBUG END ===");
+    } catch (error) {
+      console.error("Error debugging habit sets:", error);
+      toast.error("Failed to debug habit sets");
+    }
+  };
+
   return (
     <div className="max-w-4xl mx-auto p-4">
       {/* Level Up Celebration */}
@@ -634,6 +732,21 @@ export default function HabitTracker() {
           level={currentLevel}
           onClose={() => setShowLevelUp(false)}
         />
+      )}
+      
+      {/* Debug Button - Only visible in development */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="mb-4 p-2 bg-yellow-100 border border-yellow-300 rounded-md">
+          <button 
+            onClick={debugHabitSets}
+            className="w-full py-2 px-4 bg-yellow-500 hover:bg-yellow-600 text-white font-medium rounded-md"
+          >
+            Debug Habit Sets
+          </button>
+          <p className="text-xs text-yellow-800 mt-1">
+            This button will inspect and fix issues with habit sets and habits
+          </p>
+        </div>
       )}
       
       {/* Header with level info */}
@@ -914,8 +1027,8 @@ export default function HabitTracker() {
         <div className="flex">
           <input
             type="text"
-            value={newHabit}
-            onChange={(e) => setNewHabit(e.target.value)}
+            value={newHabitName}
+            onChange={(e) => setNewHabitName(e.target.value)}
             placeholder="Enter a new habit..."
             className="flex-grow p-2 border border-gray-300 dark:border-gray-700 rounded-l-md bg-white dark:bg-gray-800 text-gray-800 dark:text-white"
             onKeyDown={(e) => {
