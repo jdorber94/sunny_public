@@ -289,23 +289,58 @@ export const saveHabitsToSet = async (userId: string, habitSetId: string, habits
     const batch = writeBatch(db);
     const habitsCollectionRef = getHabitSetHabitsCollectionRef(userId, habitSetId);
     
-    // Delete existing habits (we'll replace them all)
+    // Get existing habits to preserve any that aren't in the new list
     console.log(`Getting existing habits from set ${habitSetId}`);
-    const existingHabits = await getDocs(habitsCollectionRef);
-    console.log(`Found ${existingHabits.size} existing habits, deleting them`);
-    existingHabits.forEach((doc) => {
-      batch.delete(doc.ref);
+    const existingHabitsSnapshot = await getDocs(habitsCollectionRef);
+    const existingHabits = new Map();
+    
+    existingHabitsSnapshot.forEach((doc) => {
+      const habit = doc.data() as Habit;
+      existingHabits.set(habit.id.toString(), habit);
     });
     
-    // Add new habits
-    console.log(`Adding ${habits.length} new habits to set ${habitSetId}`);
+    console.log(`Found ${existingHabits.size} existing habits in set ${habitSetId}`);
+    
+    // Create a map of new habits by ID for easy lookup
+    const newHabitsMap = new Map();
+    habits.forEach(habit => {
+      newHabitsMap.set(habit.id.toString(), habit);
+    });
+    
+    // Delete habits that exist in the database but not in the new list
+    // This handles habit deletion
+    existingHabits.forEach((habit, id) => {
+      if (!newHabitsMap.has(id)) {
+        console.log(`Deleting habit ${id} as it's not in the new list`);
+        const habitDocRef = doc(habitsCollectionRef, id);
+        batch.delete(habitDocRef);
+      }
+    });
+    
+    // Add or update habits
+    console.log(`Adding/updating ${habits.length} habits to set ${habitSetId}`);
     habits.forEach((habit) => {
-      const habitDocRef = doc(habitsCollectionRef, habit.id.toString());
-      batch.set(habitDocRef, {
-        ...habit,
-        updatedAt: serverTimestamp(),
-        createdAt: habit.createdAt ? habit.createdAt : serverTimestamp()
-      });
+      const habitId = habit.id.toString();
+      const habitDocRef = doc(habitsCollectionRef, habitId);
+      
+      // If the habit already exists, preserve its createdAt timestamp
+      if (existingHabits.has(habitId)) {
+        const existingHabit = existingHabits.get(habitId);
+        batch.update(habitDocRef, {
+          ...habit,
+          updatedAt: serverTimestamp(),
+          createdAt: existingHabit.createdAt
+        });
+        console.log(`Updating existing habit ${habitId}`);
+      } else {
+        // This is a new habit
+        batch.set(habitDocRef, {
+          ...habit,
+          updatedAt: serverTimestamp(),
+          createdAt: serverTimestamp()
+        });
+        console.log(`Adding new habit ${habitId}`);
+      }
     });
     
     console.log(`Committing batch write for habit set ${habitSetId}`);

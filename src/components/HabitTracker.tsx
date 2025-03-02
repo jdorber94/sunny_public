@@ -101,9 +101,16 @@ export default function HabitTracker() {
     // Subscribe to habits for this specific set
     const unsubscribe = subscribeToHabitsInSet(userId, activeSetId, (firestoreHabits) => {
       console.log(`Received ${firestoreHabits.length} habits for set ${activeSetId}`);
-      setHabits(firestoreHabits);
-      // Also update localStorage
-      localStorage.setItem('habits', JSON.stringify(firestoreHabits));
+      
+      // Only update if we actually got habits or if we have no habits
+      // This prevents clearing habits when there's a temporary network issue
+      if (firestoreHabits.length > 0 || habits.length === 0) {
+        setHabits(firestoreHabits);
+        // Also update localStorage
+        localStorage.setItem('habits', JSON.stringify(firestoreHabits));
+      } else {
+        console.log(`No habits received for set ${activeSetId}, keeping current habits`);
+      }
     });
     
     habitsUnsubscribeRef.current = unsubscribe;
