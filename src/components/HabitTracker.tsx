@@ -69,6 +69,47 @@ const CheckmarkIcon = ({ checked, onClick }: { checked: boolean; onClick: () => 
   );
 };
 
+// Helper function to calculate streak
+const calculateStreak = (logs: string[]): number => {
+  if (!logs.length) return 0;
+  
+  // Sort logs by date
+  const sortedLogs = [...logs].sort();
+  
+  // Get today and yesterday
+  const today = new Date();
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+  
+  const todayStr = today.toISOString().split('T')[0];
+  const yesterdayStr = yesterday.toISOString().split('T')[0];
+  
+  // Check if today or yesterday is in logs
+  const hasToday = logs.includes(todayStr);
+  const hasYesterday = logs.includes(yesterdayStr);
+  
+  if (!hasToday && !hasYesterday) return 0;
+  
+  // Count consecutive days
+  let streak = 1;
+  let currentDate = hasToday ? todayStr : yesterdayStr;
+  
+  while (true) {
+    const prevDate = new Date(currentDate);
+    prevDate.setDate(prevDate.getDate() - 1);
+    const prevDateStr = prevDate.toISOString().split('T')[0];
+    
+    if (logs.includes(prevDateStr)) {
+      streak++;
+      currentDate = prevDateStr;
+    } else {
+      break;
+    }
+  }
+  
+  return streak;
+};
+
 export default function HabitTracker() {
   const { user } = useAuth();
   const [habits, setHabits] = useState<Habit[]>([]);
@@ -87,6 +128,8 @@ export default function HabitTracker() {
   const [showNewSetForm, setShowNewSetForm] = useState(false);
   const [newSetName, setNewSetName] = useState('');
   const [newSetDescription, setNewSetDescription] = useState('');
+  const [showCreateSetModal, setShowCreateSetModal] = useState(false);
+  const [canCreateHabitSet, setCanCreateHabitSet] = useState(true);
   
   const unsubscribeRef = useRef<(() => void) | null>(null);
   const statsUnsubscribeRef = useRef<(() => void) | null>(null);
@@ -160,72 +203,66 @@ export default function HabitTracker() {
     }
 
     try {
-      toast.success(`Switching to habit set: ${setName}`);
-      console.log(`Switching to habit set: ${setId} - ${setName}`);
+      // Show loading state
+      toast.success(`Switching to ${setName}...`);
       
-      // 1. Save current habits to the current active set if we have one
-      if (activeHabitSetState && activeHabitSetState.id) {
-        console.log(`Saving current habits to set: ${activeHabitSetState.id}`);
-        
-        // Get the current active set reference
-        const currentSetRef = doc(db, 'users', user.uid, 'habitSets', activeHabitSetState.id);
-        
-        // Mark it as not active
-        await updateDoc(currentSetRef, { 
+      // 1. Get all habit sets to find the current active one
+      const habitSetsRef = collection(db, 'users', user.uid, 'habitSets');
+      const habitSetsSnapshot = await getDocs(habitSetsRef);
+      
+      // Find the currently active set
+      let currentActiveSetId = null;
+      habitSetsSnapshot.forEach(doc => {
+        const setData = doc.data();
+        if (setData.isActive) {
+          currentActiveSetId = doc.id;
+        }
+      });
+      
+      // 2. Create a batch to update all sets in one transaction
+      const batch = writeBatch(db);
+      
+      // 3. If there's a currently active set, mark it as inactive
+      if (currentActiveSetId) {
+        console.log(`Marking current active set ${currentActiveSetId} as inactive`);
+        const currentActiveSetRef = doc(db, 'users', user.uid, 'habitSets', currentActiveSetId);
+        batch.update(currentActiveSetRef, { 
           isActive: false,
           updatedAt: serverTimestamp()
         });
-        
-        // Save all current habits to this set
-        const habitsCollectionRef = collection(db, 'users', user.uid, 'habitSets', activeHabitSetState.id, 'habits');
-        
-        // Use a batch to save all habits
-        const batch = writeBatch(db);
-        
-        // Process each habit
-        for (const habit of habits) {
-          const habitRef = doc(habitsCollectionRef, habit.id.toString());
-          batch.set(habitRef, {
-            ...habit,
-            updatedAt: serverTimestamp()
-          });
-        }
-        
-        // Commit the batch
-        await batch.commit();
-        console.log(`Saved ${habits.length} habits to set: ${activeHabitSetState.id}`);
       }
       
-      // 2. Set the new set as active
+      // 4. Mark the new set as active
+      console.log(`Marking new set ${setId} as active`);
       const newSetRef = doc(db, 'users', user.uid, 'habitSets', setId);
-      await updateDoc(newSetRef, { 
+      batch.update(newSetRef, { 
         isActive: true,
         updatedAt: serverTimestamp()
       });
       
-      // 3. Update local state
+      // 5. Commit all changes in one transaction
+      await batch.commit();
+      
+      // 6. Update local state
       setActiveHabitSetState({
         id: setId,
         name: setName
       });
       
-      // 4. Clear current habits to avoid showing previous habits
-      setHabits([]);
-      
-      // 5. Load habits from the new set
-      const newHabitsCollectionRef = collection(db, 'users', user.uid, 'habitSets', setId, 'habits');
-      const habitsSnapshot = await getDocs(newHabitsCollectionRef);
+      // 7. Load habits from the new set
+      const habitsRef = collection(db, 'users', user.uid, 'habitSets', setId, 'habits');
+      const habitsSnapshot = await getDocs(habitsRef);
       
       const newHabits: Habit[] = [];
       habitsSnapshot.forEach(doc => {
-        const habitData = doc.data() as Habit;
-        newHabits.push(habitData);
+        newHabits.push(doc.data() as Habit);
       });
       
-      console.log(`Loaded ${newHabits.length} habits from set: ${setId}`);
+      // 8. Update local habits state
       setHabits(newHabits);
       
-      toast.success(`Switched to habit set: ${setName}`);
+      console.log(`Successfully switched to set ${setName} with ${newHabits.length} habits`);
+      toast.success(`Switched to ${setName}`);
     } catch (error) {
       console.error("Error switching habit set:", error);
       toast.error("Failed to switch habit set");
@@ -352,14 +389,19 @@ export default function HabitTracker() {
       // Generate a unique ID for the new habit
       const habitId = Date.now();
       
-      // Create the new habit object
-      const newHabitObj: Habit = {
+      // Create the new habit object with proper typing
+      const newHabitObj = {
         id: habitId,
         name: newHabitName.trim(),
-        logs: [],
-        xp: 0,
-        createdAt: serverTimestamp() as any,
-        updatedAt: serverTimestamp() as any
+        logs: [] as string[],
+        xp: 0
+      };
+      
+      // Firestore object with timestamps
+      const firestoreHabitObj = {
+        ...newHabitObj,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
       };
       
       console.log(`Adding new habit "${newHabitName}" to set: ${activeHabitSetState.id}`);
@@ -375,10 +417,10 @@ export default function HabitTracker() {
         habitId.toString()
       );
       
-      await setDoc(habitRef, newHabitObj);
+      await setDoc(habitRef, firestoreHabitObj);
       
-      // Update local state
-      setHabits([...habits, newHabitObj]);
+      // Update local state with the new habit (properly typed)
+      setHabits([...habits, newHabitObj as Habit]);
       setNewHabitName("");
       
       toast.success(`Added habit: ${newHabitName}`);
@@ -540,52 +582,80 @@ export default function HabitTracker() {
 
   // Handle creating a new habit set
   const handleCreateSet = async () => {
-    if (!user) return;
-    
-    if (!newSetName.trim()) {
-      setError('Habit set name cannot be empty');
+    if (!user) {
+      toast.error("You must be logged in to create a habit set");
       return;
     }
-    
+
+    if (!newSetName.trim()) {
+      toast.error("Please enter a name for your habit set");
+      return;
+    }
+
     try {
-      // Save current habits to the current set before creating a new one
-      if (activeHabitSetState && habits.length > 0) {
-        console.log(`Saving current habits to set ${activeHabitSetState.id} before creating new set`);
-        await saveHabitsToSet(user.uid, activeHabitSetState.id, habits);
+      toast.success("Creating new habit set...");
+      
+      // 1. Get all habit sets to find the current active one
+      const habitSetsRef = collection(db, 'users', user.uid, 'habitSets');
+      const habitSetsSnapshot = await getDocs(habitSetsRef);
+      
+      // Find the currently active set
+      let currentActiveSetId = null;
+      habitSetsSnapshot.forEach(doc => {
+        const setData = doc.data();
+        if (setData.isActive) {
+          currentActiveSetId = doc.id;
+        }
+      });
+      
+      // 2. Create a batch to update all sets in one transaction
+      const batch = writeBatch(db);
+      
+      // 3. If there's a currently active set, mark it as inactive
+      if (currentActiveSetId) {
+        console.log(`Marking current active set ${currentActiveSetId} as inactive`);
+        const currentActiveSetRef = doc(db, 'users', user.uid, 'habitSets', currentActiveSetId);
+        batch.update(currentActiveSetRef, { 
+          isActive: false,
+          updatedAt: serverTimestamp()
+        });
       }
       
-      const newSet: Omit<HabitSet, 'id'> = {
+      // 4. Create the new set
+      const newSetRef = doc(collection(db, 'users', user.uid, 'habitSets'));
+      const newSet = {
         name: newSetName.trim(),
-        description: newSetDescription.trim(),
-        isActive: habitSets.length === 0, // First set is active by default
-        isPremium: habitSets.length > 1, // First two sets are free, others are premium
+        description: newSetDescription.trim() || null,
+        isActive: true,
+        isPremium: false,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
       };
       
-      const createdSet = await createHabitSet(user.uid, newSet);
+      batch.set(newSetRef, newSet);
       
-      // Reset form
+      // 5. Commit all changes in one transaction
+      await batch.commit();
+      
+      // 6. Update local state
+      setActiveHabitSetState({
+        id: newSetRef.id,
+        name: newSetName.trim()
+      });
+      
+      // 7. Clear habits since this is a new set
+      setHabits([]);
+      
+      // 8. Reset form and close modal
       setNewSetName('');
       setNewSetDescription('');
-      setShowNewSetForm(false);
-      setError('');
+      setShowCreateSetModal(false);
       
-      toast.success('Habit set created successfully!');
-      
-      // If this is not the first set (which is automatically active),
-      // switch to the newly created set
-      if (createdSet && habitSets.length > 0) {
-        // Clear current habits
-        setHabits([]);
-        
-        // Switch to the new set
-        await handleSwitchHabitSet(createdSet.id, createdSet.name);
-        
-        // Initialize with empty habits array
-        await saveHabitsToSet(user.uid, createdSet.id, []);
-      }
+      console.log(`Successfully created new set ${newSetName} with ID ${newSetRef.id}`);
+      toast.success(`Created new habit set: ${newSetName}`);
     } catch (error) {
-      console.error('Error creating habit set:', error);
-      toast.error('Failed to create habit set');
+      console.error("Error creating habit set:", error);
+      toast.error("Failed to create habit set");
     }
   };
 
@@ -750,280 +820,120 @@ export default function HabitTracker() {
       )}
       
       {/* Header with level info */}
-      <div className="flex justify-between items-center mb-8">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
             Habit Tracker
           </h1>
-          <p className="text-gray-600 dark:text-gray-400">
-            Track your daily habits and build consistency
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            Track your daily habits and level up your life
           </p>
         </div>
-        
-        {/* Add prominent button for Habit Set Manager */}
-        <button
-          onClick={() => setShowHabitSetManager(!showHabitSetManager)}
-          className="flex items-center space-x-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-md transition-colors"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-            <path d="M5 3a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2V5a2 2 0 00-2-2H5zM5 11a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2v-2a2 2 0 00-2-2H5zM11 5a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V5zM14 11a1 1 0 011 1v1h1a1 1 0 110 2h-1v1a1 1 0 11-2 0v-1h-1a1 1 0 110-2h1v-1a1 1 0 011-1z" />
-          </svg>
-          <span>{showHabitSetManager ? 'Hide Habit Sets' : 'Manage Habit Sets'}</span>
-        </button>
+        <div className="mt-2 md:mt-0 flex items-center">
+          <div className="mr-2 text-right">
+            <p className="text-sm text-gray-600 dark:text-gray-400">Level</p>
+            <p className="text-xl font-bold text-gray-900 dark:text-white">
+              {currentLevel}
+            </p>
+          </div>
+          <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-full flex items-center justify-center">
+            <Sparkles />
+          </div>
+        </div>
       </div>
       
-      {/* Header with Level and XP */}
-      <div className="mb-6 flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Quest Master</h1>
-          <p className="text-gray-600 dark:text-gray-300">{today}</p>
-        </div>
-        <div className="flex items-center">
-          <div className="mr-2 text-right">
-            <p className="text-sm text-gray-600 dark:text-gray-400">Level {currentLevel}</p>
-            <p className="text-xs text-gray-500 dark:text-gray-500">{stats.totalXP} XP</p>
+      {/* Habit Set Selector - New Design */}
+      <div className="mb-6 bg-white dark:bg-gray-800 rounded-lg shadow-md p-4">
+        <div className="flex flex-col">
+          <div className="flex justify-between items-center mb-3">
+            <h2 className="text-lg font-semibold text-gray-800 dark:text-white">
+              Habit Sets
+            </h2>
+            <button
+              onClick={() => setShowCreateSetModal(true)}
+              className="px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-md flex items-center"
+              disabled={!canCreateHabitSet}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              New Set
+            </button>
           </div>
-          <div className="bg-yellow-100 dark:bg-yellow-900 p-2 rounded-full">
-            <Sparkles />
+          
+          {/* Horizontal scrollable habit set cards */}
+          <div className="flex overflow-x-auto pb-2 -mx-1 hide-scrollbar">
+            {habitSets.map(set => (
+              <div 
+                key={set.id} 
+                className={`flex-shrink-0 w-48 mx-1 p-3 rounded-lg cursor-pointer transition-all duration-200 ${
+                  activeHabitSetState?.id === set.id 
+                    ? 'bg-indigo-100 dark:bg-indigo-900 border-2 border-indigo-500' 
+                    : 'bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600'
+                }`}
+                onClick={() => handleSwitchHabitSet(set.id, set.name)}
+              >
+                <div className="flex items-center mb-2">
+                  {activeHabitSetState?.id === set.id && (
+                    <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
+                  )}
+                  <h3 className="font-medium text-gray-800 dark:text-white truncate">
+                    {set.name}
+                  </h3>
+                </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                  {set.description || "No description"}
+                </p>
+              </div>
+            ))}
+            
+            {/* Add set card if user can create more */}
+            {canCreateHabitSet && (
+              <div 
+                className="flex-shrink-0 w-48 mx-1 p-3 rounded-lg cursor-pointer bg-gray-50 dark:bg-gray-800 border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-indigo-500 dark:hover:border-indigo-500 flex items-center justify-center"
+                onClick={() => setShowCreateSetModal(true)}
+              >
+                <div className="text-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 mx-auto text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Add New Set</p>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
       
       {/* Active Habit Set Info */}
       {activeHabitSetState && (
-        <div className="mb-4 flex justify-between items-center">
-          <div className="flex items-center">
-            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-              Active Set: {activeHabitSetState.name}
-            </span>
-          </div>
-          <button
-            onClick={() => setShowHabitSetManager(!showHabitSetManager)}
-            className="text-sm text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300"
-          >
-            {showHabitSetManager ? 'Hide Sets' : 'Show Sets'}
-          </button>
-        </div>
-      )}
-      
-      {/* Habit Set Manager */}
-      {showHabitSetManager && (
-        <div className="mb-6 h-[500px] border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-          <div className="h-full">
-            {/* Custom Habit Set Manager with Switch Functionality */}
-            <div className="bg-white dark:bg-gray-800 h-full overflow-auto">
-              <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-                <h2 className="font-semibold text-gray-800 dark:text-white">
-                  Your Habit Sets
-                </h2>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Each set can have up to {MAX_HABITS} habits
-                </p>
-              </div>
-              
-              <div className="p-4 space-y-3">
-                {user && (
-                  <>
-                    {/* Create New Set Button */}
-                    <button
-                      onClick={() => setShowNewSetForm(!showNewSetForm)}
-                      className="flex items-center justify-center space-x-2 w-full p-3 mb-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-md transition-colors"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
-                      </svg>
-                      <span className="font-medium">New Habit Set</span>
-                    </button>
-                    
-                    {/* New Set Form */}
-                    {showNewSetForm && (
-                      <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg mb-4 border border-gray-200 dark:border-gray-600">
-                        <h3 className="font-medium text-gray-900 dark:text-white mb-3">Create New Habit Set</h3>
-                        <div className="space-y-3">
-                          <div>
-                            <label htmlFor="setName" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                              Name
-                            </label>
-                            <input
-                              type="text"
-                              id="setName"
-                              value={newSetName}
-                              onChange={(e) => setNewSetName(e.target.value)}
-                              className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-800 dark:text-white"
-                              placeholder="e.g., Morning Routine"
-                            />
-                          </div>
-                          <div>
-                            <label htmlFor="setDescription" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                              Description (optional)
-                            </label>
-                            <textarea
-                              id="setDescription"
-                              value={newSetDescription}
-                              onChange={(e) => setNewSetDescription(e.target.value)}
-                              className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-800 dark:text-white"
-                              placeholder="e.g., Habits to start my day right"
-                              rows={2}
-                            />
-                          </div>
-                          <div className="flex space-x-2 pt-2">
-                            <button
-                              onClick={handleCreateSet}
-                              className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-4 rounded-md transition-colors"
-                            >
-                              Create Set
-                            </button>
-                            <button
-                              onClick={() => {
-                                setShowNewSetForm(false);
-                                setNewSetName('');
-                                setNewSetDescription('');
-                              }}
-                              className="py-2 px-4 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                            >
-                              Cancel
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                    
-                    {habitSets.map((set) => (
-                      <div 
-                        key={set.id}
-                        className={`p-3 rounded-lg border ${
-                          set.isActive 
-                            ? 'bg-indigo-50 border-indigo-200 dark:bg-indigo-900/20 dark:border-indigo-800' 
-                            : 'bg-white border-gray-200 dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'
-                        }`}
-                      >
-                        <div className="flex justify-between items-center">
-                          <div>
-                            <h3 className="font-medium text-gray-900 dark:text-white flex items-center">
-                              {set.name}
-                              {set.isPremium && (
-                                <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
-                                  Premium
-                                </span>
-                              )}
-                            </h3>
-                            {set.description && (
-                              <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-                                {set.description}
-                              </p>
-                            )}
-                          </div>
-                          
-                          {set.isActive ? (
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
-                              Active
-                            </span>
-                          ) : (
-                            <button
-                              onClick={() => handleSwitchHabitSet(set.id, set.name)}
-                              className="px-3 py-1 text-sm bg-indigo-600 hover:bg-indigo-700 text-white rounded-md transition-colors"
-                            >
-                              Switch to this set
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                    
-                    {habitSets.length === 0 && (
-                      <div className="text-center p-6 text-gray-500 dark:text-gray-400">
-                        <p>You don't have any habit sets yet.</p>
-                        <p className="mt-1">Create one to get started!</p>
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
+        <div className="mb-6">
+          <div className="flex justify-between items-center">
+            <h2 className="text-xl font-semibold text-gray-800 dark:text-white">
+              {activeHabitSetState.name}
+            </h2>
+            <div className="text-sm text-gray-500 dark:text-gray-400">
+              {habits.length} / {MAX_HABITS} habits
             </div>
           </div>
+          
+          {/* Progress bar for habit limit */}
+          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 mt-2">
+            <div 
+              className="bg-indigo-600 h-2 rounded-full" 
+              style={{ width: `${(habits.length / MAX_HABITS) * 100}%` }}
+            ></div>
+          </div>
         </div>
       )}
-      
-      {/* Progress Bar */}
-      <div className="mb-6">
-        <div className="flex justify-between items-center mb-2">
-          <h2 className="text-lg font-semibold text-gray-800 dark:text-white">Today's Progress</h2>
-          <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
-            {todayHabits.length}/{habits.length} completed
-          </span>
-        </div>
-        <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
-          <div 
-            className="bg-green-500 h-2.5 rounded-full transition-all duration-500"
-            style={{ width: `${progressPercentage}%` }}
-          ></div>
-        </div>
-      </div>
       
       {/* Weekly Progress */}
       <div className="mb-6">
-        <h2 className="text-lg font-semibold text-gray-800 dark:text-white mb-2">Weekly Overview</h2>
         <WeeklyProgress habits={habits} />
       </div>
       
-      {/* Habits List */}
-      <div className="mb-6">
-        <h2 className="text-lg font-semibold text-gray-800 dark:text-white mb-2">
-          {activeHabitSetState 
-            ? `Your Habits - ${activeHabitSetState.name}` 
-            : "Your Habits"}
-        </h2>
-        {habits.length === 0 ? (
-          <p className="text-gray-500 dark:text-gray-400 text-center py-4">
-            You haven't added any habits yet. Add your first habit below!
-          </p>
-        ) : (
-          <ul className="space-y-2">
-            {habits.map(habit => {
-              const today = new Date().toISOString().split('T')[0];
-              const isCompleted = habit.logs.includes(today);
-              
-              return (
-                <li 
-                  key={habit.id}
-                  className={`p-3 rounded-lg border flex justify-between items-center ${
-                    isCompleted 
-                      ? 'bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800' 
-                      : 'bg-white border-gray-200 dark:bg-gray-800 dark:border-gray-700'
-                  }`}
-                >
-                  <div className="flex items-center">
-                    <CheckmarkIcon 
-                      checked={isCompleted} 
-                      onClick={() => toggleHabitCompletion(habit.id)} 
-                    />
-                    <span className={`ml-3 ${
-                      isCompleted 
-                        ? 'text-gray-500 dark:text-gray-400 line-through' 
-                        : 'text-gray-800 dark:text-white'
-                    }`}>
-                      {habit.name}
-                    </span>
-                  </div>
-                  <button
-                    onClick={() => deleteHabit(habit.id)}
-                    className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
-                    </svg>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </div>
-      
       {/* Add New Habit Form */}
-      <div>
-        <h2 className="text-lg font-semibold text-gray-800 dark:text-white mb-2">Add New Habit</h2>
-        {error && <p className="text-red-500 text-sm mb-2">{error}</p>}
+      <div className="mb-6">
         <div className="flex">
           <input
             type="text"
@@ -1031,23 +941,155 @@ export default function HabitTracker() {
             onChange={(e) => setNewHabitName(e.target.value)}
             placeholder="Enter a new habit..."
             className="flex-grow p-2 border border-gray-300 dark:border-gray-700 rounded-l-md bg-white dark:bg-gray-800 text-gray-800 dark:text-white"
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                addHabit();
-              }
-            }}
+            onKeyPress={(e) => e.key === 'Enter' && addHabit()}
+            disabled={habits.length >= MAX_HABITS || !activeHabitSetState}
           />
           <button
             onClick={addHabit}
-            className="bg-indigo-600 text-white px-4 py-2 rounded-r-md hover:bg-indigo-700 transition-colors"
+            className={`px-4 py-2 rounded-r-md font-medium ${
+              habits.length >= MAX_HABITS || !activeHabitSetState
+                ? 'bg-gray-400 cursor-not-allowed'
+                : 'bg-indigo-600 hover:bg-indigo-700'
+            } text-white`}
+            disabled={habits.length >= MAX_HABITS || !activeHabitSetState}
           >
             Add
           </button>
         </div>
-        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-          You can add up to {MAX_HABITS} habits. Each completed habit earns you {XP_PER_COMPLETION} XP (max {MAX_DAILY_XP} XP per day).
-        </p>
+        {error && <p className="text-red-500 text-sm mt-1">{error}</p>}
+        {!activeHabitSetState && (
+          <p className="text-amber-500 text-sm mt-1">
+            Please create or select a habit set first
+          </p>
+        )}
+        {habits.length >= MAX_HABITS && (
+          <p className="text-amber-500 text-sm mt-1">
+            You've reached the maximum number of habits for this set
+          </p>
+        )}
       </div>
+      
+      {/* Habits List */}
+      <div className="space-y-4">
+        {habits.length === 0 ? (
+          <div className="text-center py-8 bg-gray-50 dark:bg-gray-800 rounded-lg">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+            </svg>
+            <h3 className="mt-2 text-lg font-medium text-gray-900 dark:text-white">No habits yet</h3>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              {activeHabitSetState 
+                ? "Add your first habit to get started" 
+                : "Select or create a habit set first"}
+            </p>
+          </div>
+        ) : (
+          habits.map((habit) => {
+            const isCompletedToday = habit.logs.includes(
+              new Date().toISOString().split('T')[0]
+            );
+            
+            return (
+              <div
+                key={habit.id}
+                className="flex items-center justify-between p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm hover:shadow-md transition-shadow"
+              >
+                <div className="flex items-center">
+                  <CheckmarkIcon
+                    checked={isCompletedToday}
+                    onClick={() => toggleHabitCompletion(habit.id)}
+                  />
+                  <div className="ml-3">
+                    <h3 className={`font-medium ${
+                      isCompletedToday 
+                        ? 'text-gray-500 dark:text-gray-400 line-through' 
+                        : 'text-gray-800 dark:text-white'
+                    }`}>
+                      {habit.name}
+                    </h3>
+                    <div className="flex items-center mt-1">
+                      <span className="text-xs text-gray-500 dark:text-gray-400 mr-2">
+                        XP: {habit.xp || 0}
+                      </span>
+                      <span className="text-xs text-gray-500 dark:text-gray-400">
+                        Streak: {calculateStreak(habit.logs)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <button
+                  onClick={() => deleteHabit(habit.id)}
+                  className="text-gray-400 hover:text-red-500 transition-colors"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                </button>
+              </div>
+            );
+          })
+        )}
+      </div>
+      
+      {/* Create Set Modal */}
+      {showCreateSetModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-6">
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+              Create New Habit Set
+            </h2>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Name
+                </label>
+                <input
+                  type="text"
+                  value={newSetName}
+                  onChange={(e) => setNewSetName(e.target.value)}
+                  className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-800 dark:text-white"
+                  placeholder="My Habit Set"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Description (optional)
+                </label>
+                <textarea
+                  value={newSetDescription}
+                  onChange={(e) => setNewSetDescription(e.target.value)}
+                  className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-800 dark:text-white"
+                  placeholder="What's this habit set for?"
+                  rows={3}
+                />
+              </div>
+            </div>
+            <div className="flex justify-end space-x-3 mt-6">
+              <button
+                onClick={() => {
+                  setShowCreateSetModal(false);
+                  setNewSetName('');
+                  setNewSetDescription('');
+                }}
+                className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreateSet}
+                disabled={!newSetName.trim()}
+                className={`px-4 py-2 rounded-md text-white font-medium ${
+                  !newSetName.trim()
+                    ? 'bg-gray-400 cursor-not-allowed'
+                    : 'bg-indigo-600 hover:bg-indigo-700'
+                }`}
+              >
+                Create
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 } 
