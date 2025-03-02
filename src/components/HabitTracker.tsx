@@ -396,7 +396,11 @@ export default function HabitTracker() {
       
       {/* Habits List */}
       <div className="mb-6">
-        <h2 className="text-lg font-semibold text-gray-800 dark:text-white mb-2">Your Habits</h2>
+        <h2 className="text-lg font-semibold text-gray-800 dark:text-white mb-2">
+          {activeHabitSet 
+            ? `Your Habits - ${activeHabitSet.name}` 
+            : "Your Habits"}
+        </h2>
         {habits.length === 0 ? (
           <p className="text-gray-500 dark:text-gray-400 text-center py-4">
             You haven't added any habits yet. Add your first habit below!
