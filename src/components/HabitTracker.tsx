@@ -26,6 +26,8 @@ import {
 } from '@/lib/firestoreService';
 import HabitSetManager from './HabitSetManager';
 import { toast } from 'react-hot-toast';
+import { collection, writeBatch, getDocs, doc, serverTimestamp, setDoc, deleteDoc, updateDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 // Constants
 const MAX_HABITS = 5;
@@ -157,10 +159,47 @@ export default function HabitTracker() {
     try {
       console.log(`Switching to habit set ${setId} (${setName})`);
       
-      // Save current habits to the current set before switching
-      if (activeHabitSetState) {
-        console.log(`Saving current habits to set ${activeHabitSetState.id} before switching`);
-        await saveHabitsToSet(user.uid, activeHabitSetState.id, habits);
+      // First, manually save current habits to the current set if we have any
+      if (activeHabitSetState && habits.length > 0) {
+        console.log(`Manually saving ${habits.length} habits to current set ${activeHabitSetState.id} before switching`);
+        
+        // Use direct Firestore operations to ensure habits are saved
+        const habitsCollectionRef = collection(db, 'users', user.uid, 'habitSets', activeHabitSetState.id, 'habits');
+        
+        // Create a batch write
+        const batch = writeBatch(db);
+        
+        // Get existing habits to know what to delete
+        const existingHabitsSnapshot = await getDocs(habitsCollectionRef);
+        const existingHabitIds = new Set<string>();
+        
+        existingHabitsSnapshot.forEach(doc => {
+          existingHabitIds.add(doc.id);
+        });
+        
+        // Add or update each habit
+        for (const habit of habits) {
+          const habitId = habit.id.toString();
+          const habitDocRef = doc(habitsCollectionRef, habitId);
+          
+          batch.set(habitDocRef, {
+            ...habit,
+            updatedAt: serverTimestamp()
+          }, { merge: true });
+          
+          // Remove from the set as we've handled it
+          existingHabitIds.delete(habitId);
+        }
+        
+        // Delete any habits that are in Firestore but not in our current state
+        for (const habitId of Array.from(existingHabitIds)) {
+          const habitDocRef = doc(db, 'users', user.uid, 'habitSets', activeHabitSetState.id, 'habits', habitId.toString());
+          batch.delete(habitDocRef);
+        }
+        
+        // Commit the batch
+        await batch.commit();
+        console.log(`Successfully saved habits to set ${activeHabitSetState.id} before switching`);
       }
       
       // Clear current habits immediately to avoid showing previous set's habits
@@ -175,8 +214,19 @@ export default function HabitTracker() {
         name: setName
       });
       
-      // Load habits for the new set
-      await loadHabitsFromSet(setId);
+      // Directly load habits from the new set
+      console.log(`Directly loading habits from set ${setId}`);
+      const newHabitsCollectionRef = collection(db, 'users', user.uid, 'habitSets', setId, 'habits');
+      const habitsSnapshot = await getDocs(newHabitsCollectionRef);
+      
+      const loadedHabits: Habit[] = [];
+      habitsSnapshot.forEach(doc => {
+        loadedHabits.push(doc.data() as Habit);
+      });
+      
+      console.log(`Loaded ${loadedHabits.length} habits from set ${setId}`);
+      setHabits(loadedHabits);
+      localStorage.setItem('habits', JSON.stringify(loadedHabits));
       
       // Subscribe to habits for this set for real-time updates
       subscribeToActiveSetHabits(user.uid, setId);
@@ -318,10 +368,31 @@ export default function HabitTracker() {
     
     // Save to Firestore if user is authenticated
     if (user && activeHabitSetState) {
-      console.log(`Saving habits to active set ${activeHabitSetState.id} after adding new habit`);
-      await saveHabitsToSet(user.uid, activeHabitSetState.id, updatedHabits);
-      // Also save directly to ensure persistence
-      await saveHabitsToCurrentSet();
+      try {
+        console.log(`Directly saving new habit to set ${activeHabitSetState.id}`);
+        
+        // Use direct Firestore operations
+        const habitDocRef = doc(
+          db, 
+          'users', 
+          user.uid, 
+          'habitSets', 
+          activeHabitSetState.id, 
+          'habits', 
+          newHabitObj.id.toString()
+        );
+        
+        await setDoc(habitDocRef, {
+          ...newHabitObj,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        });
+        
+        console.log(`Successfully saved new habit to set ${activeHabitSetState.id}`);
+      } catch (error) {
+        console.error('Error saving new habit:', error);
+        toast.error('Failed to save new habit');
+      }
     }
   };
 
@@ -335,10 +406,27 @@ export default function HabitTracker() {
     
     // Save to Firestore if user is authenticated
     if (user && activeHabitSetState) {
-      console.log(`Saving updated habits to active set ${activeHabitSetState.id} after deletion`);
-      await saveHabitsToSet(user.uid, activeHabitSetState.id, updatedHabits);
-      // Also save directly to ensure persistence
-      await saveHabitsToCurrentSet();
+      try {
+        console.log(`Directly deleting habit ${id} from set ${activeHabitSetState.id}`);
+        
+        // Use direct Firestore operations
+        const habitDocRef = doc(
+          db, 
+          'users', 
+          user.uid, 
+          'habitSets', 
+          activeHabitSetState.id, 
+          'habits', 
+          id.toString()
+        );
+        
+        await deleteDoc(habitDocRef);
+        
+        console.log(`Successfully deleted habit ${id} from set ${activeHabitSetState.id}`);
+      } catch (error) {
+        console.error(`Error deleting habit ${id}:`, error);
+        toast.error('Failed to delete habit');
+      }
     }
   };
 
@@ -411,11 +499,40 @@ export default function HabitTracker() {
     
     // Save to Firestore if user is authenticated
     if (user && activeHabitSetState) {
-      console.log(`Saving updated habits to active set ${activeHabitSetState.id} after completion toggle`);
-      await saveHabitsToSet(user.uid, activeHabitSetState.id, updatedHabits);
-      await saveUserStats(user.uid, updatedStats);
-      // Also save directly to ensure persistence
-      await saveHabitsToCurrentSet();
+      try {
+        console.log(`Directly updating habit ${id} in set ${activeHabitSetState.id} after completion toggle`);
+        
+        // Get the updated habit
+        const updatedHabit = updatedHabits.find(h => h.id === id);
+        if (!updatedHabit) {
+          console.error(`Could not find habit ${id} in updated habits`);
+          return;
+        }
+        
+        // Use direct Firestore operations to update the habit
+        const habitDocRef = doc(
+          db, 
+          'users', 
+          user.uid, 
+          'habitSets', 
+          activeHabitSetState.id, 
+          'habits', 
+          id.toString()
+        );
+        
+        await updateDoc(habitDocRef, {
+          ...updatedHabit,
+          updatedAt: serverTimestamp()
+        });
+        
+        // Also update user stats
+        await saveUserStats(user.uid, updatedStats);
+        
+        console.log(`Successfully updated habit ${id} and user stats`);
+      } catch (error) {
+        console.error(`Error updating habit ${id}:`, error);
+        toast.error('Failed to update habit completion');
+      }
     }
   };
 
