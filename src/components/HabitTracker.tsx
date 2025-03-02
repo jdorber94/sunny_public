@@ -116,6 +116,9 @@ export default function HabitTracker() {
     try {
       console.log(`Switching to habit set ${setId} (${setName})`);
       
+      // Clear current habits immediately to avoid showing previous set's habits
+      setHabits([]);
+      
       // Set this set as active in Firestore
       await setActiveHabitSet(user.uid, setId);
       
@@ -177,6 +180,7 @@ export default function HabitTracker() {
           console.log('No active habit set found');
           // Clear habits if no active set
           setHabits([]);
+          localStorage.removeItem('habits');
         }
       });
       
@@ -390,7 +394,7 @@ export default function HabitTracker() {
         isPremium: habitSets.length > 1, // First two sets are free, others are premium
       };
       
-      await createHabitSet(user.uid, newSet);
+      const createdSet = await createHabitSet(user.uid, newSet);
       
       // Reset form
       setNewSetName('');
@@ -399,6 +403,16 @@ export default function HabitTracker() {
       setError('');
       
       toast.success('Habit set created successfully!');
+      
+      // If this is not the first set (which is automatically active),
+      // switch to the newly created set
+      if (createdSet && habitSets.length > 0) {
+        // Clear current habits
+        setHabits([]);
+        
+        // Switch to the new set
+        await handleSwitchHabitSet(createdSet.id, createdSet.name);
+      }
     } catch (error) {
       console.error('Error creating habit set:', error);
       toast.error('Failed to create habit set');
