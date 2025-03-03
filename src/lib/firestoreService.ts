@@ -26,6 +26,7 @@ export interface Habit {
   name: string;
   logs: string[];
   xp: number;
+  streak?: number;  // Add streak property as optional
   category?: string;
   daysOfWeek?: number[]; // 0 = Sunday, 1 = Monday, etc.
   createdAt?: Timestamp;
