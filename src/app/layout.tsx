@@ -1,18 +1,24 @@
 import type { Metadata } from "next";
-import { Inter, Montserrat } from 'next/font/google';
+import { Inter, Plus_Jakarta_Sans, Righteous } from 'next/font/google';
 import './globals.css';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { ThemeProvider } from '@/components/ThemeProvider';
 import Navigation from '@/components/Navigation';
 
-const montserrat = Montserrat({ 
+const plusJakarta = Plus_Jakarta_Sans({ 
   subsets: ['latin'],
-  variable: '--font-montserrat',
+  variable: '--font-plus-jakarta',
 });
 
 const inter = Inter({ 
   subsets: ['latin'],
   variable: '--font-inter',
+});
+
+const righteous = Righteous({ 
+  weight: '400',
+  subsets: ['latin'],
+  variable: '--font-righteous'
 });
 
 export const metadata: Metadata = {
@@ -55,13 +61,15 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className={`${inter.className} h-full`}>
+      <body className={`${plusJakarta.variable} ${inter.variable} ${righteous.variable} font-sans h-full antialiased`}>
         <AuthProvider>
           <ThemeProvider>
             <div className="flex h-full">
               <Navigation />
-              <main className="flex-1 overflow-auto">
-                {children}
+              <main className="flex-1 overflow-auto lg:ml-64">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                  {children}
+                </div>
               </main>
             </div>
           </ThemeProvider>

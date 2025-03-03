@@ -171,13 +171,15 @@ export default function Navigation() {
         <div className="flex flex-col h-full">
           <div className="p-6 border-b border-slate-100 dark:border-slate-700">
             <div className="flex items-center">
-              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white mr-3">
+              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-emerald-500 to-green-600 flex items-center justify-center text-white mr-3">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 01-.982-3.172M9.497 14.25a7.454 7.454 0 00.981-3.172M5.25 4.236c-.982.143-1.954.317-2.916.52A6.003 6.003 0 007.73 9.728M5.25 4.236V4.5c0 2.108.966 3.99 2.48 5.228M5.25 4.236V2.721C7.456 2.41 9.71 2.25 12 2.25c2.291 0 4.545.16 6.75.47v1.516M7.73 9.728a6.726 6.726 0 002.748 1.35m8.272-6.842V4.5c0 2.108-.966 3.99-2.48 5.228m2.48-5.492a46.32 46.32 0 012.916.52 6.003 6.003 0 01-5.395 4.972m0 0a6.726 6.726 0 01-2.749 1.35m0 0a6.772 6.772 0 01-3.044 0" />
                 </svg>
               </div>
               <div>
-                <h1 className="text-xl font-bold text-slate-900 dark:text-white">Quest Master</h1>
+                <h1 className="text-2xl font-[var(--font-righteous)] bg-gradient-to-r from-emerald-500 to-green-500 bg-clip-text text-transparent hover:from-emerald-600 hover:to-green-600 transition-all duration-300">
+                  Quest
+                </h1>
                 <p className="text-xs text-slate-500 dark:text-slate-400">Level up your habits</p>
               </div>
             </div>
@@ -255,10 +257,10 @@ export default function Navigation() {
       </aside>
 
       {/* Mobile menu button - only visible on smaller screens */}
-      <div className="fixed top-4 left-4 z-50 lg:hidden">
+      <div className="fixed top-4 right-4 z-50 lg:hidden">
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="p-2 rounded-lg bg-white shadow-md text-slate-700 hover:text-indigo-600 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-slate-800 dark:text-slate-200 dark:hover:text-indigo-300"
+          className="glass-button"
           aria-label="Toggle menu"
         >
           <svg
@@ -287,10 +289,10 @@ export default function Navigation() {
       </div>
 
       {/* Dark mode toggle - fixed position for mobile */}
-      <div className="fixed top-4 right-4 z-50 lg:hidden">
+      <div className="fixed top-4 left-4 z-50 lg:hidden">
         <button
           onClick={toggleDarkMode}
-          className="p-2 rounded-lg bg-white shadow-md text-slate-700 hover:text-indigo-600 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-slate-800 dark:text-slate-200 dark:hover:text-indigo-300"
+          className="glass-button"
           aria-label="Toggle dark mode"
         >
           {isDarkMode ? (
@@ -320,13 +322,15 @@ export default function Navigation() {
         <div className="flex flex-col h-full">
           <div className="p-6 border-b border-slate-100 dark:border-slate-700">
             <div className="flex items-center">
-              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white mr-3">
+              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-emerald-500 to-green-600 flex items-center justify-center text-white mr-3">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 01-.982-3.172M9.497 14.25a7.454 7.454 0 00.981-3.172M5.25 4.236c-.982.143-1.954.317-2.916.52A6.003 6.003 0 007.73 9.728M5.25 4.236V4.5c0 2.108.966 3.99 2.48 5.228M5.25 4.236V2.721C7.456 2.41 9.71 2.25 12 2.25c2.291 0 4.545.16 6.75.47v1.516M7.73 9.728a6.726 6.726 0 002.748 1.35m8.272-6.842V4.5c0 2.108-.966 3.99-2.48 5.228m2.48-5.492a46.32 46.32 0 012.916.52 6.003 6.003 0 01-5.395 4.972m0 0a6.726 6.726 0 01-2.749 1.35m0 0a6.772 6.772 0 01-3.044 0" />
                 </svg>
               </div>
               <div>
-                <h1 className="text-xl font-bold text-slate-900 dark:text-white">Quest Master</h1>
+                <h1 className="text-2xl font-[var(--font-righteous)] bg-gradient-to-r from-emerald-500 to-green-500 bg-clip-text text-transparent hover:from-emerald-600 hover:to-green-600 transition-all duration-300">
+                  Quest
+                </h1>
                 <p className="text-xs text-slate-500 dark:text-slate-400">Level up your habits</p>
               </div>
             </div>
