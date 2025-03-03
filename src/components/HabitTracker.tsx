@@ -980,23 +980,31 @@ export default function HabitTracker() {
       
       // Update in Firestore
       const setRef = doc(db, 'users', user.uid, 'habitSets', setId);
-      await updateDoc(setRef, { 
+      const updateData = {
         name: newName.trim(),
-        description: newDescription.trim() || undefined,
+        description: newDescription.trim() || "",
         updatedAt: serverTimestamp()
-      });
+      };
       
-      // Update local state
+      console.log("Updating Firestore with data:", updateData);
+      await updateDoc(setRef, updateData);
+      
+      // Update local state for habit sets
       setHabitSets(prevSets => 
         prevSets.map(set => 
           set.id === setId 
-            ? { ...set, name: newName.trim(), description: newDescription.trim() || undefined } 
+            ? { 
+                ...set, 
+                name: newName.trim(), 
+                description: newDescription.trim() || "" 
+              } 
             : set
         )
       );
       
       // If this is the active set, update the active set state
       if (activeHabitSetState && activeHabitSetState.id === setId) {
+        console.log("Updating active set state with new name:", newName.trim());
         setActiveHabitSetState({
           id: setId,
           name: newName.trim()
@@ -1079,6 +1087,53 @@ export default function HabitTracker() {
       toast.error("Failed to delete habit set");
     }
   };
+
+  // Subscribe to habit sets
+  useEffect(() => {
+    if (!user) return;
+
+    console.log("Setting up habit sets subscription");
+    const habitSetsRef = collection(db, 'users', user.uid, 'habitSets');
+    
+    const unsubscribe = onSnapshot(habitSetsRef, (snapshot) => {
+      console.log("Received habit sets update from Firestore");
+      const sets: HabitSet[] = [];
+      
+      snapshot.forEach((doc) => {
+        const data = doc.data();
+        sets.push({
+          id: doc.id,
+          name: data.name || "",
+          description: data.description || "",
+          isActive: data.isActive || false,
+          isPremium: data.isPremium || false
+        });
+        
+        // If this is the active set, update the active set state
+        if (data.isActive) {
+          console.log("Found active set:", doc.id, data.name);
+          setActiveHabitSetState({
+            id: doc.id,
+            name: data.name
+          });
+        }
+      });
+      
+      console.log("Updating habit sets state with:", sets);
+      setHabitSets(sets);
+    }, (error) => {
+      console.error("Error in habit sets subscription:", error);
+    });
+    
+    habitSetsUnsubscribeRef.current = unsubscribe;
+    
+    return () => {
+      console.log("Cleaning up habit sets subscription");
+      if (habitSetsUnsubscribeRef.current) {
+        habitSetsUnsubscribeRef.current();
+      }
+    };
+  }, [user]);
 
   return (
     <div className="max-w-4xl mx-auto p-4">
