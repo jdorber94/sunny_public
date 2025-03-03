@@ -2,14 +2,14 @@ import './globals.css';
 import { Plus_Jakarta_Sans, Outfit } from 'next/font/google';
 import Navigation from '@/components/Navigation';
 import ClientProviders from '@/components/ClientProviders';
+import { generateMetadata as siteMetadata } from './config';
 
 const plusJakarta = Plus_Jakarta_Sans({ subsets: ['latin'] });
 const outfit = Outfit({ subsets: ['latin'] });
 
-export const metadata = {
-  title: 'Quest - Build Better Habits',
-  description: 'Track and build better habits with Quest, your personal habit tracking assistant.',
-};
+export const metadata = siteMetadata;
+
+export const dynamic = 'force-dynamic';
 
 export default function RootLayout({
   children,

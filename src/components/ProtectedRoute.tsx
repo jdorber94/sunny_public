@@ -18,6 +18,10 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
     }
   }, [user, loading, router]);
 
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
