@@ -969,8 +969,14 @@ export default function HabitTracker() {
       return;
     }
 
+    if (!newName.trim()) {
+      toast.error("Set name cannot be empty");
+      return;
+    }
+
     try {
       console.log(`Editing habit set ${setId} to name: ${newName}`);
+      toast.loading("Saving changes...", { id: "editSet" });
       
       // Update in Firestore
       const setRef = doc(db, 'users', user.uid, 'habitSets', setId);
@@ -997,14 +1003,14 @@ export default function HabitTracker() {
         });
       }
       
-      toast.success("Habit set updated");
+      toast.success("Habit set updated successfully", { id: "editSet" });
       setShowEditSetModal(false);
       setEditSetId("");
       setEditSetName("");
       setEditSetDescription("");
     } catch (error) {
       console.error("Error editing habit set:", error);
-      toast.error("Failed to edit habit set");
+      toast.error("Failed to edit habit set", { id: "editSet" });
     }
   };
   
@@ -1437,8 +1443,9 @@ export default function HabitTracker() {
                   type="text"
                   value={editSetName}
                   onChange={(e) => setEditSetName(e.target.value)}
-                  className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-800 dark:text-white"
+                  className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                   placeholder="My Habit Set"
+                  onKeyPress={(e) => e.key === 'Enter' && handleEditHabitSet(editSetId, editSetName, editSetDescription)}
                 />
               </div>
               <div>
@@ -1448,7 +1455,7 @@ export default function HabitTracker() {
                 <textarea
                   value={editSetDescription}
                   onChange={(e) => setEditSetDescription(e.target.value)}
-                  className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-800 dark:text-white"
+                  className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                   placeholder="What's this habit set for?"
                   rows={3}
                 />
@@ -1462,14 +1469,14 @@ export default function HabitTracker() {
                   setEditSetName('');
                   setEditSetDescription('');
                 }}
-                className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={() => handleEditHabitSet(editSetId, editSetName, editSetDescription)}
                 disabled={!editSetName.trim()}
-                className={`px-4 py-2 rounded-md text-white font-medium ${
+                className={`px-4 py-2 rounded-md text-white font-medium transition-colors ${
                   !editSetName.trim()
                     ? 'bg-gray-400 cursor-not-allowed'
                     : 'bg-indigo-600 hover:bg-indigo-700'
