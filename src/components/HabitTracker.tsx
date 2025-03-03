@@ -136,6 +136,8 @@ export default function HabitTracker() {
   const [editSetDescription, setEditSetDescription] = useState('');
   const [showDeleteSetModal, setShowDeleteSetModal] = useState(false);
   const [deleteSetId, setDeleteSetId] = useState('');
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [selectedHabit, setSelectedHabit] = useState<Habit | null>(null);
   
   const unsubscribeRef = useRef<(() => void) | null>(null);
   const statsUnsubscribeRef = useRef<(() => void) | null>(null);
@@ -1135,6 +1137,14 @@ export default function HabitTracker() {
     };
   }, [user]);
 
+  const handleSave = async () => {
+    try {
+      await saveHabitsToCurrentSet();
+    } catch (error) {
+      console.error('Error saving habits:', error);
+    }
+  };
+
   return (
     <div className="max-w-5xl mx-auto p-6 space-y-8">
       {/* Level Up Celebration */}
@@ -1146,27 +1156,37 @@ export default function HabitTracker() {
       )}
       
       {/* Header with level info - Enhanced with glass morphism */}
-      <div className="relative overflow-hidden rounded-2xl bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg shadow-xl p-6 border border-gray-200/50 dark:border-gray-700/50">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center">
-          <div>
-            <h1 className="text-3xl font-semibold bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
-              Habit Tracker
-            </h1>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-              Track your daily habits and level up your life
-            </p>
-          </div>
-          <div className="mt-4 md:mt-0 flex items-center">
-            <div className="mr-4 text-right">
-              <p className="text-sm text-gray-500 dark:text-gray-400">Level</p>
-              <p className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
-                {currentLevel}
-              </p>
+      <div className="w-full">
+        <div className="glass-card p-6 mb-6">
+          <div className="flex flex-col space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="text-lg font-medium text-gray-700 dark:text-gray-200">Level {Math.floor(stats.totalXP / 1000) + 1}</div>
+              <div className="text-sm text-gray-500">{stats.totalXP % 1000} / 1000 XP</div>
             </div>
-            <div className="w-14 h-14 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg transform hover:scale-105 transition-transform duration-300">
-              <Sparkles />
+            <div className="relative h-3 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+              <div 
+                className="absolute top-0 left-0 h-full bg-gradient-to-r from-blue-400 to-blue-500 rounded-full transition-all duration-300 animate-shimmer"
+                style={{ width: `${(stats.totalXP % 1000) / 10}%` }}
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
+              </div>
             </div>
           </div>
+        </div>
+
+        <div className="flex justify-between items-center mb-6">
+          <button
+            onClick={() => setShowCreateSetModal(true)}
+            className="px-4 py-2 bg-gradient-to-r from-blue-400/90 to-blue-500/90 hover:from-blue-400 hover:to-blue-500 text-white rounded-lg shadow-lg shadow-blue-500/20 backdrop-blur-sm transition-all duration-300 hover:scale-105"
+          >
+            Create New Set
+          </button>
+          <button
+            onClick={handleSave}
+            className="px-4 py-2 bg-gradient-to-r from-gray-500/80 to-gray-600/80 hover:from-gray-500 hover:to-gray-600 text-white rounded-lg shadow-lg shadow-gray-500/20 backdrop-blur-sm transition-all duration-300 hover:scale-105"
+          >
+            Save Changes
+          </button>
         </div>
       </div>
       
@@ -1412,73 +1432,41 @@ export default function HabitTracker() {
         )}
       </div>
       
-      {/* Create Set Modal - Enhanced with modern design */}
+      {/* Create Set Modal */}
       {showCreateSetModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-2xl shadow-2xl max-w-md w-full p-6 transform transition-all duration-300 scale-100">
-            <h2 className="text-2xl font-semibold bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-300 bg-clip-text text-transparent mb-4">
-              Create New Habit Set
-            </h2>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Name
-                </label>
-                <input
-                  type="text"
-                  value={newSetName}
-                  onChange={(e) => setNewSetName(e.target.value)}
-                  className="w-full p-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white/50 dark:bg-gray-900/50 text-gray-800 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-transparent transition-all duration-300"
-                  placeholder="My Habit Set"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Description (optional)
-                </label>
-                <textarea
-                  value={newSetDescription}
-                  onChange={(e) => setNewSetDescription(e.target.value)}
-                  className="w-full p-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white/50 dark:bg-gray-900/50 text-gray-800 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-transparent transition-all duration-300"
-                  placeholder="What's this habit set for?"
-                  rows={3}
-                />
-              </div>
-            </div>
-            <div className="flex justify-end space-x-3 mt-6">
+        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white/90 dark:bg-gray-800/90 rounded-xl p-6 w-full max-w-md shadow-xl border border-gray-200/50 dark:border-gray-700/50">
+            <h3 className="text-xl font-semibold mb-4 text-gray-800 dark:text-gray-200">Create New Set</h3>
+            <input
+              type="text"
+              value={newSetName}
+              onChange={(e) => setNewSetName(e.target.value)}
+              placeholder="Enter set name"
+              className="w-full px-4 py-2 rounded-lg bg-gray-100/80 dark:bg-gray-700/80 border border-gray-200/50 dark:border-gray-600/50 focus:outline-none focus:ring-2 focus:ring-blue-500/50 mb-4"
+            />
+            <div className="flex justify-end space-x-3">
               <button
-                onClick={() => {
-                  setShowCreateSetModal(false);
-                  setNewSetName('');
-                  setNewSetDescription('');
-                }}
-                className="px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all duration-300"
+                onClick={() => setShowCreateSetModal(false)}
+                className="px-4 py-2 bg-gray-500/80 hover:bg-gray-600/80 text-white rounded-lg transition-all duration-300"
               >
                 Cancel
               </button>
               <button
-                onClick={() => {
-                  console.log("Create button clicked");
-                  handleCreateSet();
-                }}
+                onClick={handleCreateSet}
                 disabled={!newSetName.trim()}
-                className={`px-4 py-2 rounded-xl text-white font-medium transition-all duration-300 transform hover:scale-105 ${
-                  !newSetName.trim()
-                    ? 'bg-gray-300 dark:bg-gray-600 cursor-not-allowed'
-                    : 'bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 shadow-md'
-                }`}
+                className="px-4 py-2 bg-gradient-to-r from-blue-400/90 to-blue-500/90 hover:from-blue-400 hover:to-blue-500 text-white rounded-lg shadow-lg shadow-blue-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300"
               >
-                Create Set
+                Create
               </button>
             </div>
           </div>
         </div>
       )}
       
-      {/* Edit Set Modal - Enhanced with modern design */}
+      {/* Edit Set Modal */}
       {showEditSetModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-2xl shadow-2xl max-w-md w-full p-6 transform transition-all duration-300 scale-100">
+        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white/90 dark:bg-gray-800/90 rounded-2xl shadow-2xl max-w-md w-full p-6 transform transition-all duration-300 scale-100">
             <h2 className="text-2xl font-semibold bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-300 bg-clip-text text-transparent mb-4">
               Edit Habit Set
             </h2>
@@ -1537,34 +1525,27 @@ export default function HabitTracker() {
         </div>
       )}
       
-      {/* Delete Set Confirmation Modal - Enhanced with modern design */}
+      {/* Delete Set Confirmation Modal */}
       {showDeleteSetModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-2xl shadow-2xl max-w-md w-full p-6 transform transition-all duration-300 scale-100">
-            <div className="flex items-center justify-center w-12 h-12 mx-auto mb-4 rounded-full bg-red-100 dark:bg-red-900/20">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-red-600 dark:text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-              </svg>
-            </div>
-            <h2 className="text-2xl font-semibold text-center bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-300 bg-clip-text text-transparent mb-2">
-              Delete Habit Set
-            </h2>
-            <p className="text-center text-gray-600 dark:text-gray-400 mb-6">
+        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white/90 dark:bg-gray-800/90 rounded-xl p-6 w-full max-w-md shadow-xl border border-gray-200/50 dark:border-gray-700/50">
+            <h3 className="text-xl font-semibold mb-4 text-gray-800 dark:text-gray-200">Delete Habit Set</h3>
+            <p className="text-gray-600 dark:text-gray-400 mb-4">
               Are you sure you want to delete this habit set? This action cannot be undone and all habits in this set will be lost.
             </p>
-            <div className="flex justify-center space-x-3">
+            <div className="flex justify-end space-x-3">
               <button
                 onClick={() => {
                   setShowDeleteSetModal(false);
                   setDeleteSetId('');
                 }}
-                className="px-6 py-2 rounded-xl border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all duration-300"
+                className="px-6 py-2 bg-gray-500/80 hover:bg-gray-600/80 text-white rounded-lg transition-all duration-300"
               >
                 Cancel
               </button>
               <button
                 onClick={() => handleDeleteHabitSet(deleteSetId)}
-                className="px-6 py-2 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-medium rounded-xl shadow-md transform hover:scale-105 transition-all duration-300"
+                className="px-6 py-2 bg-gradient-to-r from-red-400/90 to-red-500/90 hover:from-red-400 hover:to-red-500 text-white rounded-lg shadow-lg shadow-red-500/20 transition-all duration-300"
               >
                 Delete
               </button>
