@@ -96,6 +96,19 @@ body {
   }
 }
 
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.animate-shimmer {
+  animation: shimmer 2s infinite;
+}
+
 /* Glass card component */
 .glass-card {
   @apply bg-white bg-opacity-90 backdrop-blur-sm rounded-xl;
@@ -233,7 +246,6 @@ body {
     padding-bottom: env(safe-area-inset-bottom);
   }
 }
-
 @layer base {
   html {
     -webkit-tap-highlight-color: transparent;
@@ -287,3 +299,14 @@ body {
 .animate-bounce-slow {
   animation: bounce-slow 2s ease-in-out infinite;
 }
+
+/* Hide scrollbar but keep functionality */
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+

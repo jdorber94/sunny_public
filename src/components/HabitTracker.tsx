@@ -1155,6 +1155,11 @@ export default function HabitTracker() {
         />
       )}
 
+      {/* Weekly Progress */}
+      <div className="rounded-2xl bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg shadow-xl p-6 border border-gray-200/50 dark:border-gray-700/50">
+        <WeeklyProgress habits={habits} />
+      </div>
+
       {/* Habits List - Enhanced with modern design */}
       <div className="space-y-4">
         {habits.length === 0 ? (
@@ -1426,11 +1431,6 @@ export default function HabitTracker() {
           </div>
         </div>
       )}
-      
-      {/* Weekly Progress */}
-      <div className="rounded-2xl bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg shadow-xl p-6 border border-gray-200/50 dark:border-gray-700/50">
-        <WeeklyProgress habits={habits} />
-      </div>
       
       {/* Create Set Modal */}
       {showCreateSetModal && (

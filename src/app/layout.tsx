@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, Plus_Jakarta_Sans, Righteous } from 'next/font/google';
+import { Plus_Jakarta_Sans, Outfit } from 'next/font/google';
 import './globals.css';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { ThemeProvider } from '@/components/ThemeProvider';
@@ -10,25 +10,15 @@ const plusJakarta = Plus_Jakarta_Sans({
   variable: '--font-plus-jakarta',
 });
 
-const inter = Inter({ 
+const outfit = Outfit({ 
   subsets: ['latin'],
-  variable: '--font-inter',
-});
-
-const righteous = Righteous({ 
-  weight: '400',
-  subsets: ['latin'],
-  variable: '--font-righteous'
+  variable: '--font-outfit',
+  display: 'swap',
 });
 
 export const metadata: Metadata = {
-  title: "Habit Tracker",
-  description: "Track your daily habits and build better routines",
-  openGraph: {
-    title: "Habit Tracker",
-    description: "Track your daily habits and build better routines",
-    type: "website",
-  },
+  title: "Sunny - Habit Tracker",
+  description: "Track your daily habits and level up your life",
 };
 
 export default function RootLayout({
@@ -37,7 +27,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className="h-full">
+    <html lang="en" className={`${plusJakarta.variable} ${outfit.variable}`}>
       <head>
         <link rel="icon" href="/favicon.ico" />
         {/* Script to prevent flash of wrong theme */}
@@ -61,13 +51,13 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className={`${plusJakarta.variable} ${inter.variable} ${righteous.variable} font-sans h-full antialiased`}>
+      <body className="font-sans antialiased bg-gray-50 dark:bg-gray-900">
         <AuthProvider>
           <ThemeProvider>
-            <div className="flex h-full">
+            <div className="flex min-h-screen">
               <Navigation />
               <main className="flex-1 overflow-auto lg:ml-64">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
                   {children}
                 </div>
               </main>

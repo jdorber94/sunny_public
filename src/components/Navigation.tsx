@@ -15,109 +15,46 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   {
-    name: 'Quest',
+    name: 'Home',
     path: '/',
-    icon: (active) => (
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        viewBox="0 0 24 24"
-        fill="currentColor"
-        className={`w-6 h-6 ${active ? 'text-indigo-500' : 'text-slate-400'}`}
-      >
-        <path d="M11.47 3.84a.75.75 0 011.06 0l8.69 8.69a.75.75 0 101.06-1.06l-8.689-8.69a2.25 2.25 0 00-3.182 0l-8.69 8.69a.75.75 0 001.061 1.06l8.69-8.69z" />
-        <path d="M12 5.432l8.159 8.159c.03.03.06.058.091.086v6.198c0 1.035-.84 1.875-1.875 1.875H15a.75.75 0 01-.75-.75v-4.5a.75.75 0 00-.75-.75h-3a.75.75 0 00-.75.75V21a.75.75 0 01-.75.75H5.625a1.875 1.875 0 01-1.875-1.875v-6.198a2.29 2.29 0 00.091-.086L12 5.43z" />
+    icon: ({ active }) => (
+      <svg xmlns="http://www.w3.org/2000/svg" className={`h-6 w-6 ${active ? 'text-primary' : 'text-text-secondary'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
       </svg>
     ),
   },
   {
     name: 'Progress',
     path: '/progress',
-    icon: (active) => (
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        viewBox="0 0 24 24"
-        fill="currentColor"
-        className={`w-6 h-6 ${active ? 'text-indigo-500' : 'text-slate-400'}`}
-      >
-        <path
-          fillRule="evenodd"
-          d="M2.25 13.5a8.25 8.25 0 018.25-8.25.75.75 0 01.75.75v6.75H18a.75.75 0 01.75.75 8.25 8.25 0 01-16.5 0z"
-          clipRule="evenodd"
-        />
-        <path
-          fillRule="evenodd"
-          d="M12.75 3a.75.75 0 01.75-.75 8.25 8.25 0 018.25 8.25.75.75 0 01-.75.75h-7.5a.75.75 0 01-.75-.75V3z"
-          clipRule="evenodd"
-        />
-      </svg>
-    ),
-  },
-  {
-    name: 'History',
-    path: '/history',
-    icon: (active) => (
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        viewBox="0 0 24 24"
-        fill="currentColor"
-        className={`w-6 h-6 ${active ? 'text-indigo-500' : 'text-slate-400'}`}
-      >
-        <path
-          fillRule="evenodd"
-          d="M7.502 6h7.128A3.375 3.375 0 0118 9.375v9.375a3 3 0 003-3V6.108c0-1.505-1.125-2.811-2.664-2.94a48.972 48.972 0 00-.673-.05A3 3 0 0015 1.5h-1.5a3 3 0 00-2.663 1.618c-.225.015-.45.032-.673.05C8.662 3.295 7.554 4.542 7.502 6zM13.5 3A1.5 1.5 0 0012 4.5h4.5A1.5 1.5 0 0015 3h-1.5z"
-          clipRule="evenodd"
-        />
-        <path
-          fillRule="evenodd"
-          d="M3 9.375C3 8.339 3.84 7.5 4.875 7.5h9.75c1.036 0 1.875.84 1.875 1.875v11.25c0 1.035-.84 1.875-1.875 1.875h-9.75A1.875 1.875 0 013 20.625V9.375zm9.586 4.594a.75.75 0 00-1.172-.938l-2.476 3.096-.908-.907a.75.75 0 00-1.06 1.06l1.5 1.5a.75.75 0 001.116-.062l3-3.75z"
-          clipRule="evenodd"
-        />
+    icon: ({ active }) => (
+      <svg xmlns="http://www.w3.org/2000/svg" className={`h-6 w-6 ${active ? 'text-primary' : 'text-text-secondary'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
       </svg>
     ),
   },
   {
     name: 'Premium',
     path: '/premium',
-    icon: ({ active }: { active: boolean }) => {
-      const { user } = useAuth();
-      return (
-        <div className="relative">
-          <SparklesIcon
-            className={`${
-              active ? 'text-yellow-500' : 'text-slate-400'
-            } h-6 w-6 shrink-0`}
-          />
-          {user?.isPremium && (
-            <div className="absolute -top-1 -right-1 bg-green-500 rounded-full w-3 h-3 border border-white dark:border-gray-800"></div>
-          )}
-        </div>
-      );
-    },
+    icon: ({ active }) => (
+      <svg xmlns="http://www.w3.org/2000/svg" className={`h-6 w-6 ${active ? 'text-primary' : 'text-text-secondary'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+      </svg>
+    ),
   },
 ];
 
 const profileItem: NavItem = {
   name: 'Profile',
   path: '/profile',
-  icon: (active) => (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 24 24"
-      fill="currentColor"
-      className={`w-6 h-6 ${active ? 'text-indigo-500' : 'text-slate-400'}`}
-    >
-      <path
-        fillRule="evenodd"
-        d="M18.685 19.097A9.723 9.723 0 0021.75 12c0-5.385-4.365-9.75-9.75-9.75S2.25 6.615 2.25 12a9.723 9.723 0 003.065 7.097A9.716 9.716 0 0012 21.75a9.716 9.716 0 006.685-2.653zm-12.54-1.285A7.486 7.486 0 0112 15a7.486 7.486 0 015.855 2.812A8.224 8.224 0 0112 20.25a8.224 8.224 0 01-5.855-2.438zM15.75 9a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z"
-        clipRule="evenodd"
-      />
+  icon: ({ active }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={`h-6 w-6 ${active ? 'text-primary' : 'text-text-secondary'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
     </svg>
   ),
 };
 
 export default function Navigation() {
   const pathname = usePathname();
-  const [isOpen, setIsOpen] = useState(false);
   const router = useRouter();
   const { user, signOut } = useAuth();
   const { isDarkMode, toggleDarkMode } = useTheme();
@@ -164,229 +101,72 @@ export default function Navigation() {
   return (
     <>
       {/* Desktop Sidebar */}
-      <aside
-        className="fixed inset-y-0 left-0 w-64 bg-white shadow-xl z-50 transition-transform duration-300 transform 
-          -translate-x-full lg:translate-x-0 hidden lg:block dark:bg-slate-800 dark:border-r dark:border-slate-700"
-      >
+      <aside className="fixed inset-y-0 left-0 w-64 bg-surface border-r border-border hidden lg:block">
         <div className="flex flex-col h-full">
-          <div className="p-6 border-b border-slate-200 dark:border-slate-700">
-            <div className="flex items-center">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white mr-4 shadow-lg shadow-blue-500/20 dark:shadow-blue-500/10">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
+          <div className="p-6">
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-surface" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                 </svg>
               </div>
-              <div>
-                <h1 className="text-3xl font-[var(--font-righteous)] bg-gradient-to-r from-blue-500 to-indigo-600 bg-clip-text text-transparent hover:from-blue-600 hover:to-indigo-700 transition-all duration-300 drop-shadow-lg">
-                  Quest
-                </h1>
-              </div>
+              <h1 className="text-2xl font-display font-bold text-primary">Sunny</h1>
             </div>
           </div>
 
-          <nav className="flex-1 overflow-y-auto p-4">
-            <div className="space-y-1">
-              {navItems.map((item) => {
-                const isActive = pathname === item.path;
-                return (
-                  <Link
-                    key={item.path}
-                    href={item.path}
-                    className={`flex items-center px-4 py-3 rounded-lg transition-all duration-200 
-                      ${isActive 
-                        ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300' 
-                        : 'text-slate-600 hover:bg-slate-50 hover:text-indigo-600 dark:text-slate-300 dark:hover:bg-slate-700/50 dark:hover:text-indigo-300'}`}
-                  >
-                    <span className="mr-3">{item.icon({ active: isActive })}</span>
-                    <span className="font-medium">{item.name}</span>
-                    {isActive && (
-                      <span className="ml-auto w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
-                    )}
-                  </Link>
-                );
-              })}
-            </div>
-          </nav>
-
-          <div className="border-t border-slate-100 dark:border-slate-700 p-4 mt-auto">
-            {/* Dark Mode Toggle */}
-            <button
-              onClick={toggleDarkMode}
-              className="flex items-center w-full px-4 py-3 mb-2 rounded-lg transition-all duration-200 text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-700/50"
-              aria-label="Toggle dark mode"
-            >
-              {isDarkMode ? (
-                <>
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 mr-3 text-yellow-400">
-                    <path d="M12 2.25a.75.75 0 01.75.75v2.25a.75.75 0 01-1.5 0V3a.75.75 0 01.75-.75zM7.5 12a4.5 4.5 0 119 0 4.5 4.5 0 01-9 0zM18.894 6.166a.75.75 0 00-1.06-1.06l-1.591 1.59a.75.75 0 101.06 1.061l1.591-1.59zM21.75 12a.75.75 0 01-.75.75h-2.25a.75.75 0 010-1.5H21a.75.75 0 01.75.75zM17.834 18.894a.75.75 0 001.06-1.06l-1.59-1.591a.75.75 0 10-1.061 1.06l1.59 1.591zM12 18a.75.75 0 01.75.75V21a.75.75 0 01-1.5 0v-2.25A.75.75 0 0112 18zM7.758 17.303a.75.75 0 00-1.061-1.06l-1.591 1.59a.75.75 0 001.06 1.061l1.591-1.59zM6 12a.75.75 0 01-.75.75H3a.75.75 0 010-1.5h2.25A.75.75 0 016 12zM6.697 7.757a.75.75 0 001.06-1.06l-1.59-1.591a.75.75 0 00-1.061 1.06l1.59 1.591z" />
-                  </svg>
-                  <span className="font-medium">Light Mode</span>
-                </>
-              ) : (
-                <>
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 mr-3 text-slate-400">
-                    <path fillRule="evenodd" d="M9.528 1.718a.75.75 0 01.162.819A8.97 8.97 0 009 6a9 9 0 009 9 8.97 8.97 0 003.463-.69.75.75 0 01.981.98 10.503 10.503 0 01-9.694 6.46c-5.799 0-10.5-4.701-10.5-10.5 0-4.368 2.667-8.112 6.46-9.694a.75.75 0 01.818.162z" clipRule="evenodd" />
-                  </svg>
-                  <span className="font-medium">Dark Mode</span>
-                </>
-              )}
-            </button>
-            
-            {user && (() => {
-              const isActive = pathname === profileItem.path;
+          <nav className="flex-1 px-4 space-y-1">
+            {navItems.map((item) => {
+              const isActive = pathname === item.path;
               return (
                 <Link
-                  href={profileItem.path}
-                  className={`flex items-center px-4 py-3 rounded-lg transition-all duration-200 
-                    ${isActive 
-                      ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300' 
-                      : 'text-slate-600 hover:bg-slate-50 hover:text-indigo-600 dark:text-slate-300 dark:hover:bg-slate-700/50 dark:hover:text-indigo-300'}`}
+                  key={item.path}
+                  href={item.path}
+                  className={`flex items-center px-4 py-3 rounded-xl transition-all duration-200 ${
+                    isActive 
+                      ? 'bg-background text-primary' 
+                      : 'text-text-secondary hover:bg-background hover:text-primary'
+                  }`}
                 >
-                  <span className="mr-3">{profileItem.icon({ active: isActive })}</span>
-                  <span className="font-medium">{profileItem.name}</span>
+                  {item.icon({ active: isActive })}
+                  <span className="ml-3 font-medium">{item.name}</span>
                   {isActive && (
-                    <span className="ml-auto w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
+                    <span className="ml-auto w-1.5 h-1.5 rounded-full bg-primary" />
                   )}
                 </Link>
               );
-            })()}
-            {authItem}
-          </div>
-        </div>
-      </aside>
-
-      {/* Mobile menu button - only visible on smaller screens */}
-      <div className="fixed top-4 right-4 z-50 lg:hidden">
-        <button
-          onClick={() => setIsOpen(!isOpen)}
-          className="w-12 h-12 rounded-xl bg-white dark:bg-slate-800 shadow-lg shadow-slate-200/50 dark:shadow-slate-900/50 flex items-center justify-center hover:shadow-xl transition-all duration-300"
-          aria-label="Toggle menu"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-            strokeWidth={2}
-            stroke="currentColor"
-            className="w-6 h-6 text-slate-700 dark:text-slate-300"
-          >
-            {isOpen ? (
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M6 18L18 6M6 6l12 12"
-              />
-            ) : (
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"
-              />
-            )}
-          </svg>
-        </button>
-      </div>
-
-      {/* Dark mode toggle - fixed position for mobile */}
-      <div className="fixed top-4 left-4 z-50 lg:hidden">
-        <button
-          onClick={toggleDarkMode}
-          className="w-12 h-12 rounded-xl bg-white dark:bg-slate-800 shadow-lg shadow-slate-200/50 dark:shadow-slate-900/50 flex items-center justify-center hover:shadow-xl transition-all duration-300"
-          aria-label="Toggle dark mode"
-        >
-          {isDarkMode ? (
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6 text-yellow-400">
-              <path d="M12 2.25a.75.75 0 01.75.75v2.25a.75.75 0 01-1.5 0V3a.75.75 0 01.75-.75zM7.5 12a4.5 4.5 0 119 0 4.5 4.5 0 01-9 0zM18.894 6.166a.75.75 0 00-1.06-1.06l-1.591 1.59a.75.75 0 101.06 1.061l1.591-1.59zM21.75 12a.75.75 0 01-.75.75h-2.25a.75.75 0 010-1.5H21a.75.75 0 01.75.75zM17.834 18.894a.75.75 0 001.06-1.06l-1.59-1.591a.75.75 0 10-1.061 1.06l1.59 1.591zM12 18a.75.75 0 01.75.75V21a.75.75 0 01-1.5 0v-2.25A.75.75 0 0112 18zM7.758 17.303a.75.75 0 00-1.061-1.06l-1.591 1.59a.75.75 0 001.06 1.061l1.591-1.59zM6 12a.75.75 0 01-.75.75H3a.75.75 0 010-1.5h2.25A.75.75 0 016 12zM6.697 7.757a.75.75 0 001.06-1.06l-1.59-1.591a.75.75 0 00-1.061 1.06l1.59 1.591z" />
-            </svg>
-          ) : (
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6 text-slate-600">
-              <path fillRule="evenodd" d="M9.528 1.718a.75.75 0 01.162.819A8.97 8.97 0 009 6a9 9 0 009 9 8.97 8.97 0 003.463-.69.75.75 0 01.981.98 10.503 10.503 0 01-9.694 6.46c-5.799 0-10.5-4.701-10.5-10.5 0-4.368 2.667-8.112 6.46-9.694a.75.75 0 01.818.162z" clipRule="evenodd" />
-            </svg>
-          )}
-        </button>
-      </div>
-
-      {/* Mobile slide-in menu */}
-      {isOpen && (
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
-          onClick={() => setIsOpen(false)}
-        />
-      )}
-
-      <aside
-        className={`fixed inset-y-0 left-0 w-64 bg-white shadow-xl z-50 transition-transform duration-300 transform lg:hidden dark:bg-slate-800
-          ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}
-      >
-        <div className="flex flex-col h-full">
-          <div className="p-6 border-b border-slate-200 dark:border-slate-700">
-            <div className="flex items-center">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white mr-4 shadow-lg shadow-blue-500/20 dark:shadow-blue-500/10">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
-                </svg>
-              </div>
-              <div>
-                <h1 className="text-3xl font-[var(--font-righteous)] bg-gradient-to-r from-blue-500 to-indigo-600 bg-clip-text text-transparent hover:from-blue-600 hover:to-indigo-700 transition-all duration-300 drop-shadow-lg">
-                  Quest
-                </h1>
-              </div>
-            </div>
-          </div>
-
-          <nav className="flex-1 overflow-y-auto p-4">
-            <div className="space-y-1">
-              {navItems.map((item) => {
-                const isActive = pathname === item.path;
-                return (
-                  <Link
-                    key={item.path}
-                    href={item.path}
-                    onClick={() => setIsOpen(false)}
-                    className={`flex items-center px-4 py-3 rounded-lg transition-all duration-200 
-                      ${isActive 
-                        ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300' 
-                        : 'text-slate-600 hover:bg-slate-50 hover:text-indigo-600 dark:text-slate-300 dark:hover:bg-slate-700/50 dark:hover:text-indigo-300'}`}
-                  >
-                    <span className="mr-3">{item.icon({ active: isActive })}</span>
-                    <span className="font-medium">{item.name}</span>
-                    {isActive && (
-                      <span className="ml-auto w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
-                    )}
-                  </Link>
-                );
-              })}
-              
-              {user && (() => {
-                const isActive = pathname === profileItem.path;
-                return (
-                  <Link
-                    href={profileItem.path}
-                    onClick={() => setIsOpen(false)}
-                    className={`flex items-center px-4 py-3 rounded-lg transition-all duration-200 
-                      ${isActive 
-                        ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300' 
-                        : 'text-slate-600 hover:bg-slate-50 hover:text-indigo-600 dark:text-slate-300 dark:hover:bg-slate-700/50 dark:hover:text-indigo-300'}`}
-                  >
-                    <span className="mr-3">{profileItem.icon({ active: isActive })}</span>
-                    <span className="font-medium">{profileItem.name}</span>
-                    {isActive && (
-                      <span className="ml-auto w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
-                    )}
-                  </Link>
-                );
-              })()}
-            </div>
+            })}
           </nav>
-          
-          <div className="border-t border-slate-100 dark:border-slate-700 p-4 mt-auto">
-            {authItem}
+
+          <div className="p-4">
+            {user ? (
+              <Link
+                href={profileItem.path}
+                className={`flex items-center px-4 py-3 rounded-xl transition-all duration-200 ${
+                  pathname === profileItem.path 
+                    ? 'bg-background text-primary' 
+                    : 'text-text-secondary hover:bg-background hover:text-primary'
+                }`}
+              >
+                {profileItem.icon({ active: pathname === profileItem.path })}
+                <span className="ml-3 font-medium">{profileItem.name}</span>
+              </Link>
+            ) : (
+              <Link
+                href="/login"
+                className="flex items-center px-4 py-3 rounded-xl text-text-secondary hover:bg-background hover:text-primary transition-all duration-200"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+                </svg>
+                <span className="ml-3 font-medium">Login</span>
+              </Link>
+            )}
           </div>
         </div>
       </aside>
 
-      {/* Mobile Bottom Navigation Bar */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 z-40 lg:hidden pb-safe dark:bg-slate-800 dark:border-slate-700">
+      {/* Mobile Navigation */}
+      <div className="fixed bottom-0 left-0 right-0 bg-surface border-t border-border pb-safe lg:hidden">
         <nav className="flex justify-around items-center">
           {navItems.map((item) => {
             const isActive = pathname === item.path;
@@ -394,44 +174,20 @@ export default function Navigation() {
               <Link
                 key={item.path}
                 href={item.path}
-                className={`flex flex-col items-center py-2 px-3 ${
-                  isActive ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-500 dark:text-slate-400'
-                }`}
+                className="flex flex-col items-center py-3 px-3"
               >
                 {item.icon({ active: isActive })}
-                <span className="text-xs mt-1">{item.name}</span>
-                {isActive && <span className="absolute top-0 w-full h-0.5 bg-indigo-500"></span>}
+                <span className={`text-xs font-medium mt-1 ${
+                  isActive ? 'text-primary' : 'text-text-secondary'
+                }`}>
+                  {item.name}
+                </span>
+                {isActive && (
+                  <span className="absolute top-0 w-full h-0.5 bg-primary" />
+                )}
               </Link>
             );
           })}
-          
-          {user && (() => {
-            const isActive = pathname === profileItem.path;
-            return (
-              <Link
-                href={profileItem.path}
-                className={`flex flex-col items-center py-2 px-3 ${
-                  isActive ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-500 dark:text-slate-400'
-                }`}
-              >
-                {profileItem.icon({ active: isActive })}
-                <span className="text-xs mt-1">{profileItem.name}</span>
-                {isActive && <span className="absolute top-0 w-full h-0.5 bg-indigo-500"></span>}
-              </Link>
-            );
-          })()}
-          
-          {!user && (
-            <Link
-              href="/login"
-              className="flex flex-col items-center py-2 px-3 text-slate-500 dark:text-slate-400"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6 text-slate-400">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9" />
-              </svg>
-              <span className="text-xs mt-1">Sign in</span>
-            </Link>
-          )}
         </nav>
       </div>
     </>
