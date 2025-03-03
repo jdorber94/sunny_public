@@ -1,24 +1,15 @@
-import type { Metadata } from "next";
-import { Plus_Jakarta_Sans, Outfit } from 'next/font/google';
 import './globals.css';
-import { AuthProvider } from '@/contexts/AuthContext';
+import { Plus_Jakarta_Sans, Outfit } from 'next/font/google';
 import { ThemeProvider } from '@/components/ThemeProvider';
 import Navigation from '@/components/Navigation';
+import { SessionProvider } from 'next-auth/react';
 
-const plusJakarta = Plus_Jakarta_Sans({ 
-  subsets: ['latin'],
-  variable: '--font-plus-jakarta',
-});
+const plusJakarta = Plus_Jakarta_Sans({ subsets: ['latin'] });
+const outfit = Outfit({ subsets: ['latin'] });
 
-const outfit = Outfit({ 
-  subsets: ['latin'],
-  variable: '--font-outfit',
-  display: 'swap',
-});
-
-export const metadata: Metadata = {
-  title: "Sunny - Habit Tracker",
-  description: "Track your daily habits and level up your life",
+export const metadata = {
+  title: 'Quest - Build Better Habits',
+  description: 'Track and build better habits with Quest, your personal habit tracking assistant.',
 };
 
 export default function RootLayout({
@@ -27,43 +18,20 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={`${plusJakarta.variable} ${outfit.variable}`}>
-      <head>
-        <link rel="icon" href="/favicon.ico" />
-        {/* Script to prevent flash of wrong theme */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              (function() {
-                try {
-                  const savedTheme = localStorage.getItem('theme');
-                  if (savedTheme === 'dark' || 
-                      (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-                    document.documentElement.classList.add('dark');
-                  } else {
-                    document.documentElement.classList.remove('dark');
-                  }
-                } catch (e) {
-                  console.error('Error applying theme:', e);
-                }
-              })();
-            `,
-          }}
-        />
-      </head>
-      <body className="font-sans antialiased bg-gray-50 dark:bg-gray-900">
-        <AuthProvider>
+    <html lang="en" suppressHydrationWarning>
+      <body className={`${plusJakarta.className} bg-background dark:bg-background-dark text-text-primary dark:text-text-primary-dark antialiased`}>
+        <SessionProvider>
           <ThemeProvider>
-            <div className="flex min-h-screen">
+            <div className="min-h-screen flex">
               <Navigation />
-              <main className="flex-1 overflow-auto lg:ml-64">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+              <main className="flex-1 md:pl-20">
+                <div className="container mx-auto px-4 py-8">
                   {children}
                 </div>
               </main>
             </div>
           </ThemeProvider>
-        </AuthProvider>
+        </SessionProvider>
       </body>
     </html>
   );

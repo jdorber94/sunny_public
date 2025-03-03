@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/components/ThemeProvider';
 import { SparklesIcon } from '@heroicons/react/24/outline';
+import { signIn, signOut, useSession } from 'next-auth/react';
 
 interface NavItem {
   name: string;
@@ -58,6 +59,7 @@ export default function Navigation() {
   const router = useRouter();
   const { user, signOut } = useAuth();
   const { isDarkMode, toggleDarkMode } = useTheme();
+  const { data: session } = useSession();
 
   const handleSignOut = async () => {
     try {
