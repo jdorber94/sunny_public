@@ -1154,6 +1154,85 @@ export default function HabitTracker() {
           onClose={() => setShowLevelUp(false)}
         />
       )}
+
+      {/* Habits List - Enhanced with modern design */}
+      <div className="space-y-4">
+        {habits.length === 0 ? (
+          <div className="rounded-2xl bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg shadow-xl p-8 border border-gray-200/50 dark:border-gray-700/50 text-center">
+            <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-800 flex items-center justify-center shadow-inner">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+              </svg>
+            </div>
+            <h3 className="mt-4 text-xl font-semibold bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
+              No habits yet
+            </h3>
+            <p className="mt-2 text-gray-500 dark:text-gray-400">
+              {activeHabitSetState 
+                ? "Add your first habit to get started" 
+                : "Select or create a habit set first"}
+            </p>
+          </div>
+        ) : (
+          habits.map((habit) => {
+            const isCompletedToday = habit.logs.includes(
+              new Date().toISOString().split('T')[0]
+            );
+            const streak = calculateStreak(habit.logs);
+            
+            return (
+              <div
+                key={habit.id}
+                className="group rounded-2xl bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg shadow-lg border border-gray-200/50 dark:border-gray-700/50 p-4 hover:shadow-xl transition-all duration-300 transform hover:scale-[1.02]"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center flex-grow mr-4">
+                    <CheckmarkIcon
+                      checked={isCompletedToday}
+                      onClick={() => toggleHabitCompletion(habit.id)}
+                    />
+                    <div className="ml-4 flex-grow">
+                      <h3 className={`font-medium text-lg transition-all duration-300 ${
+                        isCompletedToday 
+                          ? 'text-gray-400 dark:text-gray-500 line-through' 
+                          : 'text-gray-800 dark:text-white'
+                      }`}>
+                        {habit.name}
+                      </h3>
+                      <div className="flex items-center mt-1 space-x-3">
+                        <div className="flex items-center">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-indigo-500 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                          </svg>
+                          <span className="text-sm text-gray-500 dark:text-gray-400">
+                            {habit.xp || 0} XP
+                          </span>
+                        </div>
+                        <div className="flex items-center">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-amber-500 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                          </svg>
+                          <span className="text-sm text-gray-500 dark:text-gray-400">
+                            {streak} day streak
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => deleteHabit(habit.id)}
+                    className="opacity-0 group-hover:opacity-100 p-2 text-gray-400 hover:text-red-500 rounded-full hover:bg-red-50 dark:hover:bg-red-900/20 transition-all duration-300"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
       
       {/* Header with level info - Enhanced with glass morphism */}
       <div className="w-full">
@@ -1188,6 +1267,47 @@ export default function HabitTracker() {
             Save Changes
           </button>
         </div>
+      </div>
+
+      {/* Add New Habit Form - Enhanced with modern design */}
+      <div className="rounded-2xl bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg shadow-xl p-6 border border-gray-200/50 dark:border-gray-700/50">
+        <div className="flex">
+          <input
+            type="text"
+            value={newHabitName}
+            onChange={(e) => setNewHabitName(e.target.value)}
+            placeholder="Enter a new habit..."
+            className="flex-grow p-3 border border-gray-200 dark:border-gray-700 rounded-l-xl bg-gray-50/50 dark:bg-gray-800/50 text-gray-800 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-transparent transition-all duration-300"
+            onKeyPress={(e) => e.key === 'Enter' && addHabit()}
+            disabled={habits.length >= MAX_HABITS || !activeHabitSetState}
+          />
+          <button
+            onClick={addHabit}
+            className={`px-6 py-3 rounded-r-xl font-medium transition-all duration-300 ${
+              habits.length >= MAX_HABITS || !activeHabitSetState
+                ? 'bg-gray-300 dark:bg-gray-600 cursor-not-allowed'
+                : 'bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 transform hover:scale-105'
+            } text-white shadow-md`}
+            disabled={habits.length >= MAX_HABITS || !activeHabitSetState}
+          >
+            Add Habit
+          </button>
+        </div>
+        {error && (
+          <div className="mt-2 p-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/50 rounded-lg text-red-600 dark:text-red-400 text-sm">
+            {error}
+          </div>
+        )}
+        {!activeHabitSetState && (
+          <div className="mt-2 p-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 rounded-lg text-amber-600 dark:text-amber-400 text-sm">
+            Please create or select a habit set first
+          </div>
+        )}
+        {habits.length >= MAX_HABITS && (
+          <div className="mt-2 p-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 rounded-lg text-amber-600 dark:text-amber-400 text-sm">
+            You've reached the maximum number of habits for this set
+          </div>
+        )}
       </div>
       
       {/* Habit Set Selector - Enhanced with modern card design */}
@@ -1310,126 +1430,6 @@ export default function HabitTracker() {
       {/* Weekly Progress */}
       <div className="rounded-2xl bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg shadow-xl p-6 border border-gray-200/50 dark:border-gray-700/50">
         <WeeklyProgress habits={habits} />
-      </div>
-      
-      {/* Add New Habit Form - Enhanced with modern design */}
-      <div className="rounded-2xl bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg shadow-xl p-6 border border-gray-200/50 dark:border-gray-700/50">
-        <div className="flex">
-          <input
-            type="text"
-            value={newHabitName}
-            onChange={(e) => setNewHabitName(e.target.value)}
-            placeholder="Enter a new habit..."
-            className="flex-grow p-3 border border-gray-200 dark:border-gray-700 rounded-l-xl bg-gray-50/50 dark:bg-gray-800/50 text-gray-800 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-transparent transition-all duration-300"
-            onKeyPress={(e) => e.key === 'Enter' && addHabit()}
-            disabled={habits.length >= MAX_HABITS || !activeHabitSetState}
-          />
-          <button
-            onClick={addHabit}
-            className={`px-6 py-3 rounded-r-xl font-medium transition-all duration-300 ${
-              habits.length >= MAX_HABITS || !activeHabitSetState
-                ? 'bg-gray-300 dark:bg-gray-600 cursor-not-allowed'
-                : 'bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 transform hover:scale-105'
-            } text-white shadow-md`}
-            disabled={habits.length >= MAX_HABITS || !activeHabitSetState}
-          >
-            Add Habit
-          </button>
-        </div>
-        {error && (
-          <div className="mt-2 p-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/50 rounded-lg text-red-600 dark:text-red-400 text-sm">
-            {error}
-          </div>
-        )}
-        {!activeHabitSetState && (
-          <div className="mt-2 p-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 rounded-lg text-amber-600 dark:text-amber-400 text-sm">
-            Please create or select a habit set first
-          </div>
-        )}
-        {habits.length >= MAX_HABITS && (
-          <div className="mt-2 p-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 rounded-lg text-amber-600 dark:text-amber-400 text-sm">
-            You've reached the maximum number of habits for this set
-          </div>
-        )}
-      </div>
-      
-      {/* Habits List - Enhanced with modern design */}
-      <div className="space-y-4">
-        {habits.length === 0 ? (
-          <div className="rounded-2xl bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg shadow-xl p-8 border border-gray-200/50 dark:border-gray-700/50 text-center">
-            <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-800 flex items-center justify-center shadow-inner">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-              </svg>
-            </div>
-            <h3 className="mt-4 text-xl font-semibold bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
-              No habits yet
-            </h3>
-            <p className="mt-2 text-gray-500 dark:text-gray-400">
-              {activeHabitSetState 
-                ? "Add your first habit to get started" 
-                : "Select or create a habit set first"}
-            </p>
-          </div>
-        ) : (
-          habits.map((habit) => {
-            const isCompletedToday = habit.logs.includes(
-              new Date().toISOString().split('T')[0]
-            );
-            const streak = calculateStreak(habit.logs);
-            
-            return (
-              <div
-                key={habit.id}
-                className="group rounded-2xl bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg shadow-lg border border-gray-200/50 dark:border-gray-700/50 p-4 hover:shadow-xl transition-all duration-300 transform hover:scale-[1.02]"
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center flex-grow mr-4">
-                    <CheckmarkIcon
-                      checked={isCompletedToday}
-                      onClick={() => toggleHabitCompletion(habit.id)}
-                    />
-                    <div className="ml-4 flex-grow">
-                      <h3 className={`font-medium text-lg transition-all duration-300 ${
-                        isCompletedToday 
-                          ? 'text-gray-400 dark:text-gray-500 line-through' 
-                          : 'text-gray-800 dark:text-white'
-                      }`}>
-                        {habit.name}
-                      </h3>
-                      <div className="flex items-center mt-1 space-x-3">
-                        <div className="flex items-center">
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-indigo-500 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                          </svg>
-                          <span className="text-sm text-gray-500 dark:text-gray-400">
-                            {habit.xp || 0} XP
-                          </span>
-                        </div>
-                        <div className="flex items-center">
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-amber-500 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
-                          </svg>
-                          <span className="text-sm text-gray-500 dark:text-gray-400">
-                            {streak} day streak
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => deleteHabit(habit.id)}
-                    className="opacity-0 group-hover:opacity-100 p-2 text-gray-400 hover:text-red-500 rounded-full hover:bg-red-50 dark:hover:bg-red-900/20 transition-all duration-300"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-            );
-          })
-        )}
       </div>
       
       {/* Create Set Modal */}
