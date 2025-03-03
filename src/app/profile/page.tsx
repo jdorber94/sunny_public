@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import SunnyPet from '@/components/SunnyPet';
-import SunnyEvolution from '@/components/SunnyEvolution';
+import QuestPet from '@/components/QuestPet';
+import QuestEvolution from '@/components/QuestEvolution';
 import { useTheme } from '@/components/ThemeProvider';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
@@ -33,6 +33,13 @@ interface UserProfile {
     darkMode: boolean;
     weekStartsOn: 'monday' | 'sunday';
   };
+}
+
+interface Achievement {
+  name: string;
+  description: string;
+  icon: string;
+  unlocked: boolean;
 }
 
 // Calculate level from XP
@@ -242,7 +249,6 @@ function ProfileContent() {
   const [isEditing, setIsEditing] = useState(false);
   const [editedProfile, setEditedProfile] = useState(profile);
 
-  const [sunnyInteractions, setSunnyInteractions] = useState(0);
   const [showEvolution, setShowEvolution] = useState(false);
   const [previousLevel, setPreviousLevel] = useState(profile.level);
   
@@ -313,40 +319,6 @@ function ProfileContent() {
     }
   };
 
-  const handleSunnyClick = () => {
-    setSunnyInteractions(prev => prev + 1);
-    // Give a small XP boost when interacting with Sunny
-    if (sunnyInteractions % 5 === 4) { // Every 5 clicks
-      // Update XP in both profile and habitStats
-      const newXP = profile.totalXP + 10;
-      setProfile(prev => ({
-        ...prev,
-        totalXP: newXP,
-        level: calculateLevel(newXP)
-      }));
-      
-      // Update habitStats in Firestore and localStorage
-      if (user) {
-        saveUserStats(user.uid, {
-          totalXP: newXP,
-          dailyXP: { date: new Date().toISOString().split('T')[0], xp: 0 }
-        }).catch(error => console.error('Error saving stats to Firestore:', error));
-      }
-      
-      // Also update localStorage as fallback
-      if (typeof window !== 'undefined') {
-        const savedStats = localStorage.getItem('habitStats');
-        const stats = savedStats ? JSON.parse(savedStats) : { 
-          totalXP: 0,
-          dailyXP: { date: new Date().toISOString().split('T')[0], xp: 0 }
-        };
-        
-        stats.totalXP = newXP;
-        localStorage.setItem('habitStats', JSON.stringify(stats));
-      }
-    }
-  };
-
   const handleLevelUp = () => {
     // Update XP in both profile and habitStats
     const newXP = profile.totalXP + 100;
@@ -381,285 +353,135 @@ function ProfileContent() {
     setShowEvolution(false);
   };
 
+  // Define achievements
+  const achievements: Achievement[] = [
+    {
+      name: 'First Quest',
+      description: 'Complete your first habit',
+      icon: '🎯',
+      unlocked: profile.totalXP > 0
+    },
+    {
+      name: 'Streak Master',
+      description: 'Maintain a 7-day streak',
+      icon: '🔥',
+      unlocked: profile.currentStreak >= 7
+    },
+    {
+      name: 'Level Up',
+      description: 'Reach level 5',
+      icon: '⚔️',
+      unlocked: profile.level >= 5
+    },
+    {
+      name: 'Quest Champion',
+      description: 'Complete 50 habits',
+      icon: '👑',
+      unlocked: profile.totalXP >= 500
+    }
+  ];
+
+  // Calculate total habits completed
+  const calculateHabitsCompleted = (profile: UserProfile) => {
+    return Math.floor(profile.totalXP / 10); // Assuming each habit gives 10 XP
+  };
+
   return (
     <div className="container mx-auto px-4 py-8">
-      {user && (
-        <PremiumStatusFixer />
-      )}
-      
-      {showEvolution && (
-        <SunnyEvolution 
-          level={profile.level} 
-          onClose={handleLevelUp} 
-        />
-      )}
-      
-      <div className="flex flex-col md:flex-row gap-8">
-        <div className="w-full md:w-1/3">
-          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-md p-6 mb-6">
-            <div className="flex items-center mb-6">
-              <div className="w-16 h-16 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-300 text-2xl font-bold mr-4">
-                {profile.avatar}
-              </div>
-              <div>
-                <h2 className="text-xl font-bold text-gray-900 dark:text-white">{profile.name}</h2>
-                <p className="text-sm text-gray-500 dark:text-gray-400">{profile.email}</p>
-              </div>
-            </div>
-            
-            <div className="space-y-4">
-              <div>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Level</p>
-                <p className="text-lg font-semibold text-gray-900 dark:text-white">{profile.level}</p>
-              </div>
-              
-              <div>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Total XP</p>
-                <p className="text-lg font-semibold text-gray-900 dark:text-white">{profile.totalXP}</p>
-              </div>
-              
-              <div>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Current Streak</p>
-                <p className="text-lg font-semibold text-gray-900 dark:text-white">{profile.currentStreak} days</p>
-              </div>
-              
-              <div>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Days Active</p>
-                <p className="text-lg font-semibold text-gray-900 dark:text-white">{profile.daysActive} days</p>
-              </div>
-              
-            <div>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Joined</p>
-                <p className="text-lg font-semibold text-gray-900 dark:text-white">{new Date(profile.joinDate).toLocaleDateString()}</p>
-              </div>
-            </div>
-            
-            {!isEditing && (
-              <button
-                onClick={() => setIsEditing(true)}
-                className="mt-6 w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-              >
-                Edit Profile
-              </button>
-            )}
+      <div className="max-w-4xl mx-auto">
+        <div className="bg-white dark:bg-slate-800 rounded-lg shadow-lg p-6 mb-8">
+          <div className="flex items-center justify-between mb-6">
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Your Quest Profile</h1>
+            <QuestPet level={profile.level} size="large" />
           </div>
           
-          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-md p-6 text-center">
-            <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">Your Sunny</h3>
-            <div className="flex justify-center mb-4" onClick={handleSunnyClick}>
-              <SunnyPet level={profile.level} size="large" />
-            </div>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              Level {profile.level} • {Math.ceil(profile.level / 5)} Evolution
-            </p>
-          </div>
-        </div>
-        
-        <div className="w-full md:w-2/3">
-          {isEditing ? (
-            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-md p-6">
-              <h2 className="text-xl font-bold mb-6 text-gray-900 dark:text-white">Edit Profile</h2>
-
-          <div className="space-y-6">
-            <div>
-                  <label htmlFor="name" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Name
-                  </label>
-                  <input
-                    type="text"
-                    name="name"
-                    id="name"
-                    value={editedProfile.name}
-                    onChange={handleChange}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm dark:bg-slate-700 dark:border-slate-600 dark:text-white"
-                  />
-                </div>
-                
-                <div>
-                  <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Email
-                  </label>
-                  <input
-                    type="email"
-                    name="email"
-                    id="email"
-                    value={editedProfile.email}
-                    onChange={handleChange}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm dark:bg-slate-700 dark:border-slate-600 dark:text-white"
-                    disabled={!!user} // Disable email editing if using Firebase auth
-                  />
-                </div>
-                
-                <div>
-                  <label htmlFor="avatar" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Avatar Initial
-                  </label>
-                  <input
-                    type="text"
-                    name="avatar"
-                    id="avatar"
-                    value={editedProfile.avatar}
-                    onChange={handleChange}
-                    maxLength={1}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm dark:bg-slate-700 dark:border-slate-600 dark:text-white"
-                  />
-                </div>
-                
-                <h3 className="text-lg font-medium text-gray-900 dark:text-white pt-4">Preferences</h3>
-                
-                <div className="flex items-center">
-                  <input
-                    type="checkbox"
-                    name="preferences.notifications"
-                    id="notifications"
-                    checked={editedProfile.preferences.notifications}
-                    onChange={handleChange}
-                    className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded dark:border-slate-600"
-                  />
-                  <label htmlFor="notifications" className="ml-2 block text-sm text-gray-700 dark:text-gray-300">
-                    Enable Notifications
-                  </label>
-                </div>
-                
-                <div className="flex items-center">
-                  <input
-                    type="checkbox"
-                    name="preferences.darkMode"
-                    id="darkMode"
-                    checked={editedProfile.preferences.darkMode}
-                    onChange={handleChange}
-                    className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded dark:border-slate-600"
-                  />
-                  <label htmlFor="darkMode" className="ml-2 block text-sm text-gray-700 dark:text-gray-300">
-                    Dark Mode
-                  </label>
-                </div>
-                
-                <div>
-                  <label htmlFor="weekStartsOn" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Week Starts On
-                  </label>
-                  <select
-                    name="preferences.weekStartsOn"
-                    id="weekStartsOn"
-                    value={editedProfile.preferences.weekStartsOn}
-                    onChange={handleSelectChange}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm dark:bg-slate-700 dark:border-slate-600 dark:text-white"
-                  >
-                    <option value="monday">Monday</option>
-                    <option value="sunday">Sunday</option>
-                  </select>
-                </div>
-                
-                <div className="flex justify-end space-x-3">
-                  <button
-                    type="button"
-                    onClick={() => setIsEditing(false)}
-                    className="py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 dark:bg-slate-700 dark:text-white dark:border-slate-600 dark:hover:bg-slate-600"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleSave}
-                    className="py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                  >
-                    Save
-                  </button>
-                </div>
+          {/* Progress Section */}
+          <div className="mb-8">
+            <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-200 mb-4">Quest Progress</h2>
+            <div className="bg-slate-100 dark:bg-slate-700 rounded-lg p-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-slate-600 dark:text-slate-300">Level {profile.level}</span>
+                <span className="text-slate-600 dark:text-slate-300">{profile.totalXP} XP</span>
+              </div>
+              <div className="w-full bg-slate-200 dark:bg-slate-600 rounded-full h-2">
+                <div 
+                  className="bg-black dark:bg-slate-400 h-2 rounded-full transition-all duration-500"
+                  style={{ width: `${(profile.totalXP % 100)}%` }}
+                ></div>
               </div>
             </div>
-          ) : (
-            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-md p-6">
-              <h2 className="text-xl font-bold mb-6 text-gray-900 dark:text-white">Activity Overview</h2>
-              
-              <div className="space-y-6">
-                <div>
-                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Recent Achievements</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="bg-indigo-50 dark:bg-indigo-900/30 p-4 rounded-lg">
-                      <div className="flex items-center">
-                        <div className="w-10 h-10 rounded-full bg-indigo-100 dark:bg-indigo-800 flex items-center justify-center text-indigo-600 dark:text-indigo-300 mr-3">
-                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 01-.982-3.172M9.497 14.25a7.454 7.454 0 00.981-3.172M5.25 4.236c-.982.143-1.954.317-2.916.52A6.003 6.003 0 007.73 9.728M5.25 4.236V4.5c0 2.108.966 3.99 2.48 5.228M5.25 4.236V2.721C7.456 2.41 9.71 2.25 12 2.25c2.291 0 4.545.16 6.75.47v1.516M7.73 9.728a6.726 6.726 0 002.748 1.35m8.272-6.842V4.5c0 2.108-.966 3.99-2.48 5.228m2.48-5.492a46.32 46.32 0 012.916.52 6.003 6.003 0 01-5.395 4.972m0 0a6.726 6.726 0 01-2.749 1.35m0 0a6.772 6.772 0 01-3.044 0" />
-                          </svg>
-                        </div>
-                        <div>
-                          <p className="font-medium text-indigo-900 dark:text-indigo-300">Reached Level {profile.level}</p>
-                          <p className="text-sm text-indigo-700 dark:text-indigo-400">Keep going!</p>
-                        </div>
-                      </div>
+          </div>
+
+          {/* Stats Section */}
+          <div className="mb-8">
+            <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-200 mb-4">Quest Stats</h2>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="bg-slate-100 dark:bg-slate-700 rounded-lg p-4 text-center">
+                <div className="text-2xl font-bold text-black dark:text-white">{calculateHabitsCompleted(profile)}</div>
+                <div className="text-sm text-slate-600 dark:text-slate-300">Quests Completed</div>
+              </div>
+              <div className="bg-slate-100 dark:bg-slate-700 rounded-lg p-4 text-center">
+                <div className="text-2xl font-bold text-black dark:text-white">{profile.currentStreak} days</div>
+                <div className="text-sm text-slate-600 dark:text-slate-300">Current Streak</div>
+              </div>
+              <div className="bg-slate-100 dark:bg-slate-700 rounded-lg p-4 text-center">
+                <div className="text-2xl font-bold text-black dark:text-white">{profile.currentStreak > 0 ? profile.currentStreak : 'N/A'}</div>
+                <div className="text-sm text-slate-600 dark:text-slate-300">Longest Streak</div>
+              </div>
+              <div className="bg-slate-100 dark:bg-slate-700 rounded-lg p-4 text-center">
+                <div className="text-2xl font-bold text-black dark:text-white">{profile.totalXP}</div>
+                <div className="text-sm text-slate-600 dark:text-slate-300">Total XP</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Achievements Section */}
+          <div>
+            <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-200 mb-4">Quest Achievements</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {achievements.map((achievement, index) => (
+                <div 
+                  key={index}
+                  className={`p-4 rounded-lg border ${
+                    achievement.unlocked 
+                      ? 'bg-slate-100 dark:bg-slate-700 border-black dark:border-slate-600' 
+                      : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700'
+                  }`}
+                >
+                  <div className="flex items-center">
+                    <div className="mr-4 text-2xl">
+                      {achievement.unlocked ? achievement.icon : '🔒'}
                     </div>
-                    
-                    <div className="bg-green-50 dark:bg-green-900/30 p-4 rounded-lg">
-                      <div className="flex items-center">
-                        <div className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-800 flex items-center justify-center text-green-600 dark:text-green-300 mr-3">
-                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" />
-                          </svg>
-                        </div>
-                        <div>
-                          <p className="font-medium text-green-900 dark:text-green-300">{profile.currentStreak} Day Streak</p>
-                          <p className="text-sm text-green-700 dark:text-green-400">Don't break the chain!</p>
-                        </div>
-                      </div>
+                    <div>
+                      <h3 className={`font-semibold ${
+                        achievement.unlocked 
+                          ? 'text-slate-900 dark:text-white' 
+                          : 'text-slate-500 dark:text-slate-400'
+                      }`}>
+                        {achievement.name}
+                      </h3>
+                      <p className={`text-sm ${
+                        achievement.unlocked 
+                          ? 'text-slate-600 dark:text-slate-300' 
+                          : 'text-slate-400 dark:text-slate-500'
+                      }`}>
+                        {achievement.description}
+                      </p>
                     </div>
                   </div>
                 </div>
-                
-                <div>
-                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Your Preferences</h3>
-                  <div className="bg-gray-50 dark:bg-slate-700 p-4 rounded-lg">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="flex items-center">
-                        <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-slate-600 flex items-center justify-center text-gray-600 dark:text-gray-300 mr-3">
-                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
-                          </svg>
-                        </div>
-                        <div>
-                          <p className="font-medium text-gray-900 dark:text-white">Notifications</p>
-                          <p className="text-sm text-gray-700 dark:text-gray-300">
-                            {profile.preferences.notifications ? 'Enabled' : 'Disabled'}
-                          </p>
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-center">
-                        <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-slate-600 flex items-center justify-center text-gray-600 dark:text-gray-300 mr-3">
-                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v2.25m6.364.386l-1.591 1.591M21 12h-2.25m-.386 6.364l-1.591-1.591M12 18.75V21m-4.773-4.227l-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z" />
-                          </svg>
-                        </div>
-                        <div>
-                          <p className="font-medium text-gray-900 dark:text-white">Theme</p>
-                          <p className="text-sm text-gray-700 dark:text-gray-300">
-                            {profile.preferences.darkMode ? 'Dark Mode' : 'Light Mode'}
-                          </p>
-              </div>
+              ))}
             </div>
-
-                      <div className="flex items-center">
-                        <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-slate-600 flex items-center justify-center text-gray-600 dark:text-gray-300 mr-3">
-                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
-                          </svg>
-                        </div>
-                        <div>
-                          <p className="font-medium text-gray-900 dark:text-white">Week Starts On</p>
-                          <p className="text-sm text-gray-700 dark:text-gray-300">
-                            {profile.preferences.weekStartsOn === 'monday' ? 'Monday' : 'Sunday'}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
           </div>
-          )}
         </div>
       </div>
+
+      {showEvolution && (
+        <QuestEvolution 
+          level={profile.level} 
+          onClick={handleLevelUp}
+        />
+      )}
     </div>
   );
 }

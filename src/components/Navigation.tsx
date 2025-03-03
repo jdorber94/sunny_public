@@ -107,12 +107,12 @@ export default function Navigation() {
         <div className="flex flex-col h-full">
           <div className="p-6">
             <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-surface" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <div className="w-10 h-10 rounded-xl bg-black flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                 </svg>
               </div>
-              <h1 className="text-2xl font-display font-bold text-primary">Sunny</h1>
+              <h1 className="text-2xl font-display font-bold text-black dark:text-white">Quest</h1>
             </div>
           </div>
 
@@ -168,28 +168,60 @@ export default function Navigation() {
       </aside>
 
       {/* Mobile Navigation */}
-      <div className="fixed bottom-0 left-0 right-0 bg-surface border-t border-border pb-safe lg:hidden">
-        <nav className="flex justify-around items-center">
+      <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 pb-safe lg:hidden z-50">
+        <nav className="flex justify-around items-center px-2">
           {navItems.map((item) => {
             const isActive = pathname === item.path;
             return (
               <Link
                 key={item.path}
                 href={item.path}
-                className="flex flex-col items-center py-3 px-3"
+                className="flex flex-col items-center py-3 px-2 relative"
               >
-                {item.icon({ active: isActive })}
+                <div className={`p-2 rounded-lg transition-colors ${
+                  isActive 
+                    ? 'bg-slate-100 dark:bg-slate-800' 
+                    : 'hover:bg-slate-50 dark:hover:bg-slate-800/50'
+                }`}>
+                  {item.icon({ active: isActive })}
+                </div>
                 <span className={`text-xs font-medium mt-1 ${
-                  isActive ? 'text-primary' : 'text-text-secondary'
+                  isActive 
+                    ? 'text-slate-900 dark:text-white' 
+                    : 'text-slate-600 dark:text-slate-400'
                 }`}>
                   {item.name}
                 </span>
                 {isActive && (
-                  <span className="absolute top-0 w-full h-0.5 bg-primary" />
+                  <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-slate-900 dark:bg-white rounded-full" />
                 )}
               </Link>
             );
           })}
+          {user && (
+            <Link
+              href={profileItem.path}
+              className="flex flex-col items-center py-3 px-2 relative"
+            >
+              <div className={`p-2 rounded-lg transition-colors ${
+                pathname === profileItem.path 
+                  ? 'bg-slate-100 dark:bg-slate-800' 
+                  : 'hover:bg-slate-50 dark:hover:bg-slate-800/50'
+              }`}>
+                {profileItem.icon({ active: pathname === profileItem.path })}
+              </div>
+              <span className={`text-xs font-medium mt-1 ${
+                pathname === profileItem.path 
+                  ? 'text-slate-900 dark:text-white' 
+                  : 'text-slate-600 dark:text-slate-400'
+              }`}>
+                {profileItem.name}
+              </span>
+              {pathname === profileItem.path && (
+                <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-slate-900 dark:bg-white rounded-full" />
+              )}
+            </Link>
+          )}
         </nav>
       </div>
     </>

@@ -3,18 +3,18 @@
 import { useState } from 'react';
 import { useTheme } from './ThemeProvider';
 
-interface SunnyPetProps {
+interface QuestPetProps {
   level: number;
   onClick?: () => void;
   size?: 'small' | 'medium' | 'large';
 }
 
-export default function SunnyPet({ level, onClick, size = 'medium' }: SunnyPetProps) {
+export default function QuestPet({ level, onClick, size = 'medium' }: QuestPetProps) {
   const [isAnimating, setIsAnimating] = useState(false);
   const [showTooltip, setShowTooltip] = useState(false);
   const { isDarkMode } = useTheme();
 
-  // Determine which evolution of Sunny to show based on level
+  // Determine which evolution of Quest to show based on level
   const getEvolutionStage = () => {
     if (level >= 20) return 5; // Final form
     if (level >= 15) return 4;
@@ -26,29 +26,29 @@ export default function SunnyPet({ level, onClick, size = 'medium' }: SunnyPetPr
   const evolutionStage = getEvolutionStage();
   
   // Get emoji and color based on evolution stage
-  const getSunnyAppearance = () => {
+  const getQuestAppearance = () => {
     // Simple emoji-based approach
     switch (evolutionStage) {
-      case 1: return { emoji: '🌞', bgColor: 'bg-slate-200' };
-      case 2: return { emoji: '☀️', bgColor: 'bg-slate-300' };
-      case 3: return { emoji: '⭐', bgColor: 'bg-slate-400' };
-      case 4: return { emoji: '🌟', bgColor: 'bg-indigo-300' };
-      case 5: return { emoji: '✨', bgColor: 'bg-indigo-400' };
-      default: return { emoji: '🌞', bgColor: 'bg-slate-200' };
+      case 1: return { emoji: '🎯', bgColor: 'bg-slate-200' };
+      case 2: return { emoji: '⚔️', bgColor: 'bg-slate-300' };
+      case 3: return { emoji: '🛡️', bgColor: 'bg-slate-400' };
+      case 4: return { emoji: '👑', bgColor: 'bg-slate-500' };
+      case 5: return { emoji: '⚡', bgColor: 'bg-black' };
+      default: return { emoji: '🎯', bgColor: 'bg-slate-200' };
     }
   };
 
-  const { emoji, bgColor } = getSunnyAppearance();
+  const { emoji, bgColor } = getQuestAppearance();
 
   // Get personality traits based on evolution stage
   const getPersonality = () => {
     switch (evolutionStage) {
-      case 1: return "Sunny is just a little ray of sunshine. Keep up your habits to help Sunny grow!";
-      case 2: return "Sunny is getting brighter! Your consistency is helping Sunny develop.";
-      case 3: return "Sunny is now radiating positive energy! Your habit streak is impressive!";
-      case 4: return "Sunny is beaming with pride at your dedication to your habits!";
-      case 5: return "Sunny has reached cosmic brilliance! You're a habit master!";
-      default: return "Meet Sunny, your habit companion!";
+      case 1: return "Quest is just beginning. Keep up your habits to level up!";
+      case 2: return "Quest is getting stronger! Your consistency is building power.";
+      case 3: return "Quest is now advancing! Your habit streak is impressive!";
+      case 4: return "Quest has reached elite status! Your dedication is remarkable!";
+      case 5: return "Quest has achieved mastery! You're a true champion!";
+      default: return "Meet Quest, your habit companion!";
     }
   };
 
@@ -80,18 +80,18 @@ export default function SunnyPet({ level, onClick, size = 'medium' }: SunnyPetPr
         onMouseEnter={() => setShowTooltip(true)}
         onMouseLeave={() => setShowTooltip(false)}
       >
-        {/* Sun body - simple emoji-based approach */}
+        {/* Quest body */}
         <div 
           className={`relative rounded-full ${bgColor} dark:bg-opacity-80 shadow-lg flex items-center justify-center z-10
             ${sizeClass} ${isAnimating ? 'animate-bounce-small' : ''}`}
         >
-          <span role="img" aria-label="Sunny">
+          <span role="img" aria-label="Quest">
             {emoji}
           </span>
         </div>
         
         {/* Level indicator */}
-        <div className={`absolute -bottom-1 -right-1 bg-indigo-600 text-white font-bold rounded-full flex items-center justify-center border-2 border-white dark:border-slate-800 ${levelBadgeClass}`}>
+        <div className={`absolute -bottom-1 -right-1 bg-black text-white font-bold rounded-full flex items-center justify-center border-2 border-white dark:border-slate-800 ${levelBadgeClass}`}>
           {level}
         </div>
       </div>
@@ -100,10 +100,10 @@ export default function SunnyPet({ level, onClick, size = 'medium' }: SunnyPetPr
       {showTooltip && (
         <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-48 p-2 bg-white dark:bg-slate-800 rounded-lg shadow-lg text-xs text-slate-700 dark:text-slate-200 z-20">
           <div className="font-bold text-center mb-1">
-            {evolutionStage === 5 ? "Cosmic Sunny" : 
-             evolutionStage === 4 ? "Radiant Sunny" : 
-             evolutionStage === 3 ? "Bright Sunny" : 
-             evolutionStage === 2 ? "Cheerful Sunny" : "Baby Sunny"}
+            {evolutionStage === 5 ? "Master Quest" : 
+             evolutionStage === 4 ? "Elite Quest" : 
+             evolutionStage === 3 ? "Advanced Quest" : 
+             evolutionStage === 2 ? "Skilled Quest" : "Novice Quest"}
           </div>
           <p>{getPersonality()}</p>
           <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-1/2 rotate-45 w-2 h-2 bg-white dark:bg-slate-800"></div>

@@ -68,10 +68,10 @@ export default function LoginPage() {
   };
   
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900 px-4">
-      <div className="max-w-md w-full space-y-8 bg-white dark:bg-slate-800 p-8 rounded-lg shadow-lg">
+    <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900 px-4 py-8 sm:px-6 sm:py-12">
+      <div className="w-full max-w-md space-y-6 bg-white dark:bg-slate-800 p-6 sm:p-8 rounded-lg shadow-lg">
         <div className="text-center">
-          <h2 className="mt-6 text-3xl font-bold text-slate-900 dark:text-white">
+          <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white">
             {isSignUp ? 'Create your account' : 'Sign in to your account'}
           </h2>
           <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
@@ -93,8 +93,8 @@ export default function LoginPage() {
           </div>
         )}
         
-        <form className="mt-8 space-y-6" onSubmit={handleEmailSignIn}>
-          <div className="rounded-md shadow-sm -space-y-px">
+        <form className="space-y-4 sm:space-y-6" onSubmit={handleEmailSignIn}>
+          <div className="rounded-lg shadow-sm -space-y-px">
             {isSignUp && (
               <div>
                 <label htmlFor="display-name" className="sr-only">Display Name</label>
@@ -105,7 +105,7 @@ export default function LoginPage() {
                   required={isSignUp}
                   value={displayName}
                   onChange={(e) => setDisplayName(e.target.value)}
-                  className="appearance-none rounded-t-lg relative block w-full px-3 py-2 border border-slate-300 dark:border-slate-600 placeholder-slate-500 dark:placeholder-slate-400 text-slate-900 dark:text-white bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:border-slate-500 sm:text-sm"
+                  className="appearance-none rounded-t-lg relative block w-full px-3 py-2 sm:py-3 border border-slate-300 dark:border-slate-600 placeholder-slate-500 dark:placeholder-slate-400 text-slate-900 dark:text-white bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:border-slate-500 text-sm sm:text-base"
                   placeholder="Display Name"
                 />
               </div>
@@ -120,7 +120,7 @@ export default function LoginPage() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className={`appearance-none relative block w-full px-3 py-2 border border-slate-300 dark:border-slate-600 placeholder-slate-500 dark:placeholder-slate-400 text-slate-900 dark:text-white bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:border-slate-500 sm:text-sm ${isSignUp ? '' : 'rounded-t-lg'}`}
+                className={`appearance-none relative block w-full px-3 py-2 sm:py-3 border border-slate-300 dark:border-slate-600 placeholder-slate-500 dark:placeholder-slate-400 text-slate-900 dark:text-white bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:border-slate-500 text-sm sm:text-base ${isSignUp ? '' : 'rounded-t-lg'}`}
                 placeholder="Email address"
               />
             </div>
@@ -134,7 +134,7 @@ export default function LoginPage() {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="appearance-none rounded-b-lg relative block w-full px-3 py-2 border border-slate-300 dark:border-slate-600 placeholder-slate-500 dark:placeholder-slate-400 text-slate-900 dark:text-white bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:border-slate-500 sm:text-sm"
+                className="appearance-none rounded-b-lg relative block w-full px-3 py-2 sm:py-3 border border-slate-300 dark:border-slate-600 placeholder-slate-500 dark:placeholder-slate-400 text-slate-900 dark:text-white bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:border-slate-500 text-sm sm:text-base"
                 placeholder="Password"
               />
             </div>
@@ -144,7 +144,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-slate-900 dark:bg-white dark:text-slate-900 hover:bg-slate-800 dark:hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="group relative w-full flex justify-center py-2 sm:py-3 px-4 border border-transparent text-sm sm:text-base font-medium rounded-lg text-white bg-slate-900 dark:bg-white dark:text-slate-900 hover:bg-slate-800 dark:hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? (
                 <span className="absolute left-0 inset-y-0 flex items-center pl-3">
@@ -173,7 +173,7 @@ export default function LoginPage() {
             <button
               onClick={handleGoogleSignIn}
               disabled={loading}
-              className="w-full flex items-center justify-center px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg shadow-sm text-sm font-medium text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full flex items-center justify-center px-4 py-2 sm:py-3 border border-slate-300 dark:border-slate-600 rounded-lg shadow-sm text-sm sm:text-base font-medium text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <svg className="h-5 w-5 mr-2" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
                 <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
