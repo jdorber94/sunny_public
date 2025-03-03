@@ -29,12 +29,12 @@ export default function SunnyPet({ level, onClick, size = 'medium' }: SunnyPetPr
   const getSunnyAppearance = () => {
     // Simple emoji-based approach
     switch (evolutionStage) {
-      case 1: return { emoji: '🌞', bgColor: 'bg-yellow-300' };
-      case 2: return { emoji: '☀️', bgColor: 'bg-amber-300' };
-      case 3: return { emoji: '⭐', bgColor: 'bg-orange-300' };
-      case 4: return { emoji: '🌟', bgColor: 'bg-red-300' };
-      case 5: return { emoji: '✨', bgColor: 'bg-purple-300' };
-      default: return { emoji: '🌞', bgColor: 'bg-yellow-300' };
+      case 1: return { emoji: '🌞', bgColor: 'bg-slate-200' };
+      case 2: return { emoji: '☀️', bgColor: 'bg-slate-300' };
+      case 3: return { emoji: '⭐', bgColor: 'bg-slate-400' };
+      case 4: return { emoji: '🌟', bgColor: 'bg-indigo-300' };
+      case 5: return { emoji: '✨', bgColor: 'bg-indigo-400' };
+      default: return { emoji: '🌞', bgColor: 'bg-slate-200' };
     }
   };
 

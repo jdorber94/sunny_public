@@ -103,7 +103,7 @@ export default function Navigation() {
   return (
     <>
       {/* Desktop Sidebar */}
-      <aside className="fixed inset-y-0 left-0 w-64 bg-surface border-r border-border hidden lg:block">
+      <aside className="fixed inset-y-0 left-0 w-64 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 hidden lg:block">
         <div className="flex flex-col h-full">
           <div className="p-6">
             <div className="flex items-center space-x-3">
@@ -123,16 +123,16 @@ export default function Navigation() {
                 <Link
                   key={item.path}
                   href={item.path}
-                  className={`flex items-center px-4 py-3 rounded-xl transition-all duration-200 ${
+                  className={`flex items-center px-4 py-3 rounded-lg transition-all duration-200 ${
                     isActive 
-                      ? 'bg-background text-primary' 
-                      : 'text-text-secondary hover:bg-background hover:text-primary'
+                      ? 'bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-white' 
+                      : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white'
                   }`}
                 >
                   {item.icon({ active: isActive })}
                   <span className="ml-3 font-medium">{item.name}</span>
                   {isActive && (
-                    <span className="ml-auto w-1.5 h-1.5 rounded-full bg-primary" />
+                    <span className="ml-auto w-1.5 h-1.5 rounded-full bg-slate-600 dark:bg-white" />
                   )}
                 </Link>
               );
