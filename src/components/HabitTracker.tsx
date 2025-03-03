@@ -40,21 +40,21 @@ const calculateLevel = (xp: number, level = 1, requiredXP = 100): number => {
   return calculateLevel(xp - requiredXP, level + 1, Math.floor(requiredXP * 1.5));
 };
 
-// Checkmark icon component with animation
+// Checkmark icon component with animation - enhanced with smooth transitions
 const CheckmarkIcon = ({ checked, onClick }: { checked: boolean; onClick: () => void }) => {
   return (
     <button
-      className={`w-6 h-6 rounded-full border flex items-center justify-center ${
+      className={`w-8 h-8 rounded-full border-2 flex items-center justify-center transform transition-all duration-300 ease-in-out ${
         checked 
-          ? 'bg-green-500 border-green-600' 
-          : 'bg-white border-gray-300 dark:bg-gray-800 dark:border-gray-600'
+          ? 'bg-gradient-to-br from-green-400 to-green-500 border-transparent scale-105' 
+          : 'bg-white/80 backdrop-blur-sm border-gray-200 dark:bg-gray-800/80 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
       }`}
       onClick={onClick}
     >
       {checked && (
         <svg
           xmlns="http://www.w3.org/2000/svg"
-          className="h-4 w-4 text-white"
+          className="h-5 w-5 text-white transform scale-110 transition-transform duration-300"
           viewBox="0 0 20 20"
           fill="currentColor"
         >
@@ -1136,7 +1136,7 @@ export default function HabitTracker() {
   }, [user]);
 
   return (
-    <div className="max-w-4xl mx-auto p-4">
+    <div className="max-w-5xl mx-auto p-6 space-y-8">
       {/* Level Up Celebration */}
       {showLevelUp && (
         <LevelUpCelebration
@@ -1145,102 +1145,72 @@ export default function HabitTracker() {
         />
       )}
       
-      {/* Debug Button - Only visible in development */}
-      {process.env.NODE_ENV === 'development' && (
-        <div className="mb-4 p-2 bg-yellow-100 border border-yellow-300 rounded-md">
-          <div className="flex space-x-2">
-            <button 
-              onClick={debugHabitSets}
-              className="flex-1 py-2 px-4 bg-yellow-500 hover:bg-yellow-600 text-white font-medium rounded-md"
-            >
-              Debug Habit Sets
-            </button>
-            <button 
-              onClick={() => {
-                console.log("Direct create set button clicked");
-                const testSetName = "Test Set " + new Date().toLocaleTimeString();
-                setNewSetName(testSetName);
-                setNewSetDescription("Created via debug button");
-                setTimeout(() => {
-                  console.log("Calling handleCreateSet with:", testSetName);
-                  handleCreateSet();
-                }, 100);
-              }}
-              className="flex-1 py-2 px-4 bg-green-500 hover:bg-green-600 text-white font-medium rounded-md"
-            >
-              Create Test Set
-            </button>
-          </div>
-          <p className="text-xs text-yellow-800 mt-1">
-            These buttons will help debug habit set issues
-          </p>
-        </div>
-      )}
-      
-      {/* Header with level info */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-            Habit Tracker
-          </h1>
-          <p className="text-sm text-gray-600 dark:text-gray-400">
-            Track your daily habits and level up your life
-          </p>
-        </div>
-        <div className="mt-2 md:mt-0 flex items-center">
-          <div className="mr-2 text-right">
-            <p className="text-sm text-gray-600 dark:text-gray-400">Level</p>
-            <p className="text-xl font-bold text-gray-900 dark:text-white">
-              {currentLevel}
+      {/* Header with level info - Enhanced with glass morphism */}
+      <div className="relative overflow-hidden rounded-2xl bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg shadow-xl p-6 border border-gray-200/50 dark:border-gray-700/50">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center">
+          <div>
+            <h1 className="text-3xl font-semibold bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
+              Habit Tracker
+            </h1>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+              Track your daily habits and level up your life
             </p>
           </div>
-          <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-full flex items-center justify-center">
-            <Sparkles />
+          <div className="mt-4 md:mt-0 flex items-center">
+            <div className="mr-4 text-right">
+              <p className="text-sm text-gray-500 dark:text-gray-400">Level</p>
+              <p className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
+                {currentLevel}
+              </p>
+            </div>
+            <div className="w-14 h-14 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg transform hover:scale-105 transition-transform duration-300">
+              <Sparkles />
+            </div>
           </div>
         </div>
       </div>
       
-      {/* Habit Set Selector - New Design */}
-      <div className="mb-6 bg-white dark:bg-gray-800 rounded-lg shadow-md p-4">
+      {/* Habit Set Selector - Enhanced with modern card design */}
+      <div className="rounded-2xl bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg shadow-xl p-6 border border-gray-200/50 dark:border-gray-700/50">
         <div className="flex flex-col">
-          <div className="flex justify-between items-center mb-3">
-            <h2 className="text-lg font-semibold text-gray-800 dark:text-white">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-semibold bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
               Habit Sets
             </h2>
             <button
               onClick={() => setShowCreateSetModal(true)}
-              className="px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-md flex items-center"
+              className="px-4 py-2 bg-gradient-to-br from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white text-sm font-medium rounded-xl flex items-center transform hover:scale-105 transition-all duration-300 shadow-md"
               disabled={!canCreateHabitSet}
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
               </svg>
               New Set
             </button>
           </div>
           
-          {/* Horizontal scrollable habit set cards */}
-          <div className="flex overflow-x-auto pb-2 -mx-1 hide-scrollbar">
+          {/* Horizontal scrollable habit set cards with enhanced design */}
+          <div className="flex overflow-x-auto pb-4 -mx-2 hide-scrollbar">
             {habitSets.map(set => (
               <div 
                 key={set.id} 
-                className={`flex-shrink-0 w-48 mx-1 p-3 rounded-lg cursor-pointer transition-all duration-200 ${
+                className={`flex-shrink-0 w-56 mx-2 p-4 rounded-xl cursor-pointer transition-all duration-300 transform hover:scale-105 ${
                   activeHabitSetState?.id === set.id 
-                    ? 'bg-indigo-100 dark:bg-indigo-900 border-2 border-indigo-500' 
-                    : 'bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600'
+                    ? 'bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/50 dark:to-purple-900/50 border-2 border-indigo-500/50 shadow-lg' 
+                    : 'bg-gray-50/80 dark:bg-gray-700/80 hover:bg-gray-100 dark:hover:bg-gray-600/80 border border-gray-200/50 dark:border-gray-600/50'
                 }`}
                 onClick={() => handleSwitchHabitSet(set.id, set.name)}
               >
-                <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center">
                     {activeHabitSetState?.id === set.id && (
-                      <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
+                      <span className="w-2 h-2 bg-gradient-to-br from-green-400 to-green-500 rounded-full mr-2 animate-pulse"></span>
                     )}
                     <h3 className="font-medium text-gray-800 dark:text-white truncate">
                       {set.name}
                     </h3>
                   </div>
-                  <div className="flex space-x-1">
+                  <div className="flex space-x-2">
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -1249,7 +1219,7 @@ export default function HabitTracker() {
                         setEditSetDescription(set.description || '');
                         setShowEditSetModal(true);
                       }}
-                      className="text-gray-500 hover:text-indigo-600 dark:text-gray-400 dark:hover:text-indigo-400"
+                      className="text-gray-500 hover:text-indigo-600 dark:text-gray-400 dark:hover:text-indigo-400 transition-colors duration-200"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -1261,7 +1231,7 @@ export default function HabitTracker() {
                         setDeleteSetId(set.id);
                         setShowDeleteSetModal(true);
                       }}
-                      className="text-gray-500 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400"
+                      className="text-gray-500 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400 transition-colors duration-200"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -1269,46 +1239,48 @@ export default function HabitTracker() {
                     </button>
                   </div>
                 </div>
-                <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
                   {set.description || "No description"}
                 </p>
               </div>
             ))}
             
-            {/* Add set card if user can create more */}
+            {/* Add set card with enhanced design */}
             {canCreateHabitSet && (
               <div 
-                className="flex-shrink-0 w-48 mx-1 p-3 rounded-lg cursor-pointer bg-gray-50 dark:bg-gray-800 border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-indigo-500 dark:hover:border-indigo-500 flex items-center justify-center"
+                className="flex-shrink-0 w-56 mx-2 p-4 rounded-xl cursor-pointer bg-gradient-to-br from-gray-50 to-white dark:from-gray-800/50 dark:to-gray-700/50 border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-indigo-500 dark:hover:border-indigo-500 flex items-center justify-center transform hover:scale-105 transition-all duration-300"
                 onClick={() => setShowCreateSetModal(true)}
               >
                 <div className="text-center">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 mx-auto text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                  </svg>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Add New Set</p>
+                  <div className="w-10 h-10 mx-auto rounded-full bg-gradient-to-br from-indigo-500/10 to-purple-500/10 flex items-center justify-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-indigo-600 dark:text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                  </div>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">Add New Set</p>
                 </div>
               </div>
             )}
           </div>
         </div>
       </div>
-      
-      {/* Active Habit Set Info */}
+
+      {/* Active Habit Set Info - Enhanced with modern design */}
       {activeHabitSetState && (
-        <div className="mb-6">
+        <div className="rounded-2xl bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg shadow-xl p-6 border border-gray-200/50 dark:border-gray-700/50">
           <div className="flex justify-between items-center">
-            <h2 className="text-xl font-semibold text-gray-800 dark:text-white">
+            <h2 className="text-2xl font-semibold bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
               {activeHabitSetState.name}
             </h2>
-            <div className="text-sm text-gray-500 dark:text-gray-400">
+            <div className="text-sm font-medium px-3 py-1 rounded-full bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400">
               {habits.length} / {MAX_HABITS} habits
             </div>
           </div>
           
-          {/* Progress bar for habit limit */}
-          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 mt-2">
+          {/* Progress bar with enhanced design */}
+          <div className="w-full h-2 bg-gray-100 dark:bg-gray-700 rounded-full mt-4 overflow-hidden">
             <div 
-              className="bg-indigo-600 h-2 rounded-full" 
+              className="h-full bg-gradient-to-r from-indigo-500 to-purple-600 rounded-full transition-all duration-500 ease-out"
               style={{ width: `${(habits.length / MAX_HABITS) * 100}%` }}
             ></div>
           </div>
@@ -1316,56 +1288,64 @@ export default function HabitTracker() {
       )}
       
       {/* Weekly Progress */}
-      <div className="mb-6">
+      <div className="rounded-2xl bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg shadow-xl p-6 border border-gray-200/50 dark:border-gray-700/50">
         <WeeklyProgress habits={habits} />
       </div>
       
-      {/* Add New Habit Form */}
-      <div className="mb-6">
+      {/* Add New Habit Form - Enhanced with modern design */}
+      <div className="rounded-2xl bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg shadow-xl p-6 border border-gray-200/50 dark:border-gray-700/50">
         <div className="flex">
           <input
             type="text"
             value={newHabitName}
             onChange={(e) => setNewHabitName(e.target.value)}
             placeholder="Enter a new habit..."
-            className="flex-grow p-2 border border-gray-300 dark:border-gray-700 rounded-l-md bg-white dark:bg-gray-800 text-gray-800 dark:text-white"
+            className="flex-grow p-3 border border-gray-200 dark:border-gray-700 rounded-l-xl bg-gray-50/50 dark:bg-gray-800/50 text-gray-800 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-transparent transition-all duration-300"
             onKeyPress={(e) => e.key === 'Enter' && addHabit()}
             disabled={habits.length >= MAX_HABITS || !activeHabitSetState}
           />
           <button
             onClick={addHabit}
-            className={`px-4 py-2 rounded-r-md font-medium ${
+            className={`px-6 py-3 rounded-r-xl font-medium transition-all duration-300 ${
               habits.length >= MAX_HABITS || !activeHabitSetState
-                ? 'bg-gray-400 cursor-not-allowed'
-                : 'bg-indigo-600 hover:bg-indigo-700'
-            } text-white`}
+                ? 'bg-gray-300 dark:bg-gray-600 cursor-not-allowed'
+                : 'bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 transform hover:scale-105'
+            } text-white shadow-md`}
             disabled={habits.length >= MAX_HABITS || !activeHabitSetState}
           >
-            Add
+            Add Habit
           </button>
         </div>
-        {error && <p className="text-red-500 text-sm mt-1">{error}</p>}
+        {error && (
+          <div className="mt-2 p-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/50 rounded-lg text-red-600 dark:text-red-400 text-sm">
+            {error}
+          </div>
+        )}
         {!activeHabitSetState && (
-          <p className="text-amber-500 text-sm mt-1">
+          <div className="mt-2 p-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 rounded-lg text-amber-600 dark:text-amber-400 text-sm">
             Please create or select a habit set first
-          </p>
+          </div>
         )}
         {habits.length >= MAX_HABITS && (
-          <p className="text-amber-500 text-sm mt-1">
+          <div className="mt-2 p-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 rounded-lg text-amber-600 dark:text-amber-400 text-sm">
             You've reached the maximum number of habits for this set
-          </p>
+          </div>
         )}
       </div>
       
-      {/* Habits List */}
+      {/* Habits List - Enhanced with modern design */}
       <div className="space-y-4">
         {habits.length === 0 ? (
-          <div className="text-center py-8 bg-gray-50 dark:bg-gray-800 rounded-lg">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-            </svg>
-            <h3 className="mt-2 text-lg font-medium text-gray-900 dark:text-white">No habits yet</h3>
-            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+          <div className="rounded-2xl bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg shadow-xl p-8 border border-gray-200/50 dark:border-gray-700/50 text-center">
+            <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-800 flex items-center justify-center shadow-inner">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+              </svg>
+            </div>
+            <h3 className="mt-4 text-xl font-semibold bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
+              No habits yet
+            </h3>
+            <p className="mt-2 text-gray-500 dark:text-gray-400">
               {activeHabitSetState 
                 ? "Add your first habit to get started" 
                 : "Select or create a habit set first"}
@@ -1376,54 +1356,67 @@ export default function HabitTracker() {
             const isCompletedToday = habit.logs.includes(
               new Date().toISOString().split('T')[0]
             );
+            const streak = calculateStreak(habit.logs);
             
             return (
               <div
                 key={habit.id}
-                className="flex items-center justify-between p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm hover:shadow-md transition-shadow"
+                className="group rounded-2xl bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg shadow-lg border border-gray-200/50 dark:border-gray-700/50 p-4 hover:shadow-xl transition-all duration-300 transform hover:scale-[1.02]"
               >
-                <div className="flex items-center">
-                  <CheckmarkIcon
-                    checked={isCompletedToday}
-                    onClick={() => toggleHabitCompletion(habit.id)}
-                  />
-                  <div className="ml-3">
-                    <h3 className={`font-medium ${
-                      isCompletedToday 
-                        ? 'text-gray-500 dark:text-gray-400 line-through' 
-                        : 'text-gray-800 dark:text-white'
-                    }`}>
-                      {habit.name}
-                    </h3>
-                    <div className="flex items-center mt-1">
-                      <span className="text-xs text-gray-500 dark:text-gray-400 mr-2">
-                        XP: {habit.xp || 0}
-                      </span>
-                      <span className="text-xs text-gray-500 dark:text-gray-400">
-                        Streak: {calculateStreak(habit.logs)}
-                      </span>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center flex-grow mr-4">
+                    <CheckmarkIcon
+                      checked={isCompletedToday}
+                      onClick={() => toggleHabitCompletion(habit.id)}
+                    />
+                    <div className="ml-4 flex-grow">
+                      <h3 className={`font-medium text-lg transition-all duration-300 ${
+                        isCompletedToday 
+                          ? 'text-gray-400 dark:text-gray-500 line-through' 
+                          : 'text-gray-800 dark:text-white'
+                      }`}>
+                        {habit.name}
+                      </h3>
+                      <div className="flex items-center mt-1 space-x-3">
+                        <div className="flex items-center">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-indigo-500 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                          </svg>
+                          <span className="text-sm text-gray-500 dark:text-gray-400">
+                            {habit.xp || 0} XP
+                          </span>
+                        </div>
+                        <div className="flex items-center">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-amber-500 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                          </svg>
+                          <span className="text-sm text-gray-500 dark:text-gray-400">
+                            {streak} day streak
+                          </span>
+                        </div>
+                      </div>
                     </div>
                   </div>
+                  <button
+                    onClick={() => deleteHabit(habit.id)}
+                    className="opacity-0 group-hover:opacity-100 p-2 text-gray-400 hover:text-red-500 rounded-full hover:bg-red-50 dark:hover:bg-red-900/20 transition-all duration-300"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </button>
                 </div>
-                <button
-                  onClick={() => deleteHabit(habit.id)}
-                  className="text-gray-400 hover:text-red-500 transition-colors"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                  </svg>
-                </button>
               </div>
             );
           })
         )}
       </div>
       
-      {/* Create Set Modal */}
+      {/* Create Set Modal - Enhanced with modern design */}
       {showCreateSetModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-6">
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-2xl shadow-2xl max-w-md w-full p-6 transform transition-all duration-300 scale-100">
+            <h2 className="text-2xl font-semibold bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-300 bg-clip-text text-transparent mb-4">
               Create New Habit Set
             </h2>
             <div className="space-y-4">
@@ -1435,7 +1428,7 @@ export default function HabitTracker() {
                   type="text"
                   value={newSetName}
                   onChange={(e) => setNewSetName(e.target.value)}
-                  className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-800 dark:text-white"
+                  className="w-full p-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white/50 dark:bg-gray-900/50 text-gray-800 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-transparent transition-all duration-300"
                   placeholder="My Habit Set"
                 />
               </div>
@@ -1446,7 +1439,7 @@ export default function HabitTracker() {
                 <textarea
                   value={newSetDescription}
                   onChange={(e) => setNewSetDescription(e.target.value)}
-                  className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-800 dark:text-white"
+                  className="w-full p-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white/50 dark:bg-gray-900/50 text-gray-800 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-transparent transition-all duration-300"
                   placeholder="What's this habit set for?"
                   rows={3}
                 />
@@ -1459,7 +1452,7 @@ export default function HabitTracker() {
                   setNewSetName('');
                   setNewSetDescription('');
                 }}
-                className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                className="px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all duration-300"
               >
                 Cancel
               </button>
@@ -1469,24 +1462,24 @@ export default function HabitTracker() {
                   handleCreateSet();
                 }}
                 disabled={!newSetName.trim()}
-                className={`px-4 py-2 rounded-md text-white font-medium ${
+                className={`px-4 py-2 rounded-xl text-white font-medium transition-all duration-300 transform hover:scale-105 ${
                   !newSetName.trim()
-                    ? 'bg-gray-400 cursor-not-allowed'
-                    : 'bg-indigo-600 hover:bg-indigo-700'
+                    ? 'bg-gray-300 dark:bg-gray-600 cursor-not-allowed'
+                    : 'bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 shadow-md'
                 }`}
               >
-                Create
+                Create Set
               </button>
             </div>
           </div>
         </div>
       )}
       
-      {/* Edit Set Modal */}
+      {/* Edit Set Modal - Enhanced with modern design */}
       {showEditSetModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-6">
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-2xl shadow-2xl max-w-md w-full p-6 transform transition-all duration-300 scale-100">
+            <h2 className="text-2xl font-semibold bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-300 bg-clip-text text-transparent mb-4">
               Edit Habit Set
             </h2>
             <div className="space-y-4">
@@ -1498,7 +1491,7 @@ export default function HabitTracker() {
                   type="text"
                   value={editSetName}
                   onChange={(e) => setEditSetName(e.target.value)}
-                  className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  className="w-full p-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white/50 dark:bg-gray-900/50 text-gray-800 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-transparent transition-all duration-300"
                   placeholder="My Habit Set"
                   onKeyPress={(e) => e.key === 'Enter' && handleEditHabitSet(editSetId, editSetName, editSetDescription)}
                 />
@@ -1510,7 +1503,7 @@ export default function HabitTracker() {
                 <textarea
                   value={editSetDescription}
                   onChange={(e) => setEditSetDescription(e.target.value)}
-                  className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  className="w-full p-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white/50 dark:bg-gray-900/50 text-gray-800 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-transparent transition-all duration-300"
                   placeholder="What's this habit set for?"
                   rows={3}
                 />
@@ -1524,17 +1517,17 @@ export default function HabitTracker() {
                   setEditSetName('');
                   setEditSetDescription('');
                 }}
-                className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                className="px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all duration-300"
               >
                 Cancel
               </button>
               <button
                 onClick={() => handleEditHabitSet(editSetId, editSetName, editSetDescription)}
                 disabled={!editSetName.trim()}
-                className={`px-4 py-2 rounded-md text-white font-medium transition-colors ${
+                className={`px-4 py-2 rounded-xl text-white font-medium transition-all duration-300 transform hover:scale-105 ${
                   !editSetName.trim()
-                    ? 'bg-gray-400 cursor-not-allowed'
-                    : 'bg-indigo-600 hover:bg-indigo-700'
+                    ? 'bg-gray-300 dark:bg-gray-600 cursor-not-allowed'
+                    : 'bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 shadow-md'
                 }`}
               >
                 Save Changes
@@ -1544,29 +1537,34 @@ export default function HabitTracker() {
         </div>
       )}
       
-      {/* Delete Set Confirmation Modal */}
+      {/* Delete Set Confirmation Modal - Enhanced with modern design */}
       {showDeleteSetModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-6">
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-2xl shadow-2xl max-w-md w-full p-6 transform transition-all duration-300 scale-100">
+            <div className="flex items-center justify-center w-12 h-12 mx-auto mb-4 rounded-full bg-red-100 dark:bg-red-900/20">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-red-600 dark:text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+            <h2 className="text-2xl font-semibold text-center bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-300 bg-clip-text text-transparent mb-2">
               Delete Habit Set
             </h2>
-            <p className="text-gray-600 dark:text-gray-400 mb-4">
+            <p className="text-center text-gray-600 dark:text-gray-400 mb-6">
               Are you sure you want to delete this habit set? This action cannot be undone and all habits in this set will be lost.
             </p>
-            <div className="flex justify-end space-x-3 mt-6">
+            <div className="flex justify-center space-x-3">
               <button
                 onClick={() => {
                   setShowDeleteSetModal(false);
                   setDeleteSetId('');
                 }}
-                className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                className="px-6 py-2 rounded-xl border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all duration-300"
               >
                 Cancel
               </button>
               <button
                 onClick={() => handleDeleteHabitSet(deleteSetId)}
-                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-md"
+                className="px-6 py-2 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-medium rounded-xl shadow-md transform hover:scale-105 transition-all duration-300"
               >
                 Delete
               </button>
