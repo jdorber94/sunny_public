@@ -428,7 +428,7 @@ function ProfileContent() {
                 <p className="text-lg font-semibold text-gray-900 dark:text-white">{profile.daysActive} days</p>
               </div>
               
-              <div>
+            <div>
                 <p className="text-sm text-gray-500 dark:text-gray-400">Joined</p>
                 <p className="text-lg font-semibold text-gray-900 dark:text-white">{new Date(profile.joinDate).toLocaleDateString()}</p>
               </div>
@@ -459,9 +459,9 @@ function ProfileContent() {
           {isEditing ? (
             <div className="bg-white dark:bg-slate-800 rounded-xl shadow-md p-6">
               <h2 className="text-xl font-bold mb-6 text-gray-900 dark:text-white">Edit Profile</h2>
-              
-              <div className="space-y-6">
-                <div>
+
+          <div className="space-y-6">
+            <div>
                   <label htmlFor="name" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                     Name
                   </label>
@@ -636,9 +636,9 @@ function ProfileContent() {
                           <p className="text-sm text-gray-700 dark:text-gray-300">
                             {profile.preferences.darkMode ? 'Dark Mode' : 'Light Mode'}
                           </p>
-                        </div>
-                      </div>
-                      
+              </div>
+            </div>
+
                       <div className="flex items-center">
                         <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-slate-600 flex items-center justify-center text-gray-600 dark:text-gray-300 mr-3">
                           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
@@ -656,7 +656,7 @@ function ProfileContent() {
                   </div>
                 </div>
               </div>
-            </div>
+          </div>
           )}
         </div>
       </div>

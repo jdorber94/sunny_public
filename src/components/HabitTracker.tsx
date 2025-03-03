@@ -52,18 +52,18 @@ const CheckmarkIcon = ({ checked, onClick }: { checked: boolean; onClick: () => 
       onClick={onClick}
     >
       {checked && (
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
           className="h-5 w-5 text-white transform scale-110 transition-transform duration-300"
           viewBox="0 0 20 20"
-          fill="currentColor"
-        >
-          <path
-            fillRule="evenodd"
+        fill="currentColor"
+      >
+        <path
+          fillRule="evenodd"
             d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-            clipRule="evenodd"
-          />
-        </svg>
+          clipRule="evenodd"
+        />
+      </svg>
       )}
     </button>
   );
@@ -424,7 +424,7 @@ export default function HabitTracker() {
       // Subscribe to user stats
       const statsUnsubscribe = subscribeToUserStats(user.uid, (firestoreStats) => {
         if (firestoreStats) {
-          // Reset daily XP if it's a new day
+        // Reset daily XP if it's a new day
           const today = new Date().toISOString().split('T')[0];
           if (firestoreStats.dailyXP.date !== today) {
             firestoreStats.dailyXP = { date: today, xp: 0 };
@@ -616,7 +616,7 @@ export default function HabitTracker() {
       const habit = habits[habitIndex];
       console.log("Found habit:", habit);
       
-      const today = new Date().toISOString().split('T')[0];
+    const today = new Date().toISOString().split('T')[0];
       console.log(`Today's date: ${today}`);
       
       // Check if already completed today
@@ -1158,7 +1158,7 @@ export default function HabitTracker() {
       {/* Weekly Progress */}
       <div className="rounded-2xl bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg shadow-xl p-6 border border-gray-200/50 dark:border-gray-700/50">
         <WeeklyProgress habits={habits} />
-      </div>
+              </div>
 
       {/* Habits List - Enhanced with modern design */}
       <div className="space-y-4">
@@ -1211,8 +1211,8 @@ export default function HabitTracker() {
                           </svg>
                           <span className="text-sm text-gray-500 dark:text-gray-400">
                             {habit.xp || 0} XP
-                          </span>
-                        </div>
+                </span>
+                </div>
                         <div className="flex items-center">
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-amber-500 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
@@ -1220,9 +1220,9 @@ export default function HabitTracker() {
                           <span className="text-sm text-gray-500 dark:text-gray-400">
                             {streak} day streak
                           </span>
-                        </div>
-                      </div>
-                    </div>
+              </div>
+            </div>
+          </div>
                   </div>
                   <button
                     onClick={() => deleteHabit(habit.id)}
@@ -1277,16 +1277,16 @@ export default function HabitTracker() {
       {/* Add New Habit Form - Enhanced with modern design */}
       <div className="rounded-2xl bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg shadow-xl p-6 border border-gray-200/50 dark:border-gray-700/50">
         <div className="flex">
-          <input
-            type="text"
+            <input
+              type="text"
             value={newHabitName}
             onChange={(e) => setNewHabitName(e.target.value)}
             placeholder="Enter a new habit..."
             className="flex-grow p-3 border border-gray-200 dark:border-gray-700 rounded-l-xl bg-gray-50/50 dark:bg-gray-800/50 text-gray-800 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-transparent transition-all duration-300"
             onKeyPress={(e) => e.key === 'Enter' && addHabit()}
             disabled={habits.length >= MAX_HABITS || !activeHabitSetState}
-          />
-          <button
+            />
+            <button 
             onClick={addHabit}
             className={`px-6 py-3 rounded-r-xl font-medium transition-all duration-300 ${
               habits.length >= MAX_HABITS || !activeHabitSetState
@@ -1294,11 +1294,11 @@ export default function HabitTracker() {
                 : 'bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 transform hover:scale-105'
             } text-white shadow-md`}
             disabled={habits.length >= MAX_HABITS || !activeHabitSetState}
-          >
-            Add Habit
-          </button>
+            >
+              Add Habit
+            </button>
         </div>
-        {error && (
+          {error && (
           <div className="mt-2 p-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/50 rounded-lg text-red-600 dark:text-red-400 text-sm">
             {error}
           </div>
@@ -1313,8 +1313,8 @@ export default function HabitTracker() {
             You've reached the maximum number of habits for this set
           </div>
         )}
-      </div>
-      
+        </div>
+
       {/* Habit Set Selector - Enhanced with modern card design */}
       <div className="rounded-2xl bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg shadow-xl p-6 border border-gray-200/50 dark:border-gray-700/50">
         <div className="flex flex-col">
@@ -1332,7 +1332,7 @@ export default function HabitTracker() {
               </svg>
               New Set
             </button>
-          </div>
+              </div>
           
           {/* Horizontal scrollable habit set cards with enhanced design */}
           <div className="flex overflow-x-auto pb-4 -mx-2 hide-scrollbar">
@@ -1354,9 +1354,9 @@ export default function HabitTracker() {
                     <h3 className="font-medium text-gray-800 dark:text-white truncate">
                       {set.name}
                     </h3>
-                  </div>
+              </div>
                   <div className="flex space-x-2">
-                    <button
+            <button
                       onClick={(e) => {
                         e.stopPropagation();
                         setEditSetId(set.id);
@@ -1381,9 +1381,9 @@ export default function HabitTracker() {
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                       </svg>
-                    </button>
-                  </div>
-                </div>
+            </button>
+          </div>
+        </div>
                 <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
                   {set.description || "No description"}
                 </p>
@@ -1404,9 +1404,9 @@ export default function HabitTracker() {
                   </div>
                   <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">Add New Set</p>
                 </div>
-              </div>
-            )}
-          </div>
+                        </div>
+                      )}
+                    </div>
         </div>
       </div>
 
@@ -1458,9 +1458,9 @@ export default function HabitTracker() {
               >
                 Create
               </button>
-            </div>
-          </div>
-        </div>
+                    </div>
+                    </div>
+                  </div>
       )}
       
       {/* Edit Set Modal */}
@@ -1498,7 +1498,7 @@ export default function HabitTracker() {
               </div>
             </div>
             <div className="flex justify-end space-x-3 mt-6">
-              <button
+                    <button
                 onClick={() => {
                   setShowEditSetModal(false);
                   setEditSetId('');
@@ -1508,8 +1508,8 @@ export default function HabitTracker() {
                 className="px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all duration-300"
               >
                 Cancel
-              </button>
-              <button
+                    </button>
+                    <button
                 onClick={() => handleEditHabitSet(editSetId, editSetName, editSetDescription)}
                 disabled={!editSetName.trim()}
                 className={`px-4 py-2 rounded-xl text-white font-medium transition-all duration-300 transform hover:scale-105 ${
@@ -1519,12 +1519,12 @@ export default function HabitTracker() {
                 }`}
               >
                 Save Changes
-              </button>
-            </div>
+                    </button>
+                  </div>
+                </div>
           </div>
-        </div>
-      )}
-      
+        )}
+
       {/* Delete Set Confirmation Modal */}
       {showDeleteSetModal && (
         <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center p-4 z-50">
@@ -1549,8 +1549,8 @@ export default function HabitTracker() {
               >
                 Delete
               </button>
-            </div>
           </div>
+      </div>
         </div>
       )}
     </div>
