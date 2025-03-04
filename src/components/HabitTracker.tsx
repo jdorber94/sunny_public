@@ -597,7 +597,7 @@ export default function HabitTracker() {
       const habit = habits[habitIndex];
       console.log("Found habit:", habit);
       
-    const today = new Date().toISOString().split('T')[0];
+      const today = new Date().toISOString().split('T')[0];
       console.log(`Today's date: ${today}`);
       
       // Check if already completed today
@@ -611,31 +611,32 @@ export default function HabitTracker() {
       if (isCompletedToday) {
         // Remove today's log
         updatedHabit.logs = habit.logs.filter(date => date !== today);
-        updatedHabit.xp = Math.max(0, habit.xp - 10); // Subtract XP, minimum 0
+        updatedHabit.xp = Math.max(0, habit.xp - XP_PER_COMPLETION);
         console.log("Removing today's completion and reducing XP");
       } else {
         // Add today's log
         updatedHabit.logs = [...habit.logs, today];
-        updatedHabit.xp = habit.xp + 10; // Add XP
+        updatedHabit.xp = habit.xp + XP_PER_COMPLETION;
         console.log("Adding today's completion and increasing XP");
       }
       
       console.log("Updated habit:", updatedHabit);
       
       // Update local state immediately for instant feedback
-      const updatedHabits = habits.filter(habit => habit.id !== id);
+      const updatedHabits = [...habits];
+      updatedHabits[habitIndex] = updatedHabit;
       setHabits(updatedHabits);
       
       // Update user stats
       const newStats = { ...stats };
       if (isCompletedToday) {
         // Decrease XP
-        newStats.totalXP = Math.max(0, stats.totalXP - 10);
-        newStats.dailyXP.xp = Math.max(0, stats.dailyXP.xp - 10);
+        newStats.totalXP = Math.max(0, stats.totalXP - XP_PER_COMPLETION);
+        newStats.dailyXP.xp = Math.max(0, stats.dailyXP.xp - XP_PER_COMPLETION);
       } else {
         // Increase XP
-        newStats.totalXP += 10;
-        newStats.dailyXP.xp += 10;
+        newStats.totalXP += XP_PER_COMPLETION;
+        newStats.dailyXP.xp = Math.min(MAX_DAILY_XP, stats.dailyXP.xp + XP_PER_COMPLETION);
       }
       
       console.log("Updated stats:", newStats);
@@ -671,12 +672,9 @@ export default function HabitTracker() {
       console.log("Successfully updated habit in Firestore");
       
       // Save user stats to Firestore
-      if (user) {
-        console.log("Saving updated user stats to Firestore");
-        const userStatsRef = doc(db, 'users', user.uid, 'stats', 'userStats');
-        await setDoc(userStatsRef, newStats, { merge: true });
-        console.log("Successfully saved user stats to Firestore");
-      }
+      const userStatsRef = doc(db, 'users', user.uid, 'stats', 'userStats');
+      await setDoc(userStatsRef, newStats, { merge: true });
+      console.log("Successfully saved user stats to Firestore");
       
       toast.success(isCompletedToday ? "Habit marked as incomplete" : "Habit completed!");
     } catch (error) {

@@ -49,114 +49,94 @@ export default function HabitSetManager({
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [editSetId, setEditSetId] = useState('');
+  const [deleteSetId, setDeleteSetId] = useState('');
   const [newSetName, setNewSetName] = useState('');
   const [newSetDescription, setNewSetDescription] = useState('');
-  const [editSetId, setEditSetId] = useState('');
-  const [editSetName, setEditSetName] = useState('');
-  const [editSetDescription, setEditSetDescription] = useState('');
-  const [deleteSetId, setDeleteSetId] = useState('');
-  const [loading, setLoading] = useState(false);
-
-  const handleCreateSet = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newSetName.trim()) {
-      toast.error('Please enter a set name');
-      return;
-    }
-
-    setLoading(true);
-    try {
-      await onCreateSet(newSetName.trim(), newSetDescription.trim());
-      setShowCreateModal(false);
-      setNewSetName('');
-      setNewSetDescription('');
-      toast.success('Habit set created');
-    } catch (error) {
-      toast.error('Failed to create habit set');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleEditSet = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editSetName.trim()) {
-      toast.error('Please enter a set name');
-      return;
-    }
-
-    setLoading(true);
-    try {
-      await onEditSet(editSetId, editSetName.trim(), editSetDescription.trim());
-      setShowEditModal(false);
-      setEditSetId('');
-      setEditSetName('');
-      setEditSetDescription('');
-      toast.success('Habit set updated');
-    } catch (error) {
-      toast.error('Failed to update habit set');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleDeleteSet = async () => {
-    setLoading(true);
-    try {
-      await onDeleteSet(deleteSetId);
-      setShowDeleteModal(false);
-      setDeleteSetId('');
-      toast.success('Habit set deleted');
-    } catch (error) {
-      toast.error('Failed to delete habit set');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const openEditModal = (set: HabitSet) => {
     setEditSetId(set.id);
-    setEditSetName(set.name);
-    setEditSetDescription(set.description || '');
+    setNewSetName(set.name);
+    setNewSetDescription(set.description || '');
     setShowEditModal(true);
   };
 
   return (
-    <div className="mb-8">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-xl font-semibold text-slate-900 dark:text-white">
-          Habit Sets
-        </h2>
+    <div className="mb-8 bg-slate-900 dark:bg-slate-800 rounded-xl p-4 shadow-lg">
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-xl font-semibold text-white">Habit Sets</h2>
         <button
           onClick={() => setShowCreateModal(true)}
-          disabled={!isPremium && habitSets.length >= 1}
-          className="px-4 py-2 bg-black text-white rounded-lg hover:bg-slate-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex items-center space-x-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
         >
-          New Set
+          <svg
+            className="h-5 w-5"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M12 4v16m8-8H4"
+            />
+          </svg>
+          <span>New Set</span>
         </button>
       </div>
 
-      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="space-y-2">
         {habitSets.map(set => (
           <div
             key={set.id}
-            className={`p-4 rounded-lg border transition-all ${
-              set.id === activeSetId
-                ? 'border-black dark:border-white bg-black dark:bg-white text-white dark:text-black'
-                : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white hover:border-black dark:hover:border-white'
-            }`}
+            className={`flex items-center justify-between p-3 rounded-lg transition-all duration-200 cursor-pointer
+              ${activeSetId === set.id
+                ? 'bg-slate-700 text-white'
+                : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+              }`}
+            onClick={() => onSwitchSet(set.id, set.name)}
           >
-            <div className="flex items-start justify-between mb-2">
-              <div>
-                <h3 className="font-medium">{set.name}</h3>
-                {set.description && (
-                  <p className="text-sm opacity-70">{set.description}</p>
-                )}
-              </div>
-              <div className="flex space-x-2">
+            <div className="flex items-center space-x-3">
+              <div className={`w-2 h-2 rounded-full ${activeSetId === set.id ? 'bg-green-400' : 'bg-slate-500'}`} />
+              <span className="font-medium">{set.name}</span>
+              {set.isPremium && (
+                <span className="px-2 py-0.5 text-xs bg-gradient-to-r from-amber-400 to-amber-500 text-amber-900 rounded-full">
+                  PRO
+                </span>
+              )}
+            </div>
+
+            <div className="flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openEditModal(set);
+                }}
+                className="p-1.5 rounded-md text-slate-400 hover:text-white hover:bg-slate-600"
+              >
+                <svg
+                  className="h-4 w-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+                  />
+                </svg>
+              </button>
+              {habitSets.length > 1 && (
                 <button
-                  onClick={() => openEditModal(set)}
-                  className="p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-700"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setDeleteSetId(set.id);
+                    setShowDeleteModal(true);
+                  }}
+                  className="p-1.5 rounded-md text-slate-400 hover:text-red-400 hover:bg-slate-600"
                 >
                   <svg
                     className="h-4 w-4"
@@ -168,176 +148,149 @@ export default function HabitSetManager({
                       strokeLinecap="round"
                       strokeLinejoin="round"
                       strokeWidth={2}
-                      d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
                     />
                   </svg>
                 </button>
-                {habitSets.length > 1 && (
-                  <button
-                    onClick={() => {
-                      setDeleteSetId(set.id);
-                      setShowDeleteModal(true);
-                    }}
-                    className="p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-700"
-                  >
-                    <svg
-                      className="h-4 w-4"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                      />
-                    </svg>
-                  </button>
-                )}
-              </div>
+              )}
             </div>
-            {set.id !== activeSetId && (
-              <button
-                onClick={() => onSwitchSet(set.id, set.name)}
-                className="mt-2 w-full px-3 py-1.5 text-sm border border-current rounded-md hover:bg-slate-50 dark:hover:bg-slate-700"
-              >
-                Switch to this set
-              </button>
-            )}
           </div>
         ))}
       </div>
 
       {/* Create Modal */}
       {showCreateModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-800 rounded-lg p-6 max-w-md w-full">
-            <h3 className="text-lg font-semibold mb-4 text-slate-900 dark:text-white">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-slate-800 rounded-xl p-6 w-full max-w-md">
+            <h3 className="text-xl font-semibold text-slate-900 dark:text-white mb-4">
               Create New Habit Set
             </h3>
-            <form onSubmit={handleCreateSet}>
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                  Name
-                </label>
-                <input
-                  type="text"
-                  value={newSetName}
-                  onChange={(e) => setNewSetName(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
-                  placeholder="Enter set name"
-                />
-              </div>
-              <div className="mb-6">
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                  Description (optional)
-                </label>
-                <textarea
-                  value={newSetDescription}
-                  onChange={(e) => setNewSetDescription(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
-                  placeholder="Enter set description"
-                  rows={3}
-                />
-              </div>
-              <div className="flex justify-end space-x-3">
-                <button
-                  type="button"
-                  onClick={() => setShowCreateModal(false)}
-                  className="px-4 py-2 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="px-4 py-2 bg-black text-white rounded-lg hover:bg-slate-800 transition-colors disabled:opacity-50"
-                >
-                  {loading ? 'Creating...' : 'Create Set'}
-                </button>
-              </div>
-            </form>
+            <input
+              type="text"
+              value={newSetName}
+              onChange={(e) => setNewSetName(e.target.value)}
+              placeholder="Set Name"
+              className="w-full px-4 py-2 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-white mb-4"
+            />
+            <textarea
+              value={newSetDescription}
+              onChange={(e) => setNewSetDescription(e.target.value)}
+              placeholder="Description (optional)"
+              className="w-full px-4 py-2 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-white mb-4 resize-none"
+              rows={3}
+            />
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => {
+                  setShowCreateModal(false);
+                  setNewSetName('');
+                  setNewSetDescription('');
+                }}
+                className="px-4 py-2 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  if (newSetName.trim()) {
+                    onCreateSet(newSetName.trim(), newSetDescription.trim());
+                    setShowCreateModal(false);
+                    setNewSetName('');
+                    setNewSetDescription('');
+                  }
+                }}
+                className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg"
+                disabled={!newSetName.trim()}
+              >
+                Create
+              </button>
+            </div>
           </div>
         </div>
       )}
 
       {/* Edit Modal */}
       {showEditModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-800 rounded-lg p-6 max-w-md w-full">
-            <h3 className="text-lg font-semibold mb-4 text-slate-900 dark:text-white">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-slate-800 rounded-xl p-6 w-full max-w-md">
+            <h3 className="text-xl font-semibold text-slate-900 dark:text-white mb-4">
               Edit Habit Set
             </h3>
-            <form onSubmit={handleEditSet}>
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                  Name
-                </label>
-                <input
-                  type="text"
-                  value={editSetName}
-                  onChange={(e) => setEditSetName(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
-                  placeholder="Enter set name"
-                />
-              </div>
-              <div className="mb-6">
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                  Description (optional)
-                </label>
-                <textarea
-                  value={editSetDescription}
-                  onChange={(e) => setEditSetDescription(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
-                  placeholder="Enter set description"
-                  rows={3}
-                />
-              </div>
-              <div className="flex justify-end space-x-3">
-                <button
-                  type="button"
-                  onClick={() => setShowEditModal(false)}
-                  className="px-4 py-2 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="px-4 py-2 bg-black text-white rounded-lg hover:bg-slate-800 transition-colors disabled:opacity-50"
-                >
-                  {loading ? 'Saving...' : 'Save Changes'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Delete Confirmation Modal */}
-      {showDeleteModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-800 rounded-lg p-6 max-w-md w-full">
-            <h3 className="text-lg font-semibold mb-4 text-slate-900 dark:text-white">
-              Delete Habit Set
-            </h3>
-            <p className="mb-6 text-slate-600 dark:text-slate-400">
-              Are you sure you want to delete this habit set? This action cannot be undone.
-            </p>
+            <input
+              type="text"
+              value={newSetName}
+              onChange={(e) => setNewSetName(e.target.value)}
+              placeholder="Set Name"
+              className="w-full px-4 py-2 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-white mb-4"
+            />
+            <textarea
+              value={newSetDescription}
+              onChange={(e) => setNewSetDescription(e.target.value)}
+              placeholder="Description (optional)"
+              className="w-full px-4 py-2 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-white mb-4 resize-none"
+              rows={3}
+            />
             <div className="flex justify-end space-x-3">
               <button
-                onClick={() => setShowDeleteModal(false)}
-                className="px-4 py-2 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
+                onClick={() => {
+                  setShowEditModal(false);
+                  setEditSetId('');
+                  setNewSetName('');
+                  setNewSetDescription('');
+                }}
+                className="px-4 py-2 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
               >
                 Cancel
               </button>
               <button
-                onClick={handleDeleteSet}
-                disabled={loading}
-                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
+                onClick={() => {
+                  if (newSetName.trim()) {
+                    onEditSet(editSetId, newSetName.trim(), newSetDescription.trim());
+                    setShowEditModal(false);
+                    setEditSetId('');
+                    setNewSetName('');
+                    setNewSetDescription('');
+                  }
+                }}
+                className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg"
+                disabled={!newSetName.trim()}
               >
-                {loading ? 'Deleting...' : 'Delete Set'}
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-slate-800 rounded-xl p-6 w-full max-w-md">
+            <h3 className="text-xl font-semibold text-slate-900 dark:text-white mb-4">
+              Delete Habit Set
+            </h3>
+            <p className="text-slate-600 dark:text-slate-400 mb-6">
+              Are you sure you want to delete this habit set? This action cannot be undone.
+            </p>
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => {
+                  setShowDeleteModal(false);
+                  setDeleteSetId('');
+                }}
+                className="px-4 py-2 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  onDeleteSet(deleteSetId);
+                  setShowDeleteModal(false);
+                  setDeleteSetId('');
+                }}
+                className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg"
+              >
+                Delete
               </button>
             </div>
           </div>
