@@ -28,16 +28,20 @@ import HabitSetManager from './HabitSetManager';
 import { toast } from 'react-hot-toast';
 import { collection, writeBatch, getDocs, doc, serverTimestamp, setDoc, deleteDoc, updateDoc, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { useFirebaseSubscription } from '@/hooks/useFirebaseSubscription';
+import { ErrorBoundary } from './ErrorBoundary';
+import HabitList from './HabitList';
+import ProgressDisplay from './ProgressDisplay';
+import AddHabitForm from './AddHabitForm';
 
 // Constants
-const MAX_HABITS = 5;
+const MAX_HABITS = 10;
 const XP_PER_COMPLETION = 10;
 const MAX_DAILY_XP = 50;
 
 // Calculate level based on XP
-const calculateLevel = (xp: number, level = 1, requiredXP = 100): number => {
-  if (xp < requiredXP) return level;
-  return calculateLevel(xp - requiredXP, level + 1, Math.floor(requiredXP * 1.5));
+const calculateLevel = (xp: number): number => {
+  return Math.floor(Math.sqrt(xp / 100)) + 1;
 };
 
 // Checkmark icon component with animation - enhanced with smooth transitions
@@ -144,6 +148,34 @@ export default function HabitTracker() {
   const habitsUnsubscribeRef = useRef<(() => void) | null>(null);
   const habitSetsUnsubscribeRef = useRef<(() => void) | null>(null);
 
+  // Subscribe to habit sets
+  const { data: habitSetList = [], loading: loadingHabitSets } = useFirebaseSubscription<HabitSet[]>(
+    user ? collection(db, 'users', user.uid, 'habitSets') : null,
+    { errorMessage: 'Failed to load habit sets' }
+  ) ?? { data: [], loading: false };
+
+  // Get active habit set
+  const activeSet = habitSetList?.find(set => set.isActive);
+
+  // Subscribe to habits in active set
+  const { data: habitList = [], loading: loadingHabits } = useFirebaseSubscription<Habit[]>(
+    user && activeSet ? collection(db, 'users', user.uid, 'habitSets', activeSet.id, 'habits') : null,
+    { errorMessage: 'Failed to load habits' }
+  ) ?? { data: [], loading: false };
+
+  // Subscribe to user stats
+  const defaultStats: UserStats = {
+    totalXP: 0,
+    dailyXP: { date: new Date().toISOString().split('T')[0], xp: 0 }
+  };
+  const { data: userStats = defaultStats, loading: loadingStats } = useFirebaseSubscription<UserStats>(
+    user ? doc(db, 'users', user.uid, 'stats', 'daily') : null,
+    { errorMessage: 'Failed to load stats' }
+  ) ?? { data: defaultStats, loading: false };
+
+  // Calculate current level
+  const level = calculateLevel(userStats?.totalXP ?? 0);
+
   // Function to subscribe to habits for the current active habit set
   const subscribeToActiveSetHabits = (userId: string, activeSetId: string) => {
     console.log(`Subscribing to habits for set ${activeSetId}`);
@@ -219,86 +251,35 @@ export default function HabitTracker() {
     }
   };
 
-  // Handle switching to a different habit set
-  const handleSwitchHabitSet = async (setId: string, setName: string) => {
+  // Handle switching habit sets
+  const handleSwitchSet = async (setId: string, setName: string) => {
     if (!user) {
-      toast.error("You must be logged in to switch habit sets");
-      return;
-    }
-
-    // Don't do anything if we're already on this set
-    if (activeHabitSetState?.id === setId) {
-      console.log(`Already on habit set ${setName}, no need to switch`);
+      toast.error('You must be logged in to switch habit sets');
       return;
     }
 
     try {
-      console.log(`Switching to habit set: ${setId} - ${setName}`);
-      
-      // Show loading state
-      toast.success(`Switching to ${setName}...`);
-      
-      // 1. Get all habit sets to find the current active one
-      const habitSetsRef = collection(db, 'users', user.uid, 'habitSets');
-      const habitSetsSnapshot = await getDocs(habitSetsRef);
-      
-      // Find the currently active set
-      let currentActiveSetId = null;
-      habitSetsSnapshot.forEach(doc => {
-        const setData = doc.data();
-        if (setData.isActive) {
-          currentActiveSetId = doc.id;
-        }
-      });
-      
-      // 2. Create a batch to update all sets in one transaction
       const batch = writeBatch(db);
       
-      // 3. If there's a currently active set, mark it as inactive
-      if (currentActiveSetId) {
-        console.log(`Marking current active set ${currentActiveSetId} as inactive`);
-        const currentActiveSetRef = doc(db, 'users', user.uid, 'habitSets', currentActiveSetId);
-        batch.update(currentActiveSetRef, { 
+      // Update current active set
+      if (activeSet) {
+        batch.update(doc(db, 'users', user.uid, 'habitSets', activeSet.id), {
           isActive: false,
           updatedAt: serverTimestamp()
         });
       }
       
-      // 4. Mark the new set as active
-      console.log(`Marking new set ${setId} as active`);
-      const newSetRef = doc(db, 'users', user.uid, 'habitSets', setId);
-      batch.update(newSetRef, { 
+      // Set new active set
+      batch.update(doc(db, 'users', user.uid, 'habitSets', setId), {
         isActive: true,
         updatedAt: serverTimestamp()
       });
       
-      // 5. Commit all changes in one transaction
       await batch.commit();
-      
-      // 6. Update local state
-      setActiveHabitSetState({
-        id: setId,
-        name: setName
-      });
-      
-      // 7. Clear current habits
-      setHabits([]);
-      
-      // 8. Subscribe to habits from the new set
-      if (habitsUnsubscribeRef.current) {
-        console.log("Unsubscribing from previous habits subscription");
-        habitsUnsubscribeRef.current();
-      }
-      
-      // 9. Subscribe to habits for the new set
-      console.log(`Subscribing to habits for set: ${setId}`);
-      subscribeToActiveSetHabits(user.uid, setId);
-      
-      console.log(`Successfully switched to set ${setName}`);
       toast.success(`Switched to ${setName}`);
     } catch (error) {
-      console.error("Error switching habit set:", error);
-      toast.error("Failed to switch habit set");
+      console.error('Error switching habit set:', error);
+      toast.error('Failed to switch habit set');
     }
   };
 
@@ -728,103 +709,30 @@ export default function HabitTracker() {
     : 0;
 
   // Handle creating a new habit set
-  const handleCreateSet = async () => {
+  const handleCreateSet = async (name: string, description: string) => {
     if (!user) {
-      toast.error("You must be logged in to create a habit set");
-      return;
-    }
-
-    if (!newSetName.trim()) {
-      toast.error("Please enter a name for your habit set");
+      toast.error('You must be logged in to create habit sets');
       return;
     }
 
     try {
-      console.log("Starting to create new habit set:", newSetName);
-      toast.success("Creating new habit set...");
-      
-      // 1. Get all habit sets to find the current active one
-      const habitSetsRef = collection(db, 'users', user.uid, 'habitSets');
-      const habitSetsSnapshot = await getDocs(habitSetsRef);
-      
-      console.log(`Found ${habitSetsSnapshot.size} existing habit sets`);
-      
-      // Find the currently active set
-      let currentActiveSetId = null;
-      habitSetsSnapshot.forEach(doc => {
-        const setData = doc.data();
-        if (setData.isActive) {
-          currentActiveSetId = doc.id;
-          console.log(`Found active set: ${doc.id}`);
-        }
-      });
-      
-      // 2. Create a batch to update all sets in one transaction
       const batch = writeBatch(db);
+      const setRef = doc(collection(db, 'users', user.uid, 'habitSets'));
       
-      // 3. If there's a currently active set, mark it as inactive
-      if (currentActiveSetId) {
-        console.log(`Marking current active set ${currentActiveSetId} as inactive`);
-        const currentActiveSetRef = doc(db, 'users', user.uid, 'habitSets', currentActiveSetId);
-        batch.update(currentActiveSetRef, { 
-          isActive: false,
-          updatedAt: serverTimestamp()
-        });
-      }
-      
-      // 4. Create the new set
-      const newSetRef = doc(collection(db, 'users', user.uid, 'habitSets'));
-      console.log(`Creating new set with ID: ${newSetRef.id}`);
-      
-      const newSetData = {
-        name: newSetName.trim(),
-        description: newSetDescription.trim() || "",
-        isActive: true,
-        isPremium: false,
+      batch.set(setRef, {
+        name,
+        description,
+        isActive: (habitSetList ?? []).length === 0,
+        isPremium: (habitSetList ?? []).length > 1,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
-      };
-      
-      console.log("New set data:", newSetData);
-      batch.set(newSetRef, newSetData);
-      
-      // 5. Commit all changes in one transaction
-      console.log("Committing batch...");
-      await batch.commit();
-      console.log("Batch committed successfully");
-      
-      // 6. Update local state
-      console.log("Updating local state...");
-      setActiveHabitSetState({
-        id: newSetRef.id,
-        name: newSetName.trim()
       });
-      
-      // 7. Clear habits since this is a new set
-      setHabits([]);
-      
-      // 8. Add the new set to the local habitSets state
-      const newSetWithId: HabitSet = {
-        id: newSetRef.id,
-        name: newSetName.trim(),
-        description: newSetDescription.trim() || undefined,
-        isActive: true,
-        isPremium: false
-      };
-      
-      console.log("Adding new set to local state:", newSetWithId);
-      setHabitSets(prevSets => [...prevSets, newSetWithId]);
-      
-      // 9. Reset form and close modal
-      setNewSetName('');
-      setNewSetDescription('');
-      setShowCreateSetModal(false);
-      
-      console.log(`Successfully created new set ${newSetName} with ID ${newSetRef.id}`);
-      toast.success(`Created new habit set: ${newSetName}`);
+
+      await batch.commit();
+      toast.success('Created new habit set');
     } catch (error) {
-      console.error("Error creating habit set:", error);
-      toast.error("Failed to create habit set");
+      console.error('Error creating habit set:', error);
+      toast.error('Failed to create habit set');
     }
   };
 
@@ -964,26 +872,26 @@ export default function HabitTracker() {
   };
 
   // Function to edit a habit set
-  const handleEditHabitSet = async (setId: string, newName: string, newDescription: string) => {
+  const handleEditSet = async (setId: string, name: string, description: string) => {
     if (!user) {
       toast.error("You must be logged in to edit habit sets");
       return;
     }
 
-    if (!newName.trim()) {
+    if (!name.trim()) {
       toast.error("Set name cannot be empty");
       return;
     }
 
     try {
-      console.log(`Editing habit set ${setId} to name: ${newName}`);
+      console.log(`Editing habit set ${setId} to name: ${name}`);
       toast.loading("Saving changes...", { id: "editSet" });
       
       // Update in Firestore
       const setRef = doc(db, 'users', user.uid, 'habitSets', setId);
       const updateData = {
-        name: newName.trim(),
-        description: newDescription.trim() || "",
+        name: name.trim(),
+        description: description.trim() || "",
         updatedAt: serverTimestamp()
       };
       
@@ -996,8 +904,8 @@ export default function HabitTracker() {
           set.id === setId 
             ? { 
                 ...set, 
-                name: newName.trim(), 
-                description: newDescription.trim() || "" 
+                name: name.trim(), 
+                description: description.trim() || "" 
               } 
             : set
         )
@@ -1005,10 +913,10 @@ export default function HabitTracker() {
       
       // If this is the active set, update the active set state
       if (activeHabitSetState && activeHabitSetState.id === setId) {
-        console.log("Updating active set state with new name:", newName.trim());
+        console.log("Updating active set state with new name:", name.trim());
         setActiveHabitSetState({
           id: setId,
-          name: newName.trim()
+          name: name.trim()
         });
       }
       
@@ -1023,228 +931,120 @@ export default function HabitTracker() {
     }
   };
   
-  // Function to delete a habit set
-  const handleDeleteHabitSet = async (setId: string) => {
+  // Handle deleting habit sets
+  const handleDeleteSet = async (setId: string) => {
     if (!user) {
-      toast.error("You must be logged in to delete habit sets");
+      toast.error('You must be logged in to delete habit sets');
       return;
     }
-    
-    if (habitSets.length <= 1) {
-      toast.error("You cannot delete your only habit set");
+
+    if ((habitSetList ?? []).length <= 1) {
+      toast.error('You must have at least one habit set');
       return;
     }
 
     try {
-      console.log(`Deleting habit set ${setId}`);
-      
-      // Check if this is the active set
-      const isActiveSet = activeHabitSetState && activeHabitSetState.id === setId;
-      
-      // Find another set to make active if we're deleting the active set
-      let newActiveSetId = "";
-      if (isActiveSet) {
-        const otherSet = habitSets.find(set => set.id !== setId);
-        if (otherSet) {
-          newActiveSetId = otherSet.id;
-        }
-      }
-      
-      // Create a batch to handle all operations
-      const batch = writeBatch(db);
-      
-      // Delete the set
-      const setRef = doc(db, 'users', user.uid, 'habitSets', setId);
-      batch.delete(setRef);
-      
-      // If we're deleting the active set, make another set active
-      if (isActiveSet && newActiveSetId) {
-        const newActiveSetRef = doc(db, 'users', user.uid, 'habitSets', newActiveSetId);
-        batch.update(newActiveSetRef, { 
-          isActive: true,
-          updatedAt: serverTimestamp()
-        });
-      }
-      
-      // Commit the batch
-      await batch.commit();
-      
-      // Update local state
-      setHabitSets(prevSets => prevSets.filter(set => set.id !== setId));
-      
-      // If we deleted the active set, switch to the new active set
-      if (isActiveSet && newActiveSetId) {
-        const newActiveSet = habitSets.find(set => set.id === newActiveSetId);
+      // If deleting active set, make another set active
+      if (activeSet?.id === setId) {
+        const newActiveSet = (habitSetList ?? []).find(set => set.id !== setId);
         if (newActiveSet) {
-          handleSwitchHabitSet(newActiveSetId, newActiveSet.name);
+          await handleSwitchSet(newActiveSet.id, newActiveSet.name);
         }
       }
-      
-      toast.success("Habit set deleted");
-      setShowDeleteSetModal(false);
-      setDeleteSetId("");
+
+      await deleteDoc(doc(db, 'users', user.uid, 'habitSets', setId));
+      toast.success('Deleted habit set');
     } catch (error) {
-      console.error("Error deleting habit set:", error);
-      toast.error("Failed to delete habit set");
+      console.error('Error deleting habit set:', error);
+      toast.error('Failed to delete habit set');
     }
   };
 
-  // Subscribe to habit sets
+  // Handle level up animation
   useEffect(() => {
-    if (!user) return;
-
-    console.log("Setting up habit sets subscription");
-    const habitSetsRef = collection(db, 'users', user.uid, 'habitSets');
-    
-    const unsubscribe = onSnapshot(habitSetsRef, (snapshot) => {
-      console.log("Received habit sets update from Firestore");
-      const sets: HabitSet[] = [];
-      
-      snapshot.forEach((doc) => {
-        const data = doc.data();
-        sets.push({
-          id: doc.id,
-          name: data.name || "",
-          description: data.description || "",
-          isActive: data.isActive || false,
-          isPremium: data.isPremium || false
-        });
-        
-        // If this is the active set, update the active set state
-        if (data.isActive) {
-          console.log("Found active set:", doc.id, data.name);
-          setActiveHabitSetState({
-            id: doc.id,
-            name: data.name
-          });
-        }
-      });
-      
-      console.log("Updating habit sets state with:", sets);
-      setHabitSets(sets);
-    }, (error) => {
-      console.error("Error in habit sets subscription:", error);
-    });
-    
-    habitSetsUnsubscribeRef.current = unsubscribe;
-    
-    return () => {
-      console.log("Cleaning up habit sets subscription");
-      if (habitSetsUnsubscribeRef.current) {
-        habitSetsUnsubscribeRef.current();
-      }
-    };
-  }, [user]);
-
-  const handleSave = async () => {
-    try {
-      await saveHabitsToCurrentSet();
-    } catch (error) {
-      console.error('Error saving habits:', error);
+    if (showLevelUp) {
+      const timer = setTimeout(() => {
+        setShowLevelUp(false);
+      }, 3000);
+      return () => clearTimeout(timer);
     }
+  }, [showLevelUp]);
+
+  // Handle level up callback
+  const handleLevelUp = (prev: number, curr: number) => {
+    setPreviousLevel(prev);
+    setShowLevelUp(true);
   };
+
+  if (!user) {
+    return (
+      <div className="text-center py-8">
+        <p className="text-slate-600 dark:text-slate-400">
+          Please log in to track your habits
+        </p>
+      </div>
+    );
+  }
+
+  if (loadingHabitSets || loadingHabits || loadingStats) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="animate-spin rounded-full h-8 w-8 border-2 border-black dark:border-white border-t-transparent"></div>
+      </div>
+    );
+  }
 
   return (
-    <div className="container mx-auto px-4 py-4 sm:py-8 pb-20 lg:pb-8">
-      <div className="max-w-4xl mx-auto">
-        {/* Habit Set Manager */}
-        <div className="mb-6">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
-            <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">
-              {activeHabitSetState?.name || 'My Habits'}
-            </h1>
-            <button
-              onClick={() => setShowHabitSetManager(true)}
-              className="inline-flex items-center px-3 py-2 text-sm font-medium rounded-lg bg-black text-white hover:bg-slate-800 transition-colors"
-            >
-              <span className="hidden sm:inline">Manage</span> Sets
-            </button>
-          </div>
-        </div>
+    <ErrorBoundary>
+      <div className="max-w-4xl mx-auto px-4 py-8">
+        <HabitSetManager
+          habitSets={habitSetList ?? []}
+          activeSetId={activeSet?.id || null}
+          onSwitchSet={handleSwitchSet}
+          onCreateSet={handleCreateSet}
+          onEditSet={handleEditSet}
+          onDeleteSet={handleDeleteSet}
+          isPremium={!!user?.isPremium}
+        />
 
-        {/* Add New Habit Form */}
-        <div className="mb-6">
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              // ... existing form submission logic ...
-            }}
-            className="flex flex-col sm:flex-row gap-2"
-          >
-            <input
-              type="text"
-              value={newHabitName}
-              onChange={(e) => setNewHabitName(e.target.value)}
-              placeholder="Add a new habit..."
-              className="flex-1 px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-white"
+        {activeSet && (
+          <>
+            <ProgressDisplay
+              habits={habitList ?? []}
+              totalXP={userStats?.totalXP ?? 0}
+              dailyXP={userStats?.dailyXP?.xp ?? 0}
+              onLevelUp={handleLevelUp}
             />
-            <button
-              type="submit"
-              className="px-4 py-2 bg-black text-white rounded-lg hover:bg-slate-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={!newHabitName.trim() || habits.length >= MAX_HABITS}
-            >
-              Add Habit
-            </button>
-          </form>
-          {error && <p className="mt-2 text-sm text-red-600 dark:text-red-400">{error}</p>}
-        </div>
 
-        {/* Habits List */}
-        <div className="space-y-4">
-          {habits.map((habit) => (
-            <div
-              key={habit.id}
-              className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-slate-100 dark:border-slate-700 p-4"
-            >
-              <div className="flex items-center justify-between gap-4">
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-base sm:text-lg font-medium text-slate-900 dark:text-white truncate">
-                    {habit.name}
-                  </h3>
-                  <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
-                    {calculateStreak(habit.logs)} day streak
-                  </p>
-                </div>
-                <div className="flex items-center gap-3">
-                  <CheckmarkIcon
-                    checked={habit.logs.includes(new Date().toISOString().split('T')[0])}
-                    onClick={() => {
-                      // ... existing click handler ...
-                    }}
-                  />
-                  <button
-                    onClick={() => {
-                      setSelectedHabit(habit);
-                      setShowEditModal(true);
-                    }}
-                    className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                      <path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z" />
-                      <path fillRule="evenodd" d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clipRule="evenodd" />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
+            <AddHabitForm
+              onAddHabit={addHabit}
+              maxHabits={MAX_HABITS}
+              currentHabitCount={(habitList ?? []).length}
+            />
 
-        {/* Empty State */}
-        {habits.length === 0 && (
-          <div className="text-center py-12">
-            <p className="text-slate-500 dark:text-slate-400">No habits yet. Add your first habit to get started!</p>
-          </div>
+            <HabitList
+              habits={habitList ?? []}
+              onToggleHabit={toggleHabitCompletion}
+              onDeleteHabit={deleteHabit}
+              onEditHabit={setSelectedHabit}
+            />
+          </>
         )}
 
-        {/* Weekly Progress */}
-        <div className="mt-8">
-          <h2 className="text-lg sm:text-xl font-semibold text-slate-900 dark:text-white mb-4">Weekly Progress</h2>
-          <WeeklyProgress habits={habits} />
-        </div>
+        {/* Level Up Animation */}
+        {showLevelUp && (
+          <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+            <div className="bg-white dark:bg-slate-800 rounded-lg p-8 text-center animate-bounce-slow">
+              <h2 className="text-3xl font-bold text-slate-900 dark:text-white mb-4">
+                Level Up!
+              </h2>
+              <p className="text-slate-600 dark:text-slate-400">
+                You've reached level {level}
+              </p>
+            </div>
+          </div>
+        )}
       </div>
-
-      {/* ... existing modals and other components ... */}
-    </div>
+    </ErrorBoundary>
   );
 } 
