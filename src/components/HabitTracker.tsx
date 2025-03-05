@@ -126,7 +126,7 @@ export default function HabitTracker() {
   );
 
   // Find the active set
-  const activeSet = habitSets.find(set => set.active);
+  const activeSet = habitSets.find(set => set.isActive);
 
   // Subscribe to habits for the active set
   const { data: habits = [], loading: loadingHabits } = useFirebaseSubscription<Habit[]>(
@@ -140,11 +140,11 @@ export default function HabitTracker() {
     );
 
   // Combined loading state - only show loading when necessary
-  const isLoading = loading || (user && loadingHabitSets);
+  const isLoading = authLoading || (user && loadingHabitSets);
 
-  // Remove debug logging
+  // Create default habit set for new users
   useEffect(() => {
-    if (user && !loadingHabitSets && habitSets.length === 0) {
+    if (user && !loadingHabitSets && habitSets && habitSets.length === 0) {
       const createDefaultSet = async () => {
         try {
           const defaultSet = {
@@ -163,7 +163,7 @@ export default function HabitTracker() {
       
       createDefaultSet();
     }
-  }, [user, loadingHabitSets, habitSets.length]);
+  }, [user, loadingHabitSets, habitSets]);
 
   const [newHabitName, setNewHabitName] = useState('');
   const [error, setError] = useState('');
