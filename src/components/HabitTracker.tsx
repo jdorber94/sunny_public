@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Sparkles } from './Sparkles';
 import { WeeklyProgress } from './WeeklyProgress';
 import { LevelUpCelebration } from './LevelUpCelebration';
@@ -190,9 +190,15 @@ export default function HabitTracker() {
   const [showLevelUp, setShowLevelUp] = useState(false);
   const [previousLevel, setPreviousLevel] = useState(1);
   
+  // Memoize the collection references to prevent unnecessary re-renders
+  const habitSetsRef = useMemo(() => 
+    user ? collection(db, 'users', user.uid, 'habitSets').withConverter(habitSetConverter) : null,
+    [user]
+  );
+  
   // Subscribe to habit sets
   const { data: rawHabitSets, loading: loadingHabitSets } = useFirebaseSubscription<HabitSet[]>(
-    user ? collection(db, 'users', user.uid, 'habitSets').withConverter(habitSetConverter) : null,
+    habitSetsRef,
     {
       onError: (error) => {
         console.error('Error subscribing to habit sets:', error);
@@ -203,12 +209,20 @@ export default function HabitTracker() {
   const habitSets = rawHabitSets ?? [];
 
   // Find the active set
-  const activeSet = habitSets.find(set => set.isActive) || null;
-  console.log('Active habit set:', activeSet);
-
+  const activeSet = useMemo(() => 
+    habitSets.find(set => set.isActive) || null,
+    [habitSets]
+  );
+  
+  // Memoize the habits collection reference
+  const habitsRef = useMemo(() => 
+    user && activeSet ? collection(db, 'users', user.uid, 'habitSets', activeSet.id, 'habits').withConverter(habitConverter) : null,
+    [user, activeSet]
+  );
+  
   // Subscribe to habits for the active set
   const { data: rawHabits, loading: loadingHabits } = useFirebaseSubscription<Habit[]>(
-    user && activeSet ? collection(db, 'users', user.uid, 'habitSets', activeSet.id, 'habits').withConverter(habitConverter) : null,
+    habitsRef,
     {
       onError: (error) => {
         console.error('Error subscribing to habits:', error);
@@ -218,6 +232,12 @@ export default function HabitTracker() {
   );
   const habits = rawHabits ?? [];
 
+  // Memoize the stats document reference
+  const statsRef = useMemo(() => 
+    user ? doc(db, 'users', user.uid, 'stats', 'daily').withConverter(userStatsConverter) : null,
+    [user]
+  );
+  
   // Get user stats
   const defaultStats: UserStats = {
     totalXP: 0,
@@ -228,7 +248,7 @@ export default function HabitTracker() {
   
   const { data: rawStats, loading: loadingStats } = 
     useFirebaseSubscription<UserStats>(
-      user ? doc(db, 'users', user.uid, 'stats', 'daily').withConverter(userStatsConverter) : null
+      statsRef
     );
   const stats = rawStats ?? defaultStats;
 

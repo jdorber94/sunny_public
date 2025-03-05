@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { 
   CollectionReference, 
   DocumentReference, 
@@ -6,7 +6,8 @@ import {
   onSnapshot, 
   DocumentData, 
   QuerySnapshot, 
-  DocumentSnapshot 
+  DocumentSnapshot,
+  FirestoreDataConverter
 } from 'firebase/firestore';
 import { toast } from 'react-hot-toast';
 
@@ -17,6 +18,18 @@ interface SubscriptionOptions {
 
 type CollectionType<T> = T extends any[] ? T[number] : T;
 
+// Helper function to get a string identifier for a Firestore reference
+function getRefId(ref: CollectionReference<any> | DocumentReference<any> | Query<any> | null): string | null {
+  if (!ref) return null;
+  
+  if ('path' in ref) {
+    return ref.path;
+  }
+  
+  // For Query objects that don't have a direct path
+  return JSON.stringify(ref);
+}
+
 export function useFirebaseSubscription<T>(
   ref: CollectionReference<CollectionType<T>> | DocumentReference<CollectionType<T>> | Query<CollectionType<T>> | null,
   options: SubscriptionOptions = {}
@@ -24,15 +37,29 @@ export function useFirebaseSubscription<T>(
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
-
+  
+  // Use a ref to track the reference identifier to prevent unnecessary re-subscriptions
+  const refIdRef = useRef<string | null>(null);
+  
   useEffect(() => {
+    // Get a string representation of the reference
+    const currentRefId = getRefId(ref);
+    
+    // Skip if the reference hasn't changed
+    if (currentRefId === refIdRef.current) {
+      return;
+    }
+    
+    // Update the ref id
+    refIdRef.current = currentRefId;
+    
     if (!ref) {
       setData(null);
       setLoading(false);
       return;
     }
 
-    console.log('Setting up subscription for:', ref);
+    console.log('Setting up subscription for:', currentRefId);
     setLoading(true);
 
     let unsubscribe: () => void;
@@ -86,10 +113,10 @@ export function useFirebaseSubscription<T>(
     }
 
     return () => {
-      console.log('Cleaning up subscription');
+      console.log('Cleaning up subscription for:', currentRefId);
       unsubscribe();
     };
-  }, [ref]);
+  }, [ref, options.onError, options.errorMessage]);
 
   return { data, loading, error };
 } 
