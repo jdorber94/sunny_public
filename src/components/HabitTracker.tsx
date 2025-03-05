@@ -113,7 +113,7 @@ const calculateStreak = (logs: string[]): number => {
 };
 
 export default function HabitTracker() {
-  const { user, loading: authLoading, signOut } = useAuth();
+  const { user, authLoading } = useAuth();
   
   // Subscribe to habit sets
   const { data: habitSets = [], loading: loadingHabitSets } = useFirebaseSubscription<HabitSet[]>(

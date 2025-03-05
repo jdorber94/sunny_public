@@ -157,6 +157,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const value = {
     user,
     loading,
+    authLoading: loading,
     signInWithGoogle,
     signInWithEmail,
     createUser,
