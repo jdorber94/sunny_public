@@ -199,7 +199,7 @@ export function useHabits() {
         
         // Set as active if needed
         if (habitSets.length === 0) {
-          setActiveHabitSet(tempHabitSet);
+          setActiveHabitSet(tempId);
         }
         
         return {
