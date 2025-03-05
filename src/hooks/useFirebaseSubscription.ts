@@ -111,4 +111,3 @@ export function useFirebaseSubscription<T>(
 
   return { data, loading, error };
 } 
-} 
