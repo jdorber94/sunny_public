@@ -124,6 +124,30 @@ export default function HabitTracker() {
     { errorMessage: 'Failed to load habit sets' }
   );
 
+  // Create default habit set if none exists
+  useEffect(() => {
+    const createDefaultSet = async () => {
+      if (user && habitSetList && habitSetList.length === 0 && !loadingHabitSets) {
+        try {
+          const defaultSetRef = doc(collection(db, 'users', user.uid, 'habitSets'));
+          await setDoc(defaultSetRef, {
+            name: 'My Habits',
+            description: 'Your daily habits',
+            isActive: true,
+            isPremium: false,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp()
+          });
+          toast.success('Created your first habit set!');
+        } catch (error) {
+          console.error('Error creating default habit set:', error);
+          toast.error('Failed to create default habit set');
+        }
+      }
+    };
+    createDefaultSet();
+  }, [user, habitSetList, loadingHabitSets]);
+
   // Get active habit set
   const activeSet = habitSetList?.find(set => set.isActive) ?? null;
   
@@ -293,31 +317,34 @@ export default function HabitTracker() {
   // Function to add a new habit
   const addHabit = async (name: string) => {
     if (!user || !activeSet) {
-      toast.error('You must be logged in and have an active habit set to add habits');
+      toast.error('Please wait while we set up your habit tracking');
+      return;
+    }
+
+    if (!name.trim()) {
+      toast.error('Please enter a habit name');
       return;
     }
 
     if ((habitList ?? []).length >= MAX_HABITS) {
-      toast.error('You have reached the maximum number of habits');
+      toast.error(`You can only have ${MAX_HABITS} habits at a time`);
       return;
     }
 
     try {
-      const newHabit: Habit = {
+      const habitRef = doc(collection(db, 'users', user.uid, 'habitSets', activeSet.id, 'habits'));
+      const newHabit = {
         id: Date.now(),
-        name,
+        name: name.trim(),
         logs: [],
         xp: 0,
-        createdAt: serverTimestamp() as any,
-        updatedAt: serverTimestamp() as any
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
       };
 
-      await setDoc(
-        doc(db, 'users', user.uid, 'habitSets', activeSet.id, 'habits', newHabit.id.toString()),
-        newHabit
-      );
-
+      await setDoc(habitRef, newHabit);
       toast.success('Added new habit');
+      setNewHabitName(''); // Clear the input
     } catch (error) {
       console.error('Error adding habit:', error);
       toast.error('Failed to add habit');
