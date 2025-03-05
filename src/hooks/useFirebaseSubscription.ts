@@ -6,117 +6,167 @@ import {
   onSnapshot, 
   DocumentData, 
   QuerySnapshot, 
-  DocumentSnapshot,
-  FirestoreDataConverter
+  DocumentSnapshot 
 } from 'firebase/firestore';
 import { toast } from 'react-hot-toast';
+import { AppError, handleError, logError } from '@/utils/errorHandling';
+import { SubscriptionOptions } from '@/types';
 
-interface SubscriptionOptions {
-  onError?: (error: Error) => void;
-  errorMessage?: string;
+// Type for any Firestore reference that can be subscribed to
+export type FirestoreReference<T> = 
+  | CollectionReference<T> 
+  | DocumentReference<T> 
+  | Query<T>;
+
+// Type guard to check if a reference is a DocumentReference
+function isDocumentReference<T>(
+  ref: FirestoreReference<T> | null
+): ref is DocumentReference<T> {
+  return ref !== null && 'path' in ref && !('where' in ref) && !('orderBy' in ref);
 }
 
-type CollectionType<T> = T extends any[] ? T[number] : T;
-
-// Helper function to get a string identifier for a Firestore reference
-function getRefId(ref: CollectionReference<any> | DocumentReference<any> | Query<any> | null): string | null {
-  if (!ref) return null;
-  
-  if ('path' in ref) {
-    return ref.path;
-  }
-  
-  // For Query objects that don't have a direct path
-  return JSON.stringify(ref);
-}
-
+/**
+ * A hook to subscribe to Firestore data with improved type safety and error handling
+ * 
+ * @param reference - The Firestore reference to subscribe to (collection, document, or query)
+ * @param options - Optional configuration for the subscription
+ * @returns An object containing the data, loading state, and error
+ */
 export function useFirebaseSubscription<T>(
-  ref: CollectionReference<CollectionType<T>> | DocumentReference<CollectionType<T>> | Query<CollectionType<T>> | null,
+  reference: FirestoreReference<T> | null,
   options: SubscriptionOptions = {}
 ) {
-  const [data, setData] = useState<T | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
+  const { 
+    onError, 
+    onData, 
+    errorMessage = 'Error subscribing to data',
+    showErrorToast = true
+  } = options;
   
-  // Use a ref to track the reference identifier to prevent unnecessary re-subscriptions
-  const refIdRef = useRef<string | null>(null);
+  const [data, setData] = useState<T | T[] | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<AppError | null>(null);
+  
+  // Use a ref to track the latest callback functions to avoid dependency issues
+  const callbacksRef = useRef({ onData, onError });
+  
+  // Update the ref when callbacks change
+  useEffect(() => {
+    callbacksRef.current = { onData, onError };
+  }, [onData, onError]);
   
   useEffect(() => {
-    // Get a string representation of the reference
-    const currentRefId = getRefId(ref);
-    
-    // Skip if the reference hasn't changed
-    if (currentRefId === refIdRef.current) {
-      return;
-    }
-    
-    // Update the ref id
-    refIdRef.current = currentRefId;
-    
-    if (!ref) {
-      setData(null);
-      setLoading(false);
-      return;
-    }
-
-    console.log('Setting up subscription for:', currentRefId);
+    // Reset state when reference changes
     setLoading(true);
-
-    let unsubscribe: () => void;
-
-    if (ref.type === 'document') {
-      // Document reference
-      unsubscribe = onSnapshot(
-        ref as DocumentReference<CollectionType<T>>,
-        (snapshot: DocumentSnapshot<CollectionType<T>>) => {
-          const item = snapshot.exists() ? {
-            id: snapshot.id,
-            ...snapshot.data()
-          } as T : null;
-          console.log('Document data updated:', item);
-          setData(item);
-          setLoading(false);
-        },
-        (error: Error) => {
-          console.error('Subscription error:', error);
-          setError(error);
-          options.onError?.(error);
-          setLoading(false);
-          if (options.errorMessage) {
-            toast.error(options.errorMessage);
-          }
-        }
-      );
-    } else {
-      // Collection/Query reference
-      unsubscribe = onSnapshot(
-        ref as CollectionReference<CollectionType<T>> | Query<CollectionType<T>>,
-        (snapshot: QuerySnapshot<CollectionType<T>>) => {
-          const items = snapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-          })) as unknown as T;
-          console.log('Collection/Query data updated:', items);
-          setData(items);
-          setLoading(false);
-        },
-        (error: Error) => {
-          console.error('Subscription error:', error);
-          setError(error);
-          options.onError?.(error);
-          setLoading(false);
-          if (options.errorMessage) {
-            toast.error(options.errorMessage);
-          }
-        }
-      );
+    setError(null);
+    
+    // No subscription if reference is null
+    if (!reference) {
+      setLoading(false);
+      setData(null);
+      return;
     }
-
+    
+    // Create the subscription
+    const unsubscribe = isDocumentReference(reference)
+      ? onSnapshot(
+          reference,
+          (snapshot: DocumentSnapshot<T>) => {
+            try {
+              const docData = snapshot.exists() ? snapshot.data() : null;
+              
+              setData(docData);
+              setLoading(false);
+              
+              // Call the onData callback if provided
+              if (callbacksRef.current.onData) {
+                callbacksRef.current.onData(docData);
+              }
+            } catch (err: unknown) {
+              const appError = handleError(err, 'Error processing snapshot data');
+              setError(appError);
+              setLoading(false);
+              
+              // Log the error
+              logError(appError);
+              
+              // Call the onError callback if provided
+              if (callbacksRef.current.onError) {
+                callbacksRef.current.onError(appError);
+              }
+            }
+          },
+          (err: unknown) => {
+            const appError = handleError(err, errorMessage);
+            setError(appError);
+            setLoading(false);
+            
+            // Log the error
+            logError(appError);
+            
+            // Show toast if enabled
+            if (showErrorToast) {
+              toast.error(appError.message);
+            }
+            
+            // Call the onError callback if provided
+            if (callbacksRef.current.onError) {
+              callbacksRef.current.onError(appError);
+            }
+          }
+        )
+      : onSnapshot(
+          reference as Query<T>,
+          (snapshot: QuerySnapshot<T>) => {
+            try {
+              const docsData = snapshot.docs.map(doc => doc.data());
+              
+              setData(docsData);
+              setLoading(false);
+              
+              // Call the onData callback if provided
+              if (callbacksRef.current.onData) {
+                callbacksRef.current.onData(docsData);
+              }
+            } catch (err: unknown) {
+              const appError = handleError(err, 'Error processing snapshot data');
+              setError(appError);
+              setLoading(false);
+              
+              // Log the error
+              logError(appError);
+              
+              // Call the onError callback if provided
+              if (callbacksRef.current.onError) {
+                callbacksRef.current.onError(appError);
+              }
+            }
+          },
+          (err: unknown) => {
+            const appError = handleError(err, errorMessage);
+            setError(appError);
+            setLoading(false);
+            
+            // Log the error
+            logError(appError);
+            
+            // Show toast if enabled
+            if (showErrorToast) {
+              toast.error(appError.message);
+            }
+            
+            // Call the onError callback if provided
+            if (callbacksRef.current.onError) {
+              callbacksRef.current.onError(appError);
+            }
+          }
+        );
+    
+    // Clean up the subscription when the component unmounts or the reference changes
     return () => {
-      console.log('Cleaning up subscription for:', currentRefId);
       unsubscribe();
     };
-  }, [ref, options.onError, options.errorMessage]);
-
+  }, [reference, errorMessage, showErrorToast]);
+  
   return { data, loading, error };
 } 

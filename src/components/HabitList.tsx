@@ -1,163 +1,133 @@
-import { useState, useEffect } from 'react';
-import { Habit } from '@/lib/firestoreService';
-import { toast } from 'react-hot-toast';
-import { calculateStreak } from '@/utils/habitUtils';
+import React, { useState } from 'react';
+import { Habit as HabitType } from '@/types';
+import { Habit } from './Habit';
+import { useHabits } from '@/hooks/useHabits';
+import { AnimatePresence, motion } from 'framer-motion';
+import { FaPlus } from 'react-icons/fa';
+import { HabitForm } from './HabitForm';
 
-interface HabitListProps {
-  habits: Habit[];
-  onToggleHabit: (id: string) => Promise<void>;
-  onDeleteHabit: (id: string) => Promise<void>;
-  onEditHabit: (habit: Habit) => void;
-}
-
-// Checkmark icon component with animation
-const CheckmarkIcon = ({ checked, onClick, disabled }: { checked: boolean; onClick: () => void; disabled?: boolean }) => {
-  return (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      className={`w-6 h-6 sm:w-8 sm:h-8 rounded-full border-2 flex items-center justify-center transform transition-all duration-300 ease-in-out ${
-        checked 
-          ? 'bg-gradient-to-br from-green-400 to-green-500 border-transparent scale-105' 
-          : 'bg-white/80 backdrop-blur-sm border-gray-200 dark:bg-gray-800/80 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
-      } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
-    >
-      {checked && (
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          className="h-4 w-4 sm:h-5 sm:w-5 text-white transform scale-110 transition-transform duration-300"
-          viewBox="0 0 20 20"
-          fill="currentColor"
-        >
-          <path
-            fillRule="evenodd"
-            d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-            clipRule="evenodd"
-          />
-        </svg>
-      )}
-    </button>
-  );
-};
-
-export default function HabitList({
-  habits,
-  onToggleHabit,
-  onDeleteHabit,
-  onEditHabit
-}: HabitListProps) {
-  const [loadingStates, setLoadingStates] = useState<Record<string, boolean>>({});
-
-  useEffect(() => {
-    console.log('HabitList rendered with habits:', habits);
-  }, [habits]);
-
-  const handleToggle = async (habit: Habit) => {
-    console.log('Attempting to toggle habit:', habit);
-    setLoadingStates(prev => ({ ...prev, [habit.id]: true }));
-    try {
-      await onToggleHabit(habit.id);
-      console.log('Successfully toggled habit:', habit.id);
-    } catch (error) {
-      console.error('Failed to toggle habit:', error);
-      toast.error('Failed to update habit');
-    } finally {
-      setLoadingStates(prev => ({ ...prev, [habit.id]: false }));
-    }
+export const HabitList: React.FC = () => {
+  const { 
+    habits, 
+    activeHabitSet, 
+    loadingHabits, 
+    habitsError 
+  } = useHabits();
+  
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [habitToEdit, setHabitToEdit] = useState<HabitType | null>(null);
+  
+  // Handle opening the form for editing a habit
+  const handleEditHabit = (habit: HabitType) => {
+    setHabitToEdit(habit);
+    setIsFormOpen(true);
   };
-
-  const handleDelete = async (habit: Habit) => {
-    if (window.confirm(`Are you sure you want to delete "${habit.name}"?`)) {
-      console.log('Attempting to delete habit:', habit);
-      setLoadingStates(prev => ({ ...prev, [habit.id]: true }));
-      try {
-        await onDeleteHabit(habit.id);
-        console.log('Successfully deleted habit:', habit.id);
-      } catch (error) {
-        console.error('Failed to delete habit:', error);
-        toast.error('Failed to delete habit');
-      } finally {
-        setLoadingStates(prev => ({ ...prev, [habit.id]: false }));
-      }
-    }
+  
+  // Handle closing the form
+  const handleCloseForm = () => {
+    setIsFormOpen(false);
+    setHabitToEdit(null);
   };
-
-  if (habits.length === 0) {
+  
+  // Render loading state
+  if (loadingHabits) {
     return (
-      <div className="text-center py-8 text-slate-500 dark:text-slate-400">
-        No habits yet. Add your first habit to get started!
+      <div className="flex flex-col items-center justify-center p-8">
+        <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+        <p className="text-gray-600">Loading habits...</p>
       </div>
     );
   }
-
+  
+  // Render error state
+  if (habitsError) {
+    return (
+      <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-md">
+        <div className="flex">
+          <div className="flex-shrink-0">
+            <svg className="h-5 w-5 text-red-500" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+            </svg>
+          </div>
+          <div className="ml-3">
+            <p className="text-sm text-red-700">
+              {habitsError.message || 'Error loading habits'}
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  
+  // Render empty state
+  if (!habits.length) {
+    return (
+      <div className="flex flex-col items-center justify-center p-8 bg-gray-50 rounded-lg">
+        <img 
+          src="/empty-state.svg" 
+          alt="No habits" 
+          className="w-48 h-48 mb-4 opacity-60"
+          onError={(e) => {
+            // Fallback if image doesn't exist
+            e.currentTarget.style.display = 'none';
+          }}
+        />
+        <h3 className="text-xl font-medium text-gray-700 mb-2">No habits yet</h3>
+        <p className="text-gray-500 mb-6 text-center">
+          {activeHabitSet 
+            ? `Start tracking your habits in "${activeHabitSet.name}" by adding your first habit.`
+            : 'Create a habit set first to start tracking your habits.'}
+        </p>
+        
+        {activeHabitSet && (
+          <button
+            onClick={() => setIsFormOpen(true)}
+            className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors duration-200 flex items-center"
+          >
+            <FaPlus className="mr-2" />
+            Add your first habit
+          </button>
+        )}
+        
+        {isFormOpen && (
+          <HabitForm onClose={handleCloseForm} habitToEdit={habitToEdit} />
+        )}
+      </div>
+    );
+  }
+  
+  // Render habit list
   return (
     <div className="space-y-4">
-      {habits.map(habit => {
-        const isCompletedToday = habit.logs.includes(new Date().toISOString().split('T')[0]);
-        return (
-          <div
-            key={habit.id}
-            className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700 p-4"
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4">
-                <CheckmarkIcon 
-                  checked={isCompletedToday}
-                  onClick={() => handleToggle(habit)}
-                  disabled={loadingStates[habit.id]}
-                />
-                <div>
-                  <h3 className="font-medium text-slate-900 dark:text-white">
-                    {habit.name}
-                  </h3>
-                  <p className="text-sm text-slate-500 dark:text-slate-400">
-                    {calculateStreak(habit.logs)} day streak
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center space-x-2">
-                <button
-                  onClick={() => onEditHabit(habit)}
-                  className="p-2 text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 transition-colors"
-                >
-                  <svg
-                    className="h-5 w-5"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
-                    />
-                  </svg>
-                </button>
-                <button
-                  onClick={() => handleDelete(habit)}
-                  disabled={loadingStates[habit.id]}
-                  className="p-2 text-red-400 hover:text-red-600 dark:text-red-500 dark:hover:text-red-300 transition-colors"
-                >
-                  <svg
-                    className="h-5 w-5"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                    />
-                  </svg>
-                </button>
-              </div>
-            </div>
-          </div>
-        );
-      })}
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-2xl font-bold text-gray-800">
+          {activeHabitSet?.name || 'My Habits'}
+        </h2>
+        
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={() => setIsFormOpen(true)}
+          className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors duration-200 flex items-center"
+        >
+          <FaPlus className="mr-2" />
+          Add Habit
+        </motion.button>
+      </div>
+      
+      <AnimatePresence>
+        {habits.map(habit => (
+          <Habit 
+            key={habit.id} 
+            habit={habit} 
+            onEdit={handleEditHabit} 
+          />
+        ))}
+      </AnimatePresence>
+      
+      {isFormOpen && (
+        <HabitForm onClose={handleCloseForm} habitToEdit={habitToEdit} />
+      )}
     </div>
   );
-} 
+}; 
