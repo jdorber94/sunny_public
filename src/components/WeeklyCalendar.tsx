@@ -4,7 +4,7 @@ import React from 'react';
 
 interface CalendarProps {
   habits: Array<{
-    id: number;
+    id: string;
     name: string;
     logs: string[];
   }>;

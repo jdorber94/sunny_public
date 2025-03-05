@@ -5,7 +5,7 @@ import { format, startOfWeek, endOfWeek, eachDayOfInterval, getWeek } from 'date
 
 interface WeeklyProgressProps {
   habits: {
-    id: number;
+    id: string;
     name: string;
     logs: string[];
   }[];

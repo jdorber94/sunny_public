@@ -5,7 +5,7 @@ import { format, startOfWeek, endOfWeek, eachDayOfInterval, getWeek, getYear, ge
 
 interface QuestHistoryProps {
   habits: {
-    id: number;
+    id: string;
     name: string;
     logs: string[];
   }[];

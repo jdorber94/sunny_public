@@ -335,14 +335,14 @@ export default function HabitTracker() {
   };
 
   // Function to delete a habit
-  const deleteHabit = async (id: number) => {
+  const deleteHabit = async (id: string) => {
     if (!user || !activeSet) {
       toast.error("You must be logged in and have an active habit set to delete habits");
       return;
     }
 
     try {
-      const habitRef = doc(db, 'users', user.uid, 'habitSets', activeSet.id, 'habits', id.toString());
+      const habitRef = doc(db, 'users', user.uid, 'habitSets', activeSet.id, 'habits', id);
       await deleteDoc(habitRef);
       toast.success("Habit deleted");
     } catch (error) {
@@ -352,7 +352,7 @@ export default function HabitTracker() {
   };
 
   // Function to toggle habit completion
-  const toggleHabitCompletion = async (id: number) => {
+  const toggleHabitCompletion = async (id: string) => {
     if (!user || !activeSet || !habits) return;
 
     const habit = habits.find(h => h.id === id);
@@ -362,7 +362,7 @@ export default function HabitTracker() {
     const isCompletedToday = habit.logs.includes(today);
 
     try {
-      const habitRef = doc(db, 'users', user.uid, 'habitSets', activeSet.id, 'habits', id.toString());
+      const habitRef = doc(db, 'users', user.uid, 'habitSets', activeSet.id, 'habits', id);
       const statsRef = doc(db, 'users', user.uid, 'stats', 'daily');
 
       const batch = writeBatch(db);
@@ -372,11 +372,12 @@ export default function HabitTracker() {
         ...habit,
         logs: isCompletedToday
           ? habit.logs.filter(date => date !== today)
-          : [...habit.logs, today]
+          : [...habit.logs, today],
+        updatedAt: serverTimestamp()
       };
       batch.set(habitRef, updatedHabit);
 
-      // Update stats
+      // Update stats only when completing (not when uncompleting)
       if (!isCompletedToday) {
         const newStats = {
           ...stats,

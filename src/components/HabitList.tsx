@@ -5,8 +5,8 @@ import { calculateStreak } from '@/utils/habitUtils';
 
 interface HabitListProps {
   habits: Habit[];
-  onToggleHabit: (id: number) => Promise<void>;
-  onDeleteHabit: (id: number) => Promise<void>;
+  onToggleHabit: (id: string) => Promise<void>;
+  onDeleteHabit: (id: string) => Promise<void>;
   onEditHabit: (habit: Habit) => void;
 }
 
@@ -16,7 +16,7 @@ export default function HabitList({
   onDeleteHabit,
   onEditHabit
 }: HabitListProps) {
-  const [loadingStates, setLoadingStates] = useState<Record<number, boolean>>({});
+  const [loadingStates, setLoadingStates] = useState<Record<string, boolean>>({});
 
   const handleToggle = async (habit: Habit) => {
     setLoadingStates(prev => ({ ...prev, [habit.id]: true }));

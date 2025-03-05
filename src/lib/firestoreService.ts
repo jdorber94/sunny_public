@@ -22,7 +22,7 @@ import { User } from 'firebase/auth';
 
 // Types
 export interface Habit {
-  id: number;
+  id: string;
   name: string;
   logs: string[];
   xp: number;
