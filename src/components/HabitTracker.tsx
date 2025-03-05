@@ -42,11 +42,6 @@ const MAX_HABITS = 5;
 const XP_PER_COMPLETION = 10;
 const MAX_DAILY_XP = 100;
 
-// Calculate level based on XP
-const calculateLevel = (xp: number): number => {
-  return Math.floor(Math.sqrt(xp / 100)) + 1;
-};
-
 // Checkmark icon component with animation - enhanced with smooth transitions
 const CheckmarkIcon = ({ checked, onClick }: { checked: boolean; onClick: () => void }) => {
   return (
