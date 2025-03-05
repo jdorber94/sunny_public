@@ -143,6 +143,9 @@ export default function HabitTracker() {
     { errorMessage: 'Failed to load stats' }
   );
 
+  // Combined loading state
+  const isLoading = authLoading || (user && (loadingHabitSets || loadingHabits || loadingStats));
+
   const [newHabitName, setNewHabitName] = useState('');
   const [error, setError] = useState('');
   const [showLevelUp, setShowLevelUp] = useState(false);
@@ -370,7 +373,7 @@ export default function HabitTracker() {
     }
   };
 
-  if (authLoading) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
         <div className="animate-spin rounded-full h-8 w-8 border-2 border-black dark:border-white border-t-transparent"></div>
@@ -395,14 +398,6 @@ export default function HabitTracker() {
             Sign In to Get Started
           </Link>
         </div>
-      </div>
-    );
-  }
-
-  if (loadingHabitSets || loadingHabits || loadingStats) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-2 border-black dark:border-white border-t-transparent"></div>
       </div>
     );
   }
