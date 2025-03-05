@@ -26,7 +26,7 @@ import {
 } from '@/lib/firestoreService';
 import HabitSetManager from './HabitSetManager';
 import { toast } from 'react-hot-toast';
-import { collection, writeBatch, getDocs, doc, serverTimestamp, setDoc, deleteDoc, updateDoc, onSnapshot } from 'firebase/firestore';
+import { collection, writeBatch, getDocs, doc, serverTimestamp, setDoc, deleteDoc, updateDoc, onSnapshot, addDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useFirebaseSubscription } from '@/hooks/useFirebaseSubscription';
 import { ErrorBoundary } from './ErrorBoundary';
@@ -34,11 +34,13 @@ import HabitList from './HabitList';
 import ProgressDisplay from './ProgressDisplay';
 import AddHabitForm from './AddHabitForm';
 import Link from 'next/link';
+import { calculateLevel } from '@/utils/levelCalculator';
+import QuestPet from './QuestPet';
 
 // Constants
-const MAX_HABITS = 10;
+const MAX_HABITS = 5;
 const XP_PER_COMPLETION = 10;
-const MAX_DAILY_XP = 50;
+const MAX_DAILY_XP = 100;
 
 // Calculate level based on XP
 const calculateLevel = (xp: number): number => {
@@ -116,72 +118,52 @@ const calculateStreak = (logs: string[]): number => {
 };
 
 export default function HabitTracker() {
-  const { user, loading: authLoading } = useAuth();
+  const { user, authLoading, signOut } = useAuth();
   
-  // Get habit sets first
-  const { data: habitSetList, loading: loadingHabitSets } = useFirebaseSubscription<HabitSet[]>(
-    user ? collection(db, 'users', user.uid, 'habitSets') : null,
-    { errorMessage: 'Failed to load habit sets' }
+  // Subscribe to habit sets
+  const { data: habitSets = [], loading: loadingHabitSets } = useFirebaseSubscription<HabitSet[]>(
+    user ? collection(db, 'users', user.uid, 'habitSets') : null
   );
 
-  // Create default habit set if none exists
+  // Find the active set
+  const activeSet = habitSets.find(set => set.active);
+
+  // Subscribe to habits for the active set
+  const { data: habits = [], loading: loadingHabits } = useFirebaseSubscription<Habit[]>(
+    user && activeSet ? collection(db, 'users', user.uid, 'habitSets', activeSet.id, 'habits') : null
+  );
+
+  // Get user stats
+  const { data: stats = { totalXP: 0, dailyXP: { date: new Date().toISOString().split('T')[0], xp: 0 } }, loading: loadingStats } = 
+    useFirebaseSubscription<UserStats>(
+      user ? doc(db, 'users', user.uid, 'stats', 'daily') : null
+    );
+
+  // Combined loading state - only show loading when necessary
+  const isLoading = loading || (user && loadingHabitSets);
+
+  // Remove debug logging
   useEffect(() => {
-    const createDefaultSet = async () => {
-      if (user && habitSetList && habitSetList.length === 0 && !loadingHabitSets) {
+    if (user && !loadingHabitSets && habitSets.length === 0) {
+      const createDefaultSet = async () => {
         try {
-          const defaultSetRef = doc(collection(db, 'users', user.uid, 'habitSets'));
-          await setDoc(defaultSetRef, {
+          const defaultSet = {
             name: 'My Habits',
-            description: 'Your daily habits',
             isActive: true,
-            isPremium: false,
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp()
-          });
+            createdAt: new Date().toISOString(),
+          };
+          
+          await addDoc(collection(db, `users/${user.uid}/habitSets`), defaultSet);
           toast.success('Created your first habit set!');
         } catch (error) {
           console.error('Error creating default habit set:', error);
           toast.error('Failed to create default habit set');
         }
-      }
-    };
-    createDefaultSet();
-  }, [user, habitSetList, loadingHabitSets]);
-
-  // Get active habit set
-  const activeSet = habitSetList?.find(set => set.isActive) ?? null;
-  
-  // Then get habits for the active set
-  const { data: habitList, loading: loadingHabits } = useFirebaseSubscription<Habit[]>(
-    user && activeSet ? collection(db, 'users', user.uid, 'habitSets', activeSet.id, 'habits') : null,
-    { errorMessage: 'Failed to load habits' }
-  );
-  
-  const defaultStats: UserStats = {
-    totalXP: 0,
-    dailyXP: { date: new Date().toISOString().split('T')[0], xp: 0 }
-  };
-  
-  const { data: userStats, loading: loadingStats } = useFirebaseSubscription<UserStats>(
-    user ? doc(db, 'users', user.uid, 'stats', 'daily') : null,
-    { errorMessage: 'Failed to load stats' }
-  );
-
-  // Combined loading state - only consider loading if we're authenticating or if we have a user
-  const isLoading = authLoading || (user && loadingHabitSets);
-
-  // Debug loading states
-  useEffect(() => {
-    console.log('Loading States:', {
-      authLoading,
-      loadingHabitSets,
-      loadingHabits,
-      loadingStats,
-      hasUser: !!user,
-      isLoading,
-      activeSet: !!activeSet
-    });
-  }, [authLoading, loadingHabitSets, loadingHabits, loadingStats, user, activeSet]);
+      };
+      
+      createDefaultSet();
+    }
+  }, [user, loadingHabitSets, habitSets.length]);
 
   const [newHabitName, setNewHabitName] = useState('');
   const [error, setError] = useState('');
@@ -197,7 +179,7 @@ export default function HabitTracker() {
   const habitSetsUnsubscribeRef = useRef<(() => void) | null>(null);
 
   // Calculate level
-  const level = calculateLevel(userStats?.totalXP ?? 0);
+  const level = calculateLevel(stats?.totalXP ?? 0);
 
   // Function to handle level up
   const handleLevelUp = (prev: number, curr: number) => {
@@ -251,8 +233,8 @@ export default function HabitTracker() {
       batch.set(setRef, {
         name,
         description,
-        isActive: (habitSetList ?? []).length === 0,
-        isPremium: (habitSetList ?? []).length > 1,
+        isActive: (habitSets ?? []).length === 0,
+        isPremium: (habitSets ?? []).length > 1,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       });
@@ -292,7 +274,7 @@ export default function HabitTracker() {
       return;
     }
 
-    if ((habitSetList ?? []).length <= 1) {
+    if ((habitSets ?? []).length <= 1) {
       toast.error('You must have at least one habit set');
       return;
     }
@@ -300,7 +282,7 @@ export default function HabitTracker() {
     try {
       // If deleting active set, make another set active
       if (activeSet?.id === setId) {
-        const newActiveSet = (habitSetList ?? []).find(set => set.id !== setId);
+        const newActiveSet = (habitSets ?? []).find(set => set.id !== setId);
         if (newActiveSet) {
           await handleSwitchSet(newActiveSet.id, newActiveSet.name);
         }
@@ -326,7 +308,7 @@ export default function HabitTracker() {
       return;
     }
 
-    if ((habitList ?? []).length >= MAX_HABITS) {
+    if ((habits ?? []).length >= MAX_HABITS) {
       toast.error(`You can only have ${MAX_HABITS} habits at a time`);
       return;
     }
@@ -376,9 +358,9 @@ export default function HabitTracker() {
 
   // Function to toggle habit completion
   const toggleHabitCompletion = async (id: number) => {
-    if (!user || !activeSet || !habitList) return;
+    if (!user || !activeSet || !habits) return;
 
-    const habit = habitList.find(h => h.id === id);
+    const habit = habits.find(h => h.id === id);
     if (!habit) return;
 
     const today = new Date().toISOString().split('T')[0];
@@ -402,11 +384,11 @@ export default function HabitTracker() {
       // Update stats
       if (!isCompletedToday) {
         const newStats = {
-          ...userStats,
-          totalXP: (userStats?.totalXP ?? 0) + XP_PER_COMPLETION,
+          ...stats,
+          totalXP: (stats?.totalXP ?? 0) + XP_PER_COMPLETION,
           dailyXP: {
             date: today,
-            xp: Math.min(MAX_DAILY_XP, (userStats?.dailyXP?.xp ?? 0) + XP_PER_COMPLETION)
+            xp: Math.min(MAX_DAILY_XP, (stats?.dailyXP?.xp ?? 0) + XP_PER_COMPLETION)
           }
         };
         batch.set(statsRef, newStats);
@@ -469,7 +451,7 @@ export default function HabitTracker() {
     <ErrorBoundary>
       <div className="max-w-4xl mx-auto px-4 py-8">
         <HabitSetManager
-          habitSets={habitSetList ?? []}
+          habitSets={habitSets ?? []}
           activeSetId={activeSet?.id || null}
           onSwitchSet={handleSwitchSet}
           onCreateSet={handleCreateSet}
@@ -481,9 +463,9 @@ export default function HabitTracker() {
         {activeSet && (
           <>
             <ProgressDisplay
-              habits={habitList ?? []}
-              totalXP={userStats?.totalXP ?? 0}
-              dailyXP={userStats?.dailyXP?.xp ?? 0}
+              habits={habits ?? []}
+              totalXP={stats?.totalXP ?? 0}
+              dailyXP={stats?.dailyXP?.xp ?? 0}
               onLevelUp={handleLevelUp}
             />
 
@@ -491,11 +473,11 @@ export default function HabitTracker() {
               key={activeSet.id}
               onAddHabit={addHabit}
               maxHabits={MAX_HABITS}
-              currentHabitCount={(habitList ?? []).length}
+              currentHabitCount={(habits ?? []).length}
             />
 
             <HabitList
-              habits={habitList ?? []}
+              habits={habits ?? []}
               onToggleHabit={toggleHabitCompletion}
               onDeleteHabit={deleteHabit}
               onEditHabit={setSelectedHabit}
