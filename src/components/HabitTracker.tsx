@@ -26,7 +26,7 @@ import {
 } from '@/lib/firestoreService';
 import HabitSetManager from './HabitSetManager';
 import { toast } from 'react-hot-toast';
-import { collection, writeBatch, getDocs, doc, serverTimestamp, setDoc, deleteDoc, updateDoc, onSnapshot, addDoc } from 'firebase/firestore';
+import { collection, writeBatch, getDocs, doc, serverTimestamp, setDoc, deleteDoc, updateDoc, onSnapshot, addDoc, FirestoreDataConverter, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useFirebaseSubscription } from '@/hooks/useFirebaseSubscription';
 import { ErrorBoundary } from './ErrorBoundary';
@@ -38,9 +38,81 @@ import { calculateLevel } from '@/utils/levelCalculator';
 import QuestPet from './QuestPet';
 
 // Constants
-const MAX_HABITS = 5;
-const XP_PER_COMPLETION = 10;
-const MAX_DAILY_XP = 100;
+const MAX_HABITS = 10;
+const XP_PER_COMPLETION = 50;
+const MAX_DAILY_XP = 500;
+
+// Firestore converters
+const habitSetConverter: FirestoreDataConverter<HabitSet> = {
+  toFirestore: (habitSet) => ({
+    name: habitSet.name,
+    description: habitSet.description,
+    isPremium: habitSet.isPremium,
+    isActive: habitSet.isActive,
+    createdAt: habitSet.createdAt || serverTimestamp(),
+    updatedAt: serverTimestamp()
+  }),
+  fromFirestore: (snapshot, options) => {
+    const data = snapshot.data(options);
+    return {
+      id: snapshot.id,
+      name: data.name,
+      description: data.description,
+      isPremium: data.isPremium || false,
+      isActive: data.isActive,
+      createdAt: data.createdAt as Timestamp,
+      updatedAt: data.updatedAt as Timestamp,
+    };
+  },
+};
+
+const habitConverter: FirestoreDataConverter<Habit> = {
+  toFirestore: (habit) => ({
+    name: habit.name,
+    logs: habit.logs,
+    xp: habit.xp,
+    streak: habit.streak,
+    category: habit.category,
+    daysOfWeek: habit.daysOfWeek,
+    createdAt: habit.createdAt || serverTimestamp(),
+    updatedAt: serverTimestamp()
+  }),
+  fromFirestore: (snapshot, options) => {
+    const data = snapshot.data(options);
+    return {
+      id: snapshot.id,
+      name: data.name,
+      logs: data.logs || [],
+      xp: data.xp || 0,
+      streak: data.streak,
+      category: data.category,
+      daysOfWeek: data.daysOfWeek,
+      createdAt: data.createdAt as Timestamp,
+      updatedAt: data.updatedAt as Timestamp,
+    };
+  },
+};
+
+const userStatsConverter: FirestoreDataConverter<UserStats> = {
+  toFirestore: (stats) => ({
+    totalXP: stats.totalXP,
+    dailyXP: stats.dailyXP,
+    createdAt: stats.createdAt || serverTimestamp(),
+    updatedAt: serverTimestamp()
+  }),
+  fromFirestore: (snapshot, options) => {
+    const data = snapshot.data(options);
+    return {
+      totalXP: data.totalXP || 0,
+      dailyXP: {
+        date: data.dailyXP?.date || new Date().toISOString().split('T')[0],
+        xp: data.dailyXP?.xp || 0,
+      },
+      createdAt: data.createdAt as Timestamp,
+      updatedAt: data.updatedAt as Timestamp,
+    };
+  },
+};
 
 // Checkmark icon component with animation - enhanced with smooth transitions
 const CheckmarkIcon = ({ checked, onClick }: { checked: boolean; onClick: () => void }) => {
@@ -114,10 +186,13 @@ const calculateStreak = (logs: string[]): number => {
 
 export default function HabitTracker() {
   const { user, authLoading } = useAuth();
+  const [selectedHabit, setSelectedHabit] = useState<Habit | null>(null);
+  const [showLevelUp, setShowLevelUp] = useState(false);
+  const [previousLevel, setPreviousLevel] = useState(1);
   
   // Subscribe to habit sets
-  const { data: habitSets = [], loading: loadingHabitSets } = useFirebaseSubscription<HabitSet[]>(
-    user ? collection(db, 'users', user.uid, 'habitSets') : null,
+  const { data: rawHabitSets, loading: loadingHabitSets } = useFirebaseSubscription<HabitSet[]>(
+    user ? collection(db, 'users', user.uid, 'habitSets').withConverter(habitSetConverter) : null,
     {
       onError: (error) => {
         console.error('Error subscribing to habit sets:', error);
@@ -125,14 +200,15 @@ export default function HabitTracker() {
       }
     }
   );
+  const habitSets = rawHabitSets ?? [];
 
   // Find the active set
-  const activeSet = habitSets?.find(set => set.isActive) || null;
+  const activeSet = habitSets.find(set => set.isActive) || null;
   console.log('Active habit set:', activeSet);
 
   // Subscribe to habits for the active set
-  const { data: habits = [], loading: loadingHabits } = useFirebaseSubscription<Habit[]>(
-    user && activeSet ? collection(db, 'users', user.uid, 'habitSets', activeSet.id, 'habits') : null,
+  const { data: rawHabits, loading: loadingHabits } = useFirebaseSubscription<Habit[]>(
+    user && activeSet ? collection(db, 'users', user.uid, 'habitSets', activeSet.id, 'habits').withConverter(habitConverter) : null,
     {
       onError: (error) => {
         console.error('Error subscribing to habits:', error);
@@ -140,73 +216,40 @@ export default function HabitTracker() {
       }
     }
   );
-
-  console.log('Loaded habits:', habits);
+  const habits = rawHabits ?? [];
 
   // Get user stats
-  const { data: stats = { totalXP: 0, dailyXP: { date: new Date().toISOString().split('T')[0], xp: 0 } }, loading: loadingStats } = 
+  const defaultStats: UserStats = {
+    totalXP: 0,
+    dailyXP: { date: new Date().toISOString().split('T')[0], xp: 0 },
+    createdAt: Timestamp.now(),
+    updatedAt: Timestamp.now()
+  };
+  
+  const { data: rawStats, loading: loadingStats } = 
     useFirebaseSubscription<UserStats>(
-      user ? doc(db, 'users', user.uid, 'stats', 'daily') : null
+      user ? doc(db, 'users', user.uid, 'stats', 'daily').withConverter(userStatsConverter) : null
     );
-
-  // Combined loading state - only show loading when necessary
-  const isLoading = authLoading || (user && loadingHabitSets);
-
-  // Create default habit set for new users
-  useEffect(() => {
-    if (user && !loadingHabitSets && habitSets?.length === 0) {
-      const createDefaultSet = async () => {
-        try {
-          const defaultSet = {
-            name: 'My Habits',
-            isActive: true,
-            createdAt: new Date().toISOString(),
-          };
-          
-          await addDoc(collection(db, `users/${user.uid}/habitSets`), defaultSet);
-          toast.success('Created your first habit set!');
-        } catch (error) {
-          console.error('Error creating default habit set:', error);
-          toast.error('Failed to create default habit set');
-        }
-      };
-      
-      createDefaultSet();
-    }
-  }, [user, loadingHabitSets, habitSets]);
-
-  const [newHabitName, setNewHabitName] = useState('');
-  const [error, setError] = useState('');
-  const [showLevelUp, setShowLevelUp] = useState(false);
-  const [previousLevel, setPreviousLevel] = useState(1);
-  const [showHabitSetManager, setShowHabitSetManager] = useState(true);
-  const [selectedHabit, setSelectedHabit] = useState<Habit | null>(null);
-
-  // Refs for cleanup
-  const unsubscribeRef = useRef<(() => void) | null>(null);
-  const statsUnsubscribeRef = useRef<(() => void) | null>(null);
-  const habitsUnsubscribeRef = useRef<(() => void) | null>(null);
-  const habitSetsUnsubscribeRef = useRef<(() => void) | null>(null);
+  const stats = rawStats ?? defaultStats;
 
   // Calculate level
-  const level = calculateLevel(stats?.totalXP ?? 0);
+  const level = calculateLevel(stats.totalXP);
 
   // Function to handle level up
   const handleLevelUp = (prev: number, curr: number) => {
-    setPreviousLevel(prev);
-    setShowLevelUp(true);
+    if (curr > prev) {
+      setPreviousLevel(prev);
+      setShowLevelUp(true);
+    }
   };
 
-  // Function to switch habit sets
+  // Function to handle switching habit sets
   const handleSwitchSet = async (setId: string, setName: string) => {
-    if (!user) {
-      toast.error('You must be logged in to switch habit sets');
-      return;
-    }
+    if (!user || !activeSet) return;
 
     try {
       const batch = writeBatch(db);
-      
+
       // Update current active set
       if (activeSet) {
         batch.update(doc(db, 'users', user.uid, 'habitSets', activeSet.id), {
@@ -214,13 +257,13 @@ export default function HabitTracker() {
           updatedAt: serverTimestamp()
         });
       }
-      
-      // Set new active set
+
+      // Update new active set
       batch.update(doc(db, 'users', user.uid, 'habitSets', setId), {
         isActive: true,
         updatedAt: serverTimestamp()
       });
-      
+
       await batch.commit();
       toast.success(`Switched to ${setName}`);
     } catch (error) {
@@ -230,26 +273,19 @@ export default function HabitTracker() {
   };
 
   // Function to create a new habit set
-  const handleCreateSet = async (name: string, description: string) => {
-    if (!user) {
-      toast.error('You must be logged in to create habit sets');
-      return;
-    }
+  const handleCreateSet = async (name: string) => {
+    if (!user) return;
 
     try {
-      const batch = writeBatch(db);
-      const setRef = doc(collection(db, 'users', user.uid, 'habitSets'));
-      
-      batch.set(setRef, {
+      const newSet = {
         name,
-        description,
-        isActive: (habitSets ?? []).length === 0,
-        isPremium: (habitSets ?? []).length > 1,
+        isActive: false,
+        isPremium: false,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
-      });
+      };
 
-      await batch.commit();
+      await addDoc(collection(db, 'users', user.uid, 'habitSets'), newSet);
       toast.success('Created new habit set');
     } catch (error) {
       console.error('Error creating habit set:', error);
@@ -258,16 +294,12 @@ export default function HabitTracker() {
   };
 
   // Function to edit a habit set
-  const handleEditSet = async (setId: string, name: string, description: string) => {
-    if (!user) {
-      toast.error('You must be logged in to edit habit sets');
-      return;
-    }
+  const handleEditSet = async (setId: string, name: string) => {
+    if (!user) return;
 
     try {
       await updateDoc(doc(db, 'users', user.uid, 'habitSets', setId), {
         name,
-        description,
         updatedAt: serverTimestamp()
       });
       toast.success('Updated habit set');
@@ -279,20 +311,12 @@ export default function HabitTracker() {
 
   // Function to delete a habit set
   const handleDeleteSet = async (setId: string) => {
-    if (!user) {
-      toast.error('You must be logged in to delete habit sets');
-      return;
-    }
-
-    if ((habitSets ?? []).length <= 1) {
-      toast.error('You must have at least one habit set');
-      return;
-    }
+    if (!user) return;
 
     try {
       // If deleting active set, make another set active
       if (activeSet?.id === setId) {
-        const newActiveSet = (habitSets ?? []).find(set => set.id !== setId);
+        const newActiveSet = habitSets?.find(set => set.id !== setId);
         if (newActiveSet) {
           await handleSwitchSet(newActiveSet.id, newActiveSet.name);
         }
@@ -318,7 +342,7 @@ export default function HabitTracker() {
       return;
     }
 
-    if ((habits ?? []).length >= MAX_HABITS) {
+    if (habits.length >= MAX_HABITS) {
       toast.error(`You can only have ${MAX_HABITS} habits at a time`);
       return;
     }
@@ -328,24 +352,22 @@ export default function HabitTracker() {
       const newHabitRef = doc(collection(db, 'users', user.uid, 'habitSets', activeSet.id, 'habits'));
       
       // Create the habit data
-      const newHabit = {
-        id: newHabitRef.id, // Use Firestore's auto-generated ID
+      const newHabit: Omit<Habit, 'id'> = {
         name: name.trim(),
         logs: [],
         xp: 0,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
+        createdAt: Timestamp.now(),
+        updatedAt: Timestamp.now()
       };
 
       // Save the habit
       await setDoc(newHabitRef, newHabit);
-      
-      // Show success message
+      console.log("Successfully added new habit:", newHabit);
       toast.success('Added new habit');
     } catch (error) {
       console.error('Error adding habit:', error);
       toast.error('Failed to add habit');
-      throw error; // Re-throw to let AddHabitForm handle the error state
+      throw error;
     }
   };
 
@@ -357,8 +379,10 @@ export default function HabitTracker() {
     }
 
     try {
+      console.log("Deleting habit:", { id, activeSetId: activeSet.id });
       const habitRef = doc(db, 'users', user.uid, 'habitSets', activeSet.id, 'habits', id);
       await deleteDoc(habitRef);
+      console.log("Successfully deleted habit:", id);
       toast.success("Habit deleted");
     } catch (error) {
       console.error("Error deleting habit:", error);
@@ -391,25 +415,24 @@ export default function HabitTracker() {
 
       // Update habit logs
       const updatedHabit = {
-        ...habit,
         logs: isCompletedToday
           ? habit.logs.filter(date => date !== today)
           : [...habit.logs, today],
         updatedAt: serverTimestamp()
       };
-      batch.set(habitRef, updatedHabit);
+      batch.update(habitRef, updatedHabit);
 
       // Update stats only when completing (not when uncompleting)
       if (!isCompletedToday) {
         const newStats = {
-          ...stats,
-          totalXP: (stats?.totalXP ?? 0) + XP_PER_COMPLETION,
+          totalXP: stats.totalXP + XP_PER_COMPLETION,
           dailyXP: {
             date: today,
-            xp: Math.min(MAX_DAILY_XP, (stats?.dailyXP?.xp ?? 0) + XP_PER_COMPLETION)
-          }
+            xp: Math.min(MAX_DAILY_XP, (stats.dailyXP?.xp ?? 0) + XP_PER_COMPLETION)
+          },
+          updatedAt: serverTimestamp()
         };
-        batch.set(statsRef, newStats);
+        batch.set(statsRef, newStats, { merge: true });
       }
 
       await batch.commit();
@@ -470,7 +493,7 @@ export default function HabitTracker() {
     <ErrorBoundary>
       <div className="max-w-4xl mx-auto px-4 py-8">
         <HabitSetManager
-          habitSets={habitSets ?? []}
+          habitSets={habitSets}
           activeSetId={activeSet?.id || null}
           onSwitchSet={handleSwitchSet}
           onCreateSet={handleCreateSet}
@@ -479,12 +502,12 @@ export default function HabitTracker() {
           isPremium={!!user?.isPremium}
         />
 
-        {activeSet && (
+        {activeSet ? (
           <>
             <ProgressDisplay
-              habits={habits ?? []}
-              totalXP={stats?.totalXP ?? 0}
-              dailyXP={stats?.dailyXP?.xp ?? 0}
+              habits={habits}
+              totalXP={stats.totalXP}
+              dailyXP={stats.dailyXP.xp}
               onLevelUp={handleLevelUp}
             />
 
@@ -492,29 +515,34 @@ export default function HabitTracker() {
               key={activeSet.id}
               onAddHabit={addHabit}
               maxHabits={MAX_HABITS}
-              currentHabitCount={(habits ?? []).length}
+              currentHabitCount={habits.length}
             />
 
             <HabitList
-              habits={habits ?? []}
+              habits={habits}
               onToggleHabit={toggleHabitCompletion}
               onDeleteHabit={deleteHabit}
               onEditHabit={setSelectedHabit}
             />
-          </>
-        )}
 
-        {/* Level Up Animation */}
-        {showLevelUp && (
-          <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-            <div className="bg-white dark:bg-slate-800 rounded-lg p-8 text-center animate-bounce-slow">
-              <h2 className="text-3xl font-bold text-slate-900 dark:text-white mb-4">
-                Level Up!
-              </h2>
-              <p className="text-slate-600 dark:text-slate-400">
-                You've reached level {level}
-              </p>
-            </div>
+            {showLevelUp && (
+              <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+                <div className="bg-white dark:bg-slate-800 rounded-lg p-8 text-center animate-bounce-slow">
+                  <h2 className="text-3xl font-bold text-slate-900 dark:text-white mb-4">
+                    Level Up!
+                  </h2>
+                  <p className="text-slate-600 dark:text-slate-400">
+                    You've reached level {level}
+                  </p>
+                </div>
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="text-center py-8">
+            <p className="text-slate-600 dark:text-slate-400">
+              Create a habit set to get started!
+            </p>
           </div>
         )}
       </div>
