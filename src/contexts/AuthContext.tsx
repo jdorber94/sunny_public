@@ -14,6 +14,7 @@ import { initializeUserData, getUserProfile, subscribeToUserProfile, UserProfile
 interface AuthContextType {
   user: (User & { isPremium?: boolean }) | null;
   loading: boolean;
+  authLoading: boolean;
   signInWithGoogle: () => Promise<User>;
   signInWithEmail: (email: string, password: string) => Promise<User>;
   createUser: (email: string, password: string, displayName: string) => Promise<User>;

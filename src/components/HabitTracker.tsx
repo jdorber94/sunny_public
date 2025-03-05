@@ -113,7 +113,7 @@ const calculateStreak = (logs: string[]): number => {
 };
 
 export default function HabitTracker() {
-  const { user, authLoading, signOut } = useAuth();
+  const { user, loading: authLoading, signOut } = useAuth();
   
   // Subscribe to habit sets
   const { data: habitSets = [], loading: loadingHabitSets } = useFirebaseSubscription<HabitSet[]>(
@@ -121,7 +121,7 @@ export default function HabitTracker() {
   );
 
   // Find the active set
-  const activeSet = habitSets.find(set => set.isActive);
+  const activeSet = habitSets?.find(set => set.isActive) || null;
 
   // Subscribe to habits for the active set
   const { data: habits = [], loading: loadingHabits } = useFirebaseSubscription<Habit[]>(
@@ -139,7 +139,7 @@ export default function HabitTracker() {
 
   // Create default habit set for new users
   useEffect(() => {
-    if (user && !loadingHabitSets && habitSets && habitSets.length === 0) {
+    if (user && !loadingHabitSets && habitSets?.length === 0) {
       const createDefaultSet = async () => {
         try {
           const defaultSet = {
