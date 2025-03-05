@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Habit } from '@/lib/firestoreService';
 import { toast } from 'react-hot-toast';
 import { calculateStreak } from '@/utils/habitUtils';
@@ -18,11 +18,18 @@ export default function HabitList({
 }: HabitListProps) {
   const [loadingStates, setLoadingStates] = useState<Record<string, boolean>>({});
 
+  useEffect(() => {
+    console.log('HabitList rendered with habits:', habits);
+  }, [habits]);
+
   const handleToggle = async (habit: Habit) => {
+    console.log('Attempting to toggle habit:', habit);
     setLoadingStates(prev => ({ ...prev, [habit.id]: true }));
     try {
       await onToggleHabit(habit.id);
+      console.log('Successfully toggled habit:', habit.id);
     } catch (error) {
+      console.error('Failed to toggle habit:', error);
       toast.error('Failed to update habit');
     } finally {
       setLoadingStates(prev => ({ ...prev, [habit.id]: false }));
@@ -31,11 +38,14 @@ export default function HabitList({
 
   const handleDelete = async (habit: Habit) => {
     if (window.confirm(`Are you sure you want to delete "${habit.name}"?`)) {
+      console.log('Attempting to delete habit:', habit);
       setLoadingStates(prev => ({ ...prev, [habit.id]: true }));
       try {
         await onDeleteHabit(habit.id);
+        console.log('Successfully deleted habit:', habit.id);
         toast.success('Habit deleted');
       } catch (error) {
+        console.error('Failed to delete habit:', error);
         toast.error('Failed to delete habit');
       } finally {
         setLoadingStates(prev => ({ ...prev, [habit.id]: false }));

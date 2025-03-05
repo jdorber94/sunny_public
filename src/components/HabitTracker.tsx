@@ -117,16 +117,31 @@ export default function HabitTracker() {
   
   // Subscribe to habit sets
   const { data: habitSets = [], loading: loadingHabitSets } = useFirebaseSubscription<HabitSet[]>(
-    user ? collection(db, 'users', user.uid, 'habitSets') : null
+    user ? collection(db, 'users', user.uid, 'habitSets') : null,
+    {
+      onError: (error) => {
+        console.error('Error subscribing to habit sets:', error);
+        toast.error('Failed to load habit sets');
+      }
+    }
   );
 
   // Find the active set
   const activeSet = habitSets?.find(set => set.isActive) || null;
+  console.log('Active habit set:', activeSet);
 
   // Subscribe to habits for the active set
   const { data: habits = [], loading: loadingHabits } = useFirebaseSubscription<Habit[]>(
-    user && activeSet ? collection(db, 'users', user.uid, 'habitSets', activeSet.id, 'habits') : null
+    user && activeSet ? collection(db, 'users', user.uid, 'habitSets', activeSet.id, 'habits') : null,
+    {
+      onError: (error) => {
+        console.error('Error subscribing to habits:', error);
+        toast.error('Failed to load habits');
+      }
+    }
   );
+
+  console.log('Loaded habits:', habits);
 
   // Get user stats
   const { data: stats = { totalXP: 0, dailyXP: { date: new Date().toISOString().split('T')[0], xp: 0 } }, loading: loadingStats } = 
@@ -353,11 +368,18 @@ export default function HabitTracker() {
 
   // Function to toggle habit completion
   const toggleHabitCompletion = async (id: string) => {
-    if (!user || !activeSet || !habits) return;
+    if (!user || !activeSet || !habits) {
+      console.log("Toggle failed: Missing user, activeSet, or habits", { user: !!user, activeSet: !!activeSet, habits: !!habits });
+      return;
+    }
 
     const habit = habits.find(h => h.id === id);
-    if (!habit) return;
+    if (!habit) {
+      console.log("Toggle failed: Habit not found", { id });
+      return;
+    }
 
+    console.log("Toggling habit:", { id, habit, activeSetId: activeSet.id });
     const today = new Date().toISOString().split('T')[0];
     const isCompletedToday = habit.logs.includes(today);
 
@@ -391,6 +413,7 @@ export default function HabitTracker() {
       }
 
       await batch.commit();
+      console.log("Successfully toggled habit:", { id, isCompletedToday: !isCompletedToday });
     } catch (error) {
       console.error("Error updating habit:", error);
       toast.error("Failed to update habit");
