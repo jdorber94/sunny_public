@@ -488,6 +488,7 @@ export default function HabitTracker() {
             />
 
             <AddHabitForm
+              key={activeSet.id}
               onAddHabit={addHabit}
               maxHabits={MAX_HABITS}
               currentHabitCount={(habitList ?? []).length}
