@@ -20,6 +20,9 @@ export const HabitSetSelector: React.FC = () => {
   const [newSetName, setNewSetName] = useState('');
   const [newSetDescription, setNewSetDescription] = useState('');
   
+  // Add state to track if we're in local-only mode
+  const [isLocalMode, setIsLocalMode] = useState(false);
+  
   // Handle creating a new habit set
   const handleCreateSet = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,9 +43,18 @@ export const HabitSetSelector: React.FC = () => {
       if (result.status === 'success') {
         setNewSetName('');
         setNewSetDescription('');
+        
+        // Check if we're in local mode
+        if (result.isLocal) {
+          setIsLocalMode(true);
+        }
       } else if (result.error) {
         toast.error(result.error);
       }
+    } catch (error) {
+      // This is a fallback in case the error isn't caught in the hook
+      toast.error('Failed to create habit set. You may have exceeded your Firebase quota.');
+      setIsLocalMode(true);
     } finally {
       setIsCreating(false);
     }
@@ -94,7 +106,14 @@ export const HabitSetSelector: React.FC = () => {
   
   return (
     <div className="mb-6">
-      <h2 className="text-lg font-semibold text-gray-800 mb-3">Habit Sets</h2>
+      <h2 className="text-lg font-semibold text-gray-800 mb-3">
+        Habit Sets
+        {isLocalMode && (
+          <span className="ml-2 text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">
+            Local Mode
+          </span>
+        )}
+      </h2>
       
       <div className="flex flex-wrap gap-2 mb-4">
         <AnimatePresence>
@@ -185,6 +204,12 @@ export const HabitSetSelector: React.FC = () => {
           </button>
         </motion.form>
       </div>
+      
+      {isLocalMode && (
+        <div className="mt-2 text-sm text-yellow-600 bg-yellow-50 p-2 rounded-md">
+          <p>You're in local mode due to Firebase quota limits. Changes will be saved locally but not synced to the cloud until quota resets.</p>
+        </div>
+      )}
     </div>
   );
 }; 

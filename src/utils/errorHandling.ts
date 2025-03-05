@@ -1,6 +1,14 @@
 import { toast } from 'react-hot-toast';
 import { FirebaseError } from 'firebase/app';
-import { ErrorType } from '@/types';
+
+// Error types
+export enum ErrorType {
+  AUTH = 'auth',
+  FIRESTORE = 'firestore',
+  NETWORK = 'network',
+  VALIDATION = 'validation',
+  UNKNOWN = 'unknown'
+}
 
 // Custom error class
 export class AppError extends Error {
@@ -8,128 +16,114 @@ export class AppError extends Error {
   originalError?: unknown;
   code?: string;
 
-  constructor(
-    message: string, 
-    type: ErrorType = ErrorType.UNKNOWN, 
-    originalError?: unknown,
-    code?: string
-  ) {
+  constructor(message: string, type: ErrorType, originalError?: unknown) {
     super(message);
-    
-    // Set the prototype explicitly.
-    Object.setPrototypeOf(this, AppError.prototype);
-    
-    // Maintain proper stack trace for where our error was thrown
-    if (Error.captureStackTrace) {
-      Error.captureStackTrace(this, AppError);
-    }
-    
     this.name = 'AppError';
     this.type = type;
     this.originalError = originalError;
-    this.code = code;
+    
+    if (originalError instanceof FirebaseError) {
+      this.code = originalError.code;
+    }
   }
 }
 
-// Function to handle errors
-export function handleError(error: unknown, defaultMessage = 'An error occurred'): AppError {
-  // Already an AppError
+// Handle different error types
+export function handleError(error: unknown, customMessage?: string): AppError {
+  // Already an AppError, just return it
   if (error instanceof AppError) {
     return error;
   }
   
   // Firebase error
   if (error instanceof FirebaseError) {
-    const message = getFirebaseErrorMessage(error) || defaultMessage;
+    const message = customMessage || getFirebaseErrorMessage(error);
     const type = getErrorTypeFromFirebaseError(error);
-    return new AppError(message, type, error, error.code);
+    return new AppError(message, type, error);
   }
   
-  // Standard Error
-  if (error instanceof Error) {
-    return new AppError(error.message || defaultMessage, ErrorType.UNKNOWN, error);
+  // Network error
+  if (error instanceof TypeError && error.message.includes('network')) {
+    return new AppError(
+      customMessage || 'Network error. Please check your connection.',
+      ErrorType.NETWORK,
+      error
+    );
   }
   
-  // String error
-  if (typeof error === 'string') {
-    return new AppError(error, ErrorType.UNKNOWN);
-  }
+  // Generic error
+  const message = customMessage || 
+    (error instanceof Error ? error.message : 'An unknown error occurred');
   
-  // Unknown error
-  return new AppError(defaultMessage, ErrorType.UNKNOWN, error);
+  return new AppError(message, ErrorType.UNKNOWN, error);
 }
 
-// Function to get user-friendly message from Firebase error
-function getFirebaseErrorMessage(error: FirebaseError): string {
+// Get user-friendly message for Firebase errors
+export function getFirebaseErrorMessage(error: FirebaseError): string {
+  // Add specific handling for quota exceeded errors
+  if (error.code === 'resource-exhausted') {
+    return 'Firebase quota exceeded. The app will use cached data where possible. Some features may be limited until quota resets.';
+  }
+  
   switch (error.code) {
     // Auth errors
     case 'auth/user-not-found':
     case 'auth/wrong-password':
       return 'Invalid email or password';
     case 'auth/email-already-in-use':
-      return 'Email is already in use';
+      return 'This email is already in use';
     case 'auth/weak-password':
       return 'Password is too weak';
     case 'auth/invalid-email':
       return 'Invalid email address';
     case 'auth/requires-recent-login':
       return 'Please log in again to continue';
-    
+      
     // Firestore errors
     case 'permission-denied':
-      return 'You do not have permission to access this resource';
+      return 'You don\'t have permission to access this data';
     case 'not-found':
       return 'The requested document was not found';
-    
-    // Network errors
-    case 'network-request-failed':
-      return 'Network error. Please check your connection';
-    
+      
     // Default
     default:
-      return error.message;
+      return `Error: ${error.message}`;
   }
 }
 
-// Function to determine error type from Firebase error
-function getErrorTypeFromFirebaseError(error: FirebaseError): ErrorType {
-  const code = error.code;
-  
-  if (code.startsWith('auth/')) {
+// Determine error type from Firebase error
+export function getErrorTypeFromFirebaseError(error: FirebaseError): ErrorType {
+  if (error.code.startsWith('auth/')) {
     return ErrorType.AUTH;
   }
   
-  if (
-    code === 'permission-denied' || 
-    code === 'not-found' || 
-    code.includes('firestore')
-  ) {
+  if (['permission-denied', 'not-found', 'already-exists'].includes(error.code)) {
     return ErrorType.FIRESTORE;
   }
   
-  if (code === 'network-request-failed') {
+  if (['unavailable', 'deadline-exceeded'].includes(error.code)) {
     return ErrorType.NETWORK;
   }
   
   return ErrorType.UNKNOWN;
 }
 
-// Function to show error toast
-export function showErrorToast(error: unknown, defaultMessage = 'An error occurred'): void {
-  const appError = error instanceof AppError ? error : handleError(error, defaultMessage);
+// Show error toast
+export function showErrorToast(error: unknown, customMessage?: string): void {
+  const appError = handleError(error, customMessage);
   toast.error(appError.message);
+  logError(appError);
 }
 
-// Function to log error to analytics/monitoring service
-export function logError(error: unknown): void {
-  const appError = error instanceof AppError ? error : handleError(error);
-  
+// Log error to monitoring service
+export function logError(error: AppError | unknown): void {
   // In a real app, you would send this to a monitoring service
-  console.error('Error:', {
-    message: appError.message,
-    type: appError.type,
-    code: appError.code,
-    stack: appError.stack,
-    originalError: appError.originalError
-  });
+  // For now, just log to console
+  const appError = error instanceof AppError ? error : handleError(error);
+  console.error('Error logged:', appError);
+}
+
+// Add a function to check if an error is a quota exceeded error
+export function isQuotaExceededError(error: unknown): boolean {
+  return error instanceof FirebaseError && error.code === 'resource-exhausted';
 } 

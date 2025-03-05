@@ -5,6 +5,7 @@ import { habitsApi, habitSetsApi } from '@/services/firestore/api';
 import { getHabitsRef, getHabitSetsRef } from '@/services/firestore/collections';
 import { Habit, HabitSet, ApiResponse } from '@/types';
 import { toast } from 'react-hot-toast';
+import { isQuotaExceededError } from '@/utils/errorHandling';
 
 /**
  * Custom hook for managing habits and habit sets
@@ -13,6 +14,7 @@ export function useHabits() {
   const { user } = useAuth();
   const [activeHabitSetId, setActiveHabitSetId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [habitSets, setHabitSets] = useState<HabitSet[]>([]);
   
   // Subscribe to habit sets
   const habitSetsRef = useMemo(() => {
@@ -20,30 +22,30 @@ export function useHabits() {
   }, [user]);
   
   const { 
-    data: habitSets, 
+    data: habitSetsData, 
     loading: loadingHabitSets, 
     error: habitSetsError 
   } = useFirebaseSubscription<HabitSet>(habitSetsRef);
   
   // Find active habit set
   const activeHabitSet = useMemo(() => {
-    if (!habitSets || !Array.isArray(habitSets)) return null;
+    if (!habitSetsData || !Array.isArray(habitSetsData)) return null;
     
     // First try to find the one marked as active
-    const active = habitSets.find(set => set.isActive);
+    const active = habitSetsData.find(set => set.isActive);
     if (active) {
       setActiveHabitSetId(active.id);
       return active;
     }
     
     // If no active set is found and we have sets, use the first one
-    if (habitSets.length > 0) {
-      setActiveHabitSetId(habitSets[0].id);
-      return habitSets[0];
+    if (habitSetsData.length > 0) {
+      setActiveHabitSetId(habitSetsData[0].id);
+      return habitSetsData[0];
     }
     
     return null;
-  }, [habitSets]);
+  }, [habitSetsData]);
   
   // Subscribe to habits in the active habit set
   const habitsRef = useMemo(() => {
@@ -155,7 +157,7 @@ export function useHabits() {
   // Create a new habit set
   const createHabitSet = useCallback(async (
     habitSetData: Omit<HabitSet, 'id' | 'createdAt' | 'updatedAt'>
-  ): Promise<ApiResponse<HabitSet>> => {
+  ): Promise<ApiResponse<HabitSet> & { isLocal?: boolean }> => {
     if (!user) {
       return { 
         error: 'User not authenticated', 
@@ -178,10 +180,43 @@ export function useHabits() {
       }
       
       return result;
+    } catch (error) {
+      // Handle quota exceeded errors specially
+      if (isQuotaExceededError(error)) {
+        toast.error('Firebase quota exceeded. Using local mode until quota resets.');
+        
+        // Create a temporary local habit set with a fake ID
+        const tempId = `local_${Date.now()}`;
+        const tempHabitSet: HabitSet = {
+          ...habitSetData,
+          id: tempId,
+          createdAt: new Date() as any,
+          updatedAt: new Date() as any
+        };
+        
+        // Add to local state
+        setHabitSets(prev => [...prev, tempHabitSet]);
+        
+        // Set as active if needed
+        if (habitSets.length === 0) {
+          setActiveHabitSet(tempHabitSet);
+        }
+        
+        return {
+          data: tempHabitSet,
+          status: 'success',
+          isLocal: true
+        };
+      }
+      
+      return { 
+        error: error instanceof Error ? error.message : 'Unknown error creating habit set', 
+        status: 'error' 
+      };
     } finally {
       setIsLoading(false);
     }
-  }, [user, activeHabitSetId]);
+  }, [user, activeHabitSetId, habitSets.length]);
   
   // Set active habit set
   const setActiveHabitSet = useCallback(async (
@@ -253,7 +288,7 @@ export function useHabits() {
   
   return {
     // Data
-    habitSets: Array.isArray(habitSets) ? habitSets : [],
+    habitSets: Array.isArray(habitSetsData) ? habitSetsData : [],
     habits: Array.isArray(habits) ? habits : [],
     activeHabitSet,
     activeHabitSetId,
