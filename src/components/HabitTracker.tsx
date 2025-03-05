@@ -394,6 +394,7 @@ export default function HabitTracker() {
   // Function to delete a habit
   const deleteHabit = async (id: string) => {
     if (!user || !activeSet) {
+      console.log("Delete failed: Missing user or activeSet", { user: !!user, activeSet: !!activeSet });
       toast.error("You must be logged in and have an active habit set to delete habits");
       return;
     }
@@ -412,14 +413,16 @@ export default function HabitTracker() {
 
   // Function to toggle habit completion
   const toggleHabitCompletion = async (id: string) => {
-    if (!user || !activeSet || !habits) {
-      console.log("Toggle failed: Missing user, activeSet, or habits", { user: !!user, activeSet: !!activeSet, habits: !!habits });
+    if (!user || !activeSet) {
+      console.log("Toggle failed: Missing user or activeSet", { user: !!user, activeSet: !!activeSet });
+      toast.error("You must be logged in and have an active habit set");
       return;
     }
 
     const habit = habits.find(h => h.id === id);
     if (!habit) {
       console.log("Toggle failed: Habit not found", { id });
+      toast.error("Habit not found");
       return;
     }
 
@@ -446,9 +449,9 @@ export default function HabitTracker() {
       if (!isCompletedToday) {
         const newStats = {
           totalXP: stats.totalXP + XP_PER_COMPLETION,
-            dailyXP: {
+          dailyXP: {
             date: today,
-            xp: Math.min(MAX_DAILY_XP, (stats.dailyXP?.xp ?? 0) + XP_PER_COMPLETION)
+            xp: Math.min(MAX_DAILY_XP, stats.dailyXP.xp + XP_PER_COMPLETION)
           },
           updatedAt: serverTimestamp()
         };
