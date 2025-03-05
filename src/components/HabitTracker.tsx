@@ -153,7 +153,8 @@ export default function HabitTracker() {
       loadingHabitSets,
       loadingHabits,
       loadingStats,
-      hasUser: !!user
+      hasUser: !!user,
+      isLoading
     });
   }, [authLoading, loadingHabitSets, loadingHabits, loadingStats, user]);
 
@@ -384,6 +385,7 @@ export default function HabitTracker() {
     }
   };
 
+  // Show loading UI
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center py-12 space-y-4">
@@ -399,23 +401,14 @@ export default function HabitTracker() {
     );
   }
 
+  // If not loading but no user, show sign in
   if (!user) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] py-8 px-4">
-        <div className="text-center max-w-md">
-          <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-4">
-            Welcome to Habit Tracker
-          </h2>
-          <p className="text-slate-600 dark:text-slate-400 mb-8">
-            Sign in to start tracking your habits, earn XP, and level up your life!
-          </p>
-          <Link
-            href="/login"
-            className="inline-block px-6 py-3 bg-black text-white rounded-lg hover:bg-slate-800 transition-colors"
-          >
-            Sign In to Get Started
-          </Link>
-        </div>
+      <div className="flex flex-col items-center justify-center py-12 space-y-4">
+        <p className="text-lg">Please sign in to view your habits</p>
+        <Link href="/login" className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
+          Sign In
+        </Link>
       </div>
     );
   }
