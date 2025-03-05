@@ -126,18 +126,18 @@ const CheckmarkIcon = ({ checked, onClick }: { checked: boolean; onClick: () => 
       onClick={onClick}
     >
       {checked && (
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
           className="h-4 w-4 sm:h-5 sm:w-5 text-white transform scale-110 transition-transform duration-300"
           viewBox="0 0 20 20"
-          fill="currentColor"
-        >
-          <path
-            fillRule="evenodd"
+        fill="currentColor"
+      >
+        <path
+          fillRule="evenodd"
             d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-            clipRule="evenodd"
-          />
-        </svg>
+          clipRule="evenodd"
+        />
+      </svg>
       )}
     </button>
   );
@@ -341,7 +341,7 @@ export default function HabitTracker() {
       toast.error('Please enter a habit name');
       return;
     }
-
+    
     if (habits.length >= MAX_HABITS) {
       toast.error(`You can only have ${MAX_HABITS} habits at a time`);
       return;
@@ -354,7 +354,7 @@ export default function HabitTracker() {
       // Create the habit data
       const newHabit: Omit<Habit, 'id'> = {
         name: name.trim(),
-        logs: [],
+      logs: [],
         xp: 0,
         createdAt: Timestamp.now(),
         updatedAt: Timestamp.now()
@@ -426,7 +426,7 @@ export default function HabitTracker() {
       if (!isCompletedToday) {
         const newStats = {
           totalXP: stats.totalXP + XP_PER_COMPLETION,
-          dailyXP: {
+            dailyXP: {
             date: today,
             xp: Math.min(MAX_DAILY_XP, (stats.dailyXP?.xp ?? 0) + XP_PER_COMPLETION)
           },
@@ -445,7 +445,7 @@ export default function HabitTracker() {
 
   // Show loading UI only during authentication
   if (authLoading) {
-    return (
+  return (
       <div className="flex flex-col items-center justify-center py-12 space-y-4">
         <div className="animate-spin rounded-full h-8 w-8 border-2 border-black dark:border-white border-t-transparent"></div>
         <div className="text-sm text-slate-600 dark:text-slate-400">
@@ -473,7 +473,7 @@ export default function HabitTracker() {
             Sign In to Get Started
           </Link>
         </div>
-      </div>
+              </div>
     );
   }
 
@@ -485,7 +485,7 @@ export default function HabitTracker() {
         <div className="text-sm text-slate-600 dark:text-slate-400">
           Loading your habit sets...
         </div>
-      </div>
+                        </div>
     );
   }
 
@@ -515,7 +515,7 @@ export default function HabitTracker() {
               key={activeSet.id}
               onAddHabit={addHabit}
               maxHabits={MAX_HABITS}
-              currentHabitCount={habits.length}
+              currentHabitCount={habits?.length ?? 0}
             />
 
             <HabitList
@@ -535,8 +535,8 @@ export default function HabitTracker() {
                     You've reached level {level}
                   </p>
                 </div>
-              </div>
-            )}
+          </div>
+        )}
           </>
         ) : (
           <div className="text-center py-8">

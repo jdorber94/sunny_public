@@ -45,6 +45,14 @@ export default function AddHabitForm({
     }
   };
 
+  // Reset the form when the active set changes
+  useEffect(() => {
+    setHabitName('');
+    setLoading(false);
+  }, [maxHabits, currentHabitCount]);
+
+  const isDisabled = loading || currentHabitCount >= maxHabits;
+
   return (
     <div className="mb-6 bg-white dark:bg-slate-800 rounded-lg p-4 shadow-sm border border-slate-200 dark:border-slate-700">
       <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">Add New Habit</h2>
@@ -60,14 +68,14 @@ export default function AddHabitForm({
           value={habitName}
           onChange={handleInputChange}
           placeholder="Enter a new habit..."
-          disabled={loading || currentHabitCount >= maxHabits}
+          disabled={isDisabled}
           className="flex-1 px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-700 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-300 focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-white disabled:opacity-50 disabled:cursor-not-allowed"
           autoComplete="off"
           spellCheck="false"
         />
         <button
           type="submit"
-          disabled={loading || !habitName.trim() || currentHabitCount >= maxHabits}
+          disabled={isDisabled || !habitName.trim()}
           className="px-6 py-2 bg-black text-white rounded-lg hover:bg-slate-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center min-w-[100px]"
         >
           {loading ? (
