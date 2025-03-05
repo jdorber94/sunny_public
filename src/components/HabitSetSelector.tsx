@@ -32,7 +32,7 @@ export const HabitSetSelector: React.FC = () => {
     try {
       const result = await createHabitSet({
         name: newSetName,
-        description: newSetDescription || undefined,
+        description: newSetDescription ? newSetDescription.trim() : "",
         isPremium: false,
         isActive: habitSets.length === 0 // Make active if it's the first one
       });
