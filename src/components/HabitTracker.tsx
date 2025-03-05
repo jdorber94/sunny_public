@@ -116,7 +116,7 @@ const calculateStreak = (logs: string[]): number => {
 };
 
 export default function HabitTracker() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   
   // Get habit sets first
   const { data: habitSetList, loading: loadingHabitSets } = useFirebaseSubscription<HabitSet[]>(
@@ -370,6 +370,14 @@ export default function HabitTracker() {
     }
   };
 
+  if (authLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="animate-spin rounded-full h-8 w-8 border-2 border-black dark:border-white border-t-transparent"></div>
+      </div>
+    );
+  }
+
   if (!user) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] py-8 px-4">
@@ -381,7 +389,7 @@ export default function HabitTracker() {
             Sign in to start tracking your habits, earn XP, and level up your life!
           </p>
           <Link
-            href="/auth/signin"
+            href="/login"
             className="inline-block px-6 py-3 bg-black text-white rounded-lg hover:bg-slate-800 transition-colors"
           >
             Sign In to Get Started
