@@ -24,16 +24,16 @@ export default function AddHabitForm({
     }
 
     if (currentHabitCount >= maxHabits) {
-      toast.error('You have reached the maximum number of habits');
+      toast.error(`You can only have ${maxHabits} habits at a time`);
       return;
     }
 
     setLoading(true);
     try {
-      await onAddHabit(habitName.trim());
+      await onAddHabit(habitName);
       setHabitName('');
-      toast.success('Habit added successfully');
     } catch (error) {
+      console.error('Error adding habit:', error);
       toast.error('Failed to add habit');
     } finally {
       setLoading(false);
@@ -41,28 +41,37 @@ export default function AddHabitForm({
   };
 
   return (
-    <div className="mb-6">
+    <div className="mb-6 bg-white dark:bg-slate-800 rounded-lg p-4 shadow-sm border border-slate-200 dark:border-slate-700">
+      <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">Add New Habit</h2>
       <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-2">
         <input
           type="text"
           value={habitName}
           onChange={(e) => setHabitName(e.target.value)}
-          placeholder="Add a new habit..."
+          placeholder="Enter a new habit..."
           disabled={loading || currentHabitCount >= maxHabits}
           className="flex-1 px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-white disabled:opacity-50 disabled:cursor-not-allowed"
         />
         <button
           type="submit"
           disabled={loading || !habitName.trim() || currentHabitCount >= maxHabits}
-          className="px-4 py-2 bg-black text-white rounded-lg hover:bg-slate-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="px-6 py-2 bg-black text-white rounded-lg hover:bg-slate-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center min-w-[100px]"
         >
-          {loading ? 'Adding...' : 'Add Habit'}
+          {loading ? (
+            <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent" />
+          ) : (
+            'Add Habit'
+          )}
         </button>
       </form>
       
-      {currentHabitCount >= maxHabits && (
+      {currentHabitCount >= maxHabits ? (
         <p className="mt-2 text-sm text-red-600 dark:text-red-400">
           You have reached the maximum number of habits ({maxHabits})
+        </p>
+      ) : (
+        <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+          {maxHabits - currentHabitCount} more habits available
         </p>
       )}
     </div>

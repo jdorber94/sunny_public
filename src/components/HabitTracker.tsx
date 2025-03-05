@@ -332,9 +332,12 @@ export default function HabitTracker() {
     }
 
     try {
-      const habitRef = doc(collection(db, 'users', user.uid, 'habitSets', activeSet.id, 'habits'));
+      // Create a new document reference with auto-generated ID
+      const newHabitRef = doc(collection(db, 'users', user.uid, 'habitSets', activeSet.id, 'habits'));
+      
+      // Create the habit data
       const newHabit = {
-        id: Date.now(),
+        id: newHabitRef.id, // Use Firestore's auto-generated ID
         name: name.trim(),
         logs: [],
         xp: 0,
@@ -342,9 +345,14 @@ export default function HabitTracker() {
         updatedAt: serverTimestamp()
       };
 
-      await setDoc(habitRef, newHabit);
+      // Save the habit
+      await setDoc(newHabitRef, newHabit);
+      
+      // Show success message
       toast.success('Added new habit');
-      setNewHabitName(''); // Clear the input
+      
+      // Clear the input
+      setNewHabitName('');
     } catch (error) {
       console.error('Error adding habit:', error);
       toast.error('Failed to add habit');
