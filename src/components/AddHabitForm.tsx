@@ -15,10 +15,10 @@ export default function AddHabitForm({
   const [habitName, setHabitName] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Debug effect to monitor state changes
-  useEffect(() => {
-    console.log('Habit name state:', habitName);
-  }, [habitName]);
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setHabitName(value);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,14 +48,17 @@ export default function AddHabitForm({
   return (
     <div className="mb-6 bg-white dark:bg-slate-800 rounded-lg p-4 shadow-sm border border-slate-200 dark:border-slate-700">
       <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">Add New Habit</h2>
+      
+      {/* Debug info */}
+      <div className="mb-2 text-sm text-slate-500 dark:text-slate-400">
+        Current input: "{habitName}"
+      </div>
+      
       <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-2">
         <input
           type="text"
           value={habitName}
-          onChange={(e) => {
-            console.log('Input event:', e.target.value);
-            setHabitName(e.target.value);
-          }}
+          onChange={handleInputChange}
           placeholder="Enter a new habit..."
           disabled={loading || currentHabitCount >= maxHabits}
           className="flex-1 px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-700 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-300 focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-white disabled:opacity-50 disabled:cursor-not-allowed"
