@@ -40,6 +40,11 @@ export default function AddHabitForm({
     }
   };
 
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    console.log('Input value:', e.target.value); // Debug log
+    setHabitName(e.target.value);
+  };
+
   return (
     <div className="mb-6 bg-white dark:bg-slate-800 rounded-lg p-4 shadow-sm border border-slate-200 dark:border-slate-700">
       <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">Add New Habit</h2>
@@ -47,10 +52,10 @@ export default function AddHabitForm({
         <input
           type="text"
           value={habitName}
-          onChange={(e) => setHabitName(e.target.value)}
+          onChange={handleInputChange}
           placeholder="Enter a new habit..."
           disabled={loading || currentHabitCount >= maxHabits}
-          className="flex-1 px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-white disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex-1 px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-300 focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-white disabled:opacity-50 disabled:cursor-not-allowed"
         />
         <button
           type="submit"

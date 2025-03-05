@@ -350,12 +350,10 @@ export default function HabitTracker() {
       
       // Show success message
       toast.success('Added new habit');
-      
-      // Clear the input
-      setNewHabitName('');
     } catch (error) {
       console.error('Error adding habit:', error);
       toast.error('Failed to add habit');
+      throw error; // Re-throw to let AddHabitForm handle the error state
     }
   };
 
