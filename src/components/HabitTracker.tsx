@@ -146,6 +146,17 @@ export default function HabitTracker() {
   // Combined loading state
   const isLoading = authLoading || (user && (loadingHabitSets || loadingHabits || loadingStats));
 
+  // Debug loading states
+  useEffect(() => {
+    console.log('Loading States:', {
+      authLoading,
+      loadingHabitSets,
+      loadingHabits,
+      loadingStats,
+      hasUser: !!user
+    });
+  }, [authLoading, loadingHabitSets, loadingHabits, loadingStats, user]);
+
   const [newHabitName, setNewHabitName] = useState('');
   const [error, setError] = useState('');
   const [showLevelUp, setShowLevelUp] = useState(false);
@@ -375,8 +386,15 @@ export default function HabitTracker() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-12">
+      <div className="flex flex-col items-center justify-center py-12 space-y-4">
         <div className="animate-spin rounded-full h-8 w-8 border-2 border-black dark:border-white border-t-transparent"></div>
+        <div className="text-sm text-slate-600 dark:text-slate-400">
+          {authLoading ? 'Checking authentication...' :
+           loadingHabitSets ? 'Loading habit sets...' :
+           loadingHabits ? 'Loading habits...' :
+           loadingStats ? 'Loading stats...' :
+           'Loading...'}
+        </div>
       </div>
     );
   }
