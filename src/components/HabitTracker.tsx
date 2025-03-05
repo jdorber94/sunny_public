@@ -143,8 +143,8 @@ export default function HabitTracker() {
     { errorMessage: 'Failed to load stats' }
   );
 
-  // Combined loading state
-  const isLoading = authLoading || (user && (loadingHabitSets || loadingHabits || loadingStats));
+  // Combined loading state - only consider loading if we're authenticating or if we have a user
+  const isLoading = authLoading || (user && loadingHabitSets);
 
   // Debug loading states
   useEffect(() => {
@@ -154,9 +154,10 @@ export default function HabitTracker() {
       loadingHabits,
       loadingStats,
       hasUser: !!user,
-      isLoading
+      isLoading,
+      activeSet: !!activeSet
     });
-  }, [authLoading, loadingHabitSets, loadingHabits, loadingStats, user]);
+  }, [authLoading, loadingHabitSets, loadingHabits, loadingStats, user, activeSet]);
 
   const [newHabitName, setNewHabitName] = useState('');
   const [error, setError] = useState('');
@@ -385,30 +386,48 @@ export default function HabitTracker() {
     }
   };
 
-  // Show loading UI
-  if (isLoading) {
+  // Show loading UI only during authentication
+  if (authLoading) {
     return (
       <div className="flex flex-col items-center justify-center py-12 space-y-4">
         <div className="animate-spin rounded-full h-8 w-8 border-2 border-black dark:border-white border-t-transparent"></div>
         <div className="text-sm text-slate-600 dark:text-slate-400">
-          {authLoading ? 'Checking authentication...' :
-           loadingHabitSets ? 'Loading habit sets...' :
-           loadingHabits ? 'Loading habits...' :
-           loadingStats ? 'Loading stats...' :
-           'Loading...'}
+          Checking authentication...
         </div>
       </div>
     );
   }
 
-  // If not loading but no user, show sign in
+  // If not loading and no user, show sign in
   if (!user) {
     return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] py-8 px-4">
+        <div className="text-center max-w-md">
+          <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-4">
+            Welcome to Habit Tracker
+          </h2>
+          <p className="text-slate-600 dark:text-slate-400 mb-8">
+            Sign in to start tracking your habits, earn XP, and level up your life!
+          </p>
+          <Link
+            href="/login"
+            className="inline-block px-6 py-3 bg-black text-white rounded-lg hover:bg-slate-800 transition-colors"
+          >
+            Sign In to Get Started
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  // Show loading for habit sets
+  if (loadingHabitSets) {
+    return (
       <div className="flex flex-col items-center justify-center py-12 space-y-4">
-        <p className="text-lg">Please sign in to view your habits</p>
-        <Link href="/login" className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
-          Sign In
-        </Link>
+        <div className="animate-spin rounded-full h-8 w-8 border-2 border-black dark:border-white border-t-transparent"></div>
+        <div className="text-sm text-slate-600 dark:text-slate-400">
+          Loading your habit sets...
+        </div>
       </div>
     );
   }
