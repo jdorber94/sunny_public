@@ -14,6 +14,14 @@ export const HabitList: React.FC = () => {
     habitsError 
   } = useHabits();
   
+  // Add console logging for debugging
+  console.log('HabitList rendering with:', {
+    habitCount: habits?.length,
+    activeHabitSet: activeHabitSet?.name,
+    loading: loadingHabits,
+    hasError: !!habitsError
+  });
+  
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [habitToEdit, setHabitToEdit] = useState<HabitType | null>(null);
   
@@ -116,13 +124,19 @@ export const HabitList: React.FC = () => {
       </div>
       
       <AnimatePresence>
-        {habits.map(habit => (
-          <Habit 
-            key={habit.id} 
-            habit={habit} 
-            onEdit={handleEditHabit} 
-          />
-        ))}
+        {Array.isArray(habits) && habits.length > 0 ? (
+          habits.map(habit => (
+            <Habit 
+              key={habit.id} 
+              habit={habit} 
+              onEdit={handleEditHabit} 
+            />
+          ))
+        ) : (
+          <div className="text-center text-gray-500 py-4">
+            No habits yet. Click "Add Habit" to create your first habit.
+          </div>
+        )}
       </AnimatePresence>
       
       {isFormOpen && (

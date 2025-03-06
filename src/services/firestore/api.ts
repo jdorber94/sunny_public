@@ -288,11 +288,25 @@ export const habitsApi = {
   // Get all habits for a habit set
   async getAll(userId: string, habitSetId: string): Promise<ApiResponse<Habit[]>> {
     return handleApiRequest(async () => {
-      const collectionRef = getHabitsRef(userId, habitSetId);
-      const q = query(collectionRef, orderBy('createdAt', 'asc'));
-      const querySnapshot = await getDocs(q);
-      
-      return querySnapshot.docs.map(doc => doc.data());
+      try {
+        console.log(`Fetching habits for userId: ${userId}, habitSetId: ${habitSetId}`);
+        const collectionRef = getHabitsRef(userId, habitSetId);
+        const q = query(collectionRef, orderBy('createdAt', 'desc')); // Change to desc to show newest first
+        const querySnapshot = await getDocs(q);
+        
+        // Log the retrieved habits
+        const habits = querySnapshot.docs.map(doc => {
+          const data = doc.data();
+          console.log(`Retrieved habit: ${doc.id}, name: ${data.name}`);
+          return data;
+        });
+        
+        console.log(`Retrieved ${habits.length} habits`);
+        return habits;
+      } catch (error) {
+        console.error(`Error fetching habits for set ${habitSetId}:`, error);
+        return []; // Return empty array instead of failing
+      }
     }, 'Failed to get habits');
   },
   
@@ -319,68 +333,71 @@ export const habitsApi = {
   // Create a new habit
   async create(userId: string, habitSetId: string, habit: Omit<Habit, 'id' | 'createdAt' | 'updatedAt'>): Promise<ApiResponse<Habit>> {
     return handleApiRequest(async () => {
-      const collectionRef = getHabitsRef(userId, habitSetId);
-      
-      // Create a new document with an auto-generated ID
-      const newHabitData = {
-        ...habit,
-        id: '' // Temporary ID that will be replaced
-      };
-      
-      // Create a new document with timestamps
-      const habitWithTimestamps = withTimestamps(newHabitData) as typeof newHabitData & {
-        createdAt?: any;
-        updatedAt?: any;
-      };
-      
-      // If timestamps weren't added (fallback case), add them explicitly
-      if (!habitWithTimestamps.createdAt) {
-        habitWithTimestamps.createdAt = serverTimestamp();
-      }
-      if (!habitWithTimestamps.updatedAt) {
-        habitWithTimestamps.updatedAt = serverTimestamp();
-      }
-      
-      const docRef = await addDoc(collectionRef, habitWithTimestamps);
-      
-      // Update the document with its actual ID
-      await updateDoc(docRef, { id: docRef.id });
-      
-      // Get the created document
       try {
-        const docSnap = await getDoc(docRef);
+        console.log(`Creating habit in set ${habitSetId}:`, habit);
+        const collectionRef = getHabitsRef(userId, habitSetId);
         
-        // Safe check for exists method
-        if (docSnap && typeof docSnap.exists === 'function' && docSnap.exists()) {
-          return docSnap.data();
-        } else {
-          // Fallback - create a basic habit object if we can't get the data
-          return {
-            id: docRef.id,
-            name: habit.name,
-            logs: habit.logs || [],
-            xp: habit.xp || 0,
-            streak: habit.streak || 0,
-            category: habit.category,
-            daysOfWeek: habit.daysOfWeek,
-            createdAt: null,
-            updatedAt: null
-          };
+        // Create a new document with an auto-generated ID
+        const newHabitData = {
+          ...habit,
+          id: '' // Temporary ID that will be replaced
+        };
+        
+        // Create a new document with timestamps
+        const habitWithTimestamps = withTimestamps(newHabitData) as typeof newHabitData & {
+          createdAt?: any;
+          updatedAt?: any;
+        };
+        
+        // If timestamps weren't added (fallback case), add them explicitly
+        if (!habitWithTimestamps.createdAt) {
+          habitWithTimestamps.createdAt = serverTimestamp();
         }
-      } catch (error) {
-        console.error('Error getting newly created habit:', error);
-        // Fallback - return the habit data we have
-        return {
-          id: docRef.id,
+        if (!habitWithTimestamps.updatedAt) {
+          habitWithTimestamps.updatedAt = serverTimestamp();
+        }
+        
+        const docRef = await addDoc(collectionRef, habitWithTimestamps);
+        const habitId = docRef.id;
+        console.log(`Created habit with ID: ${habitId}`);
+        
+        // Update the document with its actual ID
+        await updateDoc(docRef, { id: habitId });
+        console.log(`Updated habit with its ID: ${habitId}`);
+        
+        // Prepare the returned habit object (even if retrieval fails)
+        const newHabit: Habit = {
+          id: habitId,
           name: habit.name,
           logs: habit.logs || [],
           xp: habit.xp || 0,
           streak: habit.streak || 0,
-          category: habit.category,
-          daysOfWeek: habit.daysOfWeek,
-          createdAt: null, 
-          updatedAt: null
+          category: habit.category || '',
+          daysOfWeek: habit.daysOfWeek || [],
+          createdAt: null, // Will be set by Firestore
+          updatedAt: null  // Will be set by Firestore
         };
+        
+        // Try to get the created document with Firestore timestamps
+        try {
+          const docSnap = await getDoc(docRef);
+          
+          // Safe check for exists method
+          if (docSnap && typeof docSnap.exists === 'function' && docSnap.exists()) {
+            const data = docSnap.data();
+            console.log(`Retrieved newly created habit:`, data);
+            return data;
+          }
+        } catch (retrievalError) {
+          console.error(`Error retrieving newly created habit ${habitId}:`, retrievalError);
+        }
+        
+        // Return our constructed object if retrieval failed
+        console.log(`Returning manually constructed habit:`, newHabit);
+        return newHabit;
+      } catch (error) {
+        console.error('Error creating habit:', error);
+        throw error;
       }
     }, 'Failed to create habit');
   },

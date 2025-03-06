@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useFirebaseSubscription } from './useFirebaseSubscription';
 import { useAuth } from '@/contexts/AuthContext';
 import { habitsApi, habitSetsApi } from '@/services/firestore/api';
@@ -15,6 +15,7 @@ export function useHabits() {
   const [activeHabitSetId, setActiveHabitSetId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [habitSets, setHabitSets] = useState<HabitSet[]>([]);
+  const [habits, setHabits] = useState<Habit[]>([]);
   
   // Subscribe to habit sets
   const habitSetsRef = useMemo(() => {
@@ -50,14 +51,23 @@ export function useHabits() {
   // Subscribe to habits in the active habit set
   const habitsRef = useMemo(() => {
     if (!user || !activeHabitSetId) return null;
+    console.log(`Creating habitsRef for user ${user.uid}, habitSet ${activeHabitSetId}`);
     return getHabitsRef(user.uid, activeHabitSetId);
   }, [user, activeHabitSetId]);
   
   const { 
-    data: habits, 
+    data: habitsData, 
     loading: loadingHabits, 
     error: habitsError 
   } = useFirebaseSubscription<Habit>(habitsRef);
+  
+  // Keep our local state in sync with Firestore data
+  useEffect(() => {
+    if (Array.isArray(habitsData)) {
+      console.log(`Received ${habitsData.length} habits from Firestore subscription`);
+      setHabits(habitsData);
+    }
+  }, [habitsData]);
   
   // Create a new habit
   const createHabit = useCallback(async (
@@ -72,17 +82,41 @@ export function useHabits() {
     
     setIsLoading(true);
     try {
+      console.log('Creating new habit:', habitData);
       const result = await habitsApi.create(user.uid, activeHabitSetId, habitData);
       
-      if (result.status === 'success') {
+      if (result.status === 'success' && result.data) {
         toast.success('Habit created successfully');
+        
+        // Manually add the new habit to our local state to ensure it shows up
+        // without waiting for the Firestore subscription to update
+        setHabits((currentHabits) => {
+          // Make sure we're not adding duplicates
+          if (Array.isArray(currentHabits) && result.data) {
+            const habitExists = currentHabits.some(h => h.id === result.data?.id);
+            if (!habitExists) {
+              console.log('Adding new habit to local state:', result.data);
+              return [...currentHabits, result.data];
+            }
+          }
+          return currentHabits || [];
+        });
+      } else if (result.error) {
+        toast.error(result.error);
       }
       
       return result;
+    } catch (error) {
+      console.error('Error creating habit:', error);
+      toast.error('Failed to create habit');
+      return {
+        error: 'Failed to create habit',
+        status: 'error'
+      };
     } finally {
       setIsLoading(false);
     }
-  }, [user, activeHabitSetId]);
+  }, [user, activeHabitSetId, habitsApi, setHabits]);
   
   // Update a habit
   const updateHabit = useCallback(async (
@@ -287,22 +321,7 @@ export function useHabits() {
   }, []);
   
   return {
-    // Data
-    habitSets: Array.isArray(habitSetsData) ? habitSetsData : [],
-    habits: Array.isArray(habits) ? habits : [],
-    activeHabitSet,
-    activeHabitSetId,
-    
-    // Loading states
-    isLoading,
-    loadingHabitSets,
-    loadingHabits,
-    
-    // Errors
-    habitSetsError,
-    habitsError,
-    
-    // Actions
+    // Functions
     createHabit,
     updateHabit,
     deleteHabit,
@@ -310,6 +329,21 @@ export function useHabits() {
     createHabitSet,
     setActiveHabitSet,
     deleteHabitSet,
+    
+    // State
+    isLoading,
+    loadingHabitSets,
+    loadingHabits,
+    
+    // Data
+    habitSets: Array.isArray(habitSetsData) ? habitSetsData : [],
+    habits: Array.isArray(habits) ? habits : [],
+    activeHabitSet,
+    activeHabitSetId,
+    
+    // Errors
+    habitSetsError,
+    habitsError,
     
     // Helpers
     isHabitCompletedToday
