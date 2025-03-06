@@ -2,11 +2,19 @@ import React, { useState } from 'react';
 import { Habit as HabitType } from '@/types';
 import { Habit } from './Habit';
 import { useHabits } from '@/hooks/useHabits';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence } from 'framer-motion';
 import { FaPlus } from 'react-icons/fa';
 import { HabitForm } from './HabitForm';
 
-export const HabitList: React.FC = () => {
+interface HabitListProps {
+  onEditHabit?: (habit: HabitType) => void;
+  showAddButton?: boolean;
+}
+
+export const HabitList: React.FC<HabitListProps> = ({ 
+  onEditHabit,
+  showAddButton = false
+}) => {
   const { 
     habits, 
     activeHabitSet, 
@@ -27,8 +35,12 @@ export const HabitList: React.FC = () => {
   
   // Handle opening the form for editing a habit
   const handleEditHabit = (habit: HabitType) => {
-    setHabitToEdit(habit);
-    setIsFormOpen(true);
+    if (onEditHabit) {
+      onEditHabit(habit);
+    } else {
+      setHabitToEdit(habit);
+      setIsFormOpen(true);
+    }
   };
   
   // Handle closing the form
@@ -87,7 +99,7 @@ export const HabitList: React.FC = () => {
             : 'Create a habit set first to start tracking your habits.'}
         </p>
         
-        {activeHabitSet && (
+        {activeHabitSet && showAddButton && (
           <button
             onClick={() => setIsFormOpen(true)}
             className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors duration-200 flex items-center"
@@ -107,21 +119,21 @@ export const HabitList: React.FC = () => {
   // Render habit list
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold text-gray-800">
-          {activeHabitSet?.name || 'My Habits'}
-        </h2>
-        
-        <motion.button
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          onClick={() => setIsFormOpen(true)}
-          className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors duration-200 flex items-center"
-        >
-          <FaPlus className="mr-2" />
-          Add Habit
-        </motion.button>
-      </div>
+      {showAddButton && (
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-2xl font-bold text-gray-800">
+            {activeHabitSet?.name || 'My Habits'}
+          </h2>
+          
+          <button
+            onClick={() => setIsFormOpen(true)}
+            className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors duration-200 flex items-center"
+          >
+            <FaPlus className="mr-2" />
+            Add Habit
+          </button>
+        </div>
+      )}
       
       <AnimatePresence>
         {Array.isArray(habits) && habits.length > 0 ? (
