@@ -53,4 +53,8 @@ export const getHabitRef = (userId: string, habitSetId: string, habitId: string)
   doc(collections.habits(userId, habitSetId), habitId);
 
 export const getUserStatsRef = (userId: string): CollectionReference<UserStats> => 
-  collections.userStats(userId); 
+  collections.userStats(userId);
+
+// Add a function to get a document reference for user stats
+export const getUserStatsDocRef = (userId: string, statsId: string = 'current'): DocumentReference<UserStats> => 
+  doc(collections.userStats(userId), statsId); 

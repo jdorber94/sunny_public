@@ -29,7 +29,8 @@ import {
   getHabitSetRef, 
   getHabitsRef, 
   getHabitRef, 
-  getUserStatsRef 
+  getUserStatsRef,
+  getUserStatsDocRef
 } from './collections';
 import { 
   withTimestamps, 
@@ -269,7 +270,7 @@ export const habitsApi = {
   async toggleCompletion(userId: string, habitSetId: string, habitId: string): Promise<ApiResponse<boolean>> {
     return handleApiRequest(async () => {
       const habitRef = getHabitRef(userId, habitSetId, habitId);
-      const statsRef = getUserStatsRef(userId);
+      const statsDocRef = getUserStatsDocRef(userId);
       
       // Get current habit data
       const habitSnap = await getDoc(habitRef);
@@ -282,7 +283,7 @@ export const habitsApi = {
       const isCompletedToday = habit.logs.includes(today);
       
       // Get current stats
-      const statsSnap = await getDoc(statsRef);
+      const statsSnap = await getDoc(statsDocRef);
       const stats = statsSnap.exists() 
         ? statsSnap.data() 
         : { totalXP: 0, dailyXP: { date: today, xp: 0 } };
@@ -303,7 +304,7 @@ export const habitsApi = {
         const XP_PER_COMPLETION = 50;
         const MAX_DAILY_XP = 500;
         
-        batch.set(statsRef, {
+        batch.set(statsDocRef, {
           totalXP: stats.totalXP + XP_PER_COMPLETION,
           dailyXP: {
             date: today,
@@ -324,7 +325,7 @@ export const userStatsApi = {
   // Get user stats
   async get(userId: string): Promise<ApiResponse<UserStats | null>> {
     return handleApiRequest(async () => {
-      const docRef = getUserStatsRef(userId);
+      const docRef = getUserStatsDocRef(userId);
       const docSnap = await getDoc(docRef);
       
       return docSnap.exists() ? docSnap.data() : null;
@@ -334,7 +335,7 @@ export const userStatsApi = {
   // Update user stats
   async update(userId: string, updates: Partial<UserStats>): Promise<ApiResponse<boolean>> {
     return handleApiRequest(async () => {
-      const docRef = getUserStatsRef(userId);
+      const docRef = getUserStatsDocRef(userId);
       const docSnap = await getDoc(docRef);
       
       if (docSnap.exists()) {
@@ -342,7 +343,7 @@ export const userStatsApi = {
       } else {
         const today = new Date().toISOString().split('T')[0];
         const defaultStats = {
-          id: 'daily',
+          id: 'current',
           totalXP: updates.totalXP || 0,
           dailyXP: updates.dailyXP || { date: today, xp: 0 }
         };
