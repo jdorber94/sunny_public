@@ -68,20 +68,24 @@ export const userProfileApi = {
     }, 'Failed to get user profile');
   },
   
-  // Create or update user profile
+  // Save or update a user profile
   async save(userId: string, profile: Partial<UserProfile>): Promise<ApiResponse<boolean>> {
     return handleApiRequest(async () => {
       const docRef = getUserProfileRef(userId);
       const docSnap = await getDoc(docRef);
       
       if (docSnap.exists()) {
-        // Update existing profile
-        await updateDoc(docRef, withUpdateTimestamp(profile));
+        // Document exists, update it
+        await updateDoc(docRef, withUpdateTimestamp({
+          ...profile,
+          // Ensure we don't include id in the update data
+          id: undefined
+        }));
       } else {
-        // Create new profile with defaults
+        // Document doesn't exist, create it
         const newProfile = {
           id: userId,
-          name: profile.name || '',
+          name: profile.name || 'User',
           email: profile.email || '',
           avatar: profile.avatar || '',
           level: profile.level || 1,
@@ -96,7 +100,22 @@ export const userProfileApi = {
             weekStartsOn: 'monday'
           }
         };
-        await setDoc(docRef, withTimestamps(newProfile));
+        
+        // Create a new document with timestamps
+        const docData = withTimestamps(newProfile) as typeof newProfile & {
+          createdAt?: any;
+          updatedAt?: any;
+        };
+        
+        // If timestamps weren't added (fallback case), add them explicitly
+        if (!docData.createdAt) {
+          docData.createdAt = serverTimestamp();
+        }
+        if (!docData.updatedAt) {
+          docData.updatedAt = serverTimestamp();
+        }
+        
+        await setDoc(docRef, docData);
       }
       
       return true;
@@ -138,7 +157,21 @@ export const habitSetsApi = {
         id: '' // Temporary ID that will be replaced
       };
       
-      const docRef = await addDoc(collectionRef, withTimestamps(newHabitSetData));
+      // Create a new document with timestamps
+      const habitSetWithTimestamps = withTimestamps(newHabitSetData) as typeof newHabitSetData & {
+        createdAt?: any;
+        updatedAt?: any;
+      };
+      
+      // If timestamps weren't added (fallback case), add them explicitly
+      if (!habitSetWithTimestamps.createdAt) {
+        habitSetWithTimestamps.createdAt = serverTimestamp();
+      }
+      if (!habitSetWithTimestamps.updatedAt) {
+        habitSetWithTimestamps.updatedAt = serverTimestamp();
+      }
+      
+      const docRef = await addDoc(collectionRef, habitSetWithTimestamps);
       
       // Update the document with its actual ID
       await updateDoc(docRef, { id: docRef.id });
@@ -231,7 +264,21 @@ export const habitsApi = {
         id: '' // Temporary ID that will be replaced
       };
       
-      const docRef = await addDoc(collectionRef, withTimestamps(newHabitData));
+      // Create a new document with timestamps
+      const habitWithTimestamps = withTimestamps(newHabitData) as typeof newHabitData & {
+        createdAt?: any;
+        updatedAt?: any;
+      };
+      
+      // If timestamps weren't added (fallback case), add them explicitly
+      if (!habitWithTimestamps.createdAt) {
+        habitWithTimestamps.createdAt = serverTimestamp();
+      }
+      if (!habitWithTimestamps.updatedAt) {
+        habitWithTimestamps.updatedAt = serverTimestamp();
+      }
+      
+      const docRef = await addDoc(collectionRef, habitWithTimestamps);
       
       // Update the document with its actual ID
       await updateDoc(docRef, { id: docRef.id });
@@ -347,7 +394,22 @@ export const userStatsApi = {
           totalXP: updates.totalXP || 0,
           dailyXP: updates.dailyXP || { date: today, xp: 0 }
         };
-        await setDoc(docRef, withTimestamps(defaultStats));
+
+        // Create stats with timestamps
+        const statsWithTimestamps = withTimestamps(defaultStats) as typeof defaultStats & {
+          createdAt?: any;
+          updatedAt?: any;
+        };
+
+        // If timestamps weren't added (fallback case), add them explicitly
+        if (!statsWithTimestamps.createdAt) {
+          statsWithTimestamps.createdAt = serverTimestamp();
+        }
+        if (!statsWithTimestamps.updatedAt) {
+          statsWithTimestamps.updatedAt = serverTimestamp();
+        }
+
+        await setDoc(docRef, statsWithTimestamps);
       }
       
       return true;

@@ -26,12 +26,9 @@ export const withTimestamps = <T extends object>(data: T) => {
     };
   } catch (error) {
     console.error('Error adding timestamps:', error);
-    // Fall back to JavaScript Date objects if serverTimestamp fails
-    return {
-      ...data,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
+    // Instead of using Date objects directly, we'll omit timestamps
+    // and let Firestore handle it during insertion
+    return data;
   }
 };
 
@@ -44,11 +41,8 @@ export const withUpdateTimestamp = <T extends object>(data: T) => {
     };
   } catch (error) {
     console.error('Error adding update timestamp:', error);
-    // Fall back to JavaScript Date if serverTimestamp fails
-    return {
-      ...data,
-      updatedAt: new Date()
-    };
+    // Instead of using Date objects directly, we'll omit the timestamp
+    return data;
   }
 };
 
