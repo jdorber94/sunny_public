@@ -15,7 +15,7 @@ import {
   CollectionReference,
   Query
 } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { db } from './config';
 import { 
   Habit, 
   HabitSet, 

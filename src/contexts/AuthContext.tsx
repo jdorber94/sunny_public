@@ -8,7 +8,7 @@ import {
   createUser as firebaseCreateUser, 
   signOut as firebaseSignOut, 
   subscribeToAuthChanges 
-} from '@/lib/firebase';
+} from '@/services/firebase/auth';
 import { initializeUserData, getUserProfile, subscribeToUserProfile, UserProfile } from '@/lib/firestoreService';
 
 interface AuthContextType {

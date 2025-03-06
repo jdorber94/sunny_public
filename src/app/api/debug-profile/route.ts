@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getUserProfile, saveUserProfile } from '@/lib/firestoreService';
-import { db } from '@/lib/firebase';
+import { db } from '@/services/firestore/config';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 
 export async function POST(request: Request) {

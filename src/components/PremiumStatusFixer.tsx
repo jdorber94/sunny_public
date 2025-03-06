@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { db } from '@/lib/firebase';
+import { db } from '@/services/firestore/config';
 import { doc, getDoc, updateDoc, setDoc } from 'firebase/firestore';
 import { toast } from 'react-hot-toast';
 
