@@ -18,19 +18,38 @@ import {
 
 // Helper function to add timestamps to new documents
 export const withTimestamps = <T extends object>(data: T) => {
-  return {
-    ...data,
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp()
-  };
+  try {
+    return {
+      ...data,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    };
+  } catch (error) {
+    console.error('Error adding timestamps:', error);
+    // Fall back to JavaScript Date objects if serverTimestamp fails
+    return {
+      ...data,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+  }
 };
 
 // Helper function to add update timestamp
 export const withUpdateTimestamp = <T extends object>(data: T) => {
-  return {
-    ...data,
-    updatedAt: serverTimestamp()
-  };
+  try {
+    return {
+      ...data,
+      updatedAt: serverTimestamp()
+    };
+  } catch (error) {
+    console.error('Error adding update timestamp:', error);
+    // Fall back to JavaScript Date if serverTimestamp fails
+    return {
+      ...data,
+      updatedAt: new Date()
+    };
+  }
 };
 
 // Generic converter factory
@@ -61,11 +80,11 @@ export const habitConverter = createConverter<Habit>(
       name: data.name || '',
       logs: data.logs || [],
       xp: data.xp || 0,
-      streak: data.streak,
-      category: data.category,
-      daysOfWeek: data.daysOfWeek,
-      createdAt: data.createdAt as Timestamp,
-      updatedAt: data.updatedAt as Timestamp
+      streak: data.streak || 0,
+      category: data.category || '',
+      daysOfWeek: data.daysOfWeek || [],
+      createdAt: data.createdAt || null,
+      updatedAt: data.updatedAt || null
     };
   },
   (habit) => {
@@ -80,11 +99,11 @@ export const habitSetConverter = createConverter<HabitSet>(
     return {
       id: snapshot.id,
       name: data.name || '',
-      description: data.description,
+      description: data.description || '',
       isPremium: data.isPremium || false,
       isActive: data.isActive || false,
-      createdAt: data.createdAt as Timestamp,
-      updatedAt: data.updatedAt as Timestamp
+      createdAt: data.createdAt || null,
+      updatedAt: data.updatedAt || null
     };
   },
   (habitSet) => {
@@ -108,12 +127,12 @@ export const userProfileConverter = createConverter<UserProfile>(
       joinDate: data.joinDate || new Date().toISOString().split('T')[0],
       isPremium: data.isPremium || false,
       preferences: {
-        notifications: data.preferences?.notifications || false,
-        darkMode: data.preferences?.darkMode || false,
+        notifications: data.preferences?.notifications ?? false,
+        darkMode: data.preferences?.darkMode ?? false,
         weekStartsOn: data.preferences?.weekStartsOn || 'monday'
       },
-      createdAt: data.createdAt as Timestamp,
-      updatedAt: data.updatedAt as Timestamp
+      createdAt: data.createdAt || null,
+      updatedAt: data.updatedAt || null
     };
   },
   (profile) => {
@@ -125,15 +144,16 @@ export const userProfileConverter = createConverter<UserProfile>(
 export const userStatsConverter = createConverter<UserStats>(
   (snapshot) => {
     const data = snapshot.data();
+    const today = new Date().toISOString().split('T')[0];
     return {
       id: snapshot.id,
       totalXP: data.totalXP || 0,
       dailyXP: {
-        date: data.dailyXP?.date || new Date().toISOString().split('T')[0],
+        date: data.dailyXP?.date || today,
         xp: data.dailyXP?.xp || 0
       },
-      createdAt: data.createdAt as Timestamp,
-      updatedAt: data.updatedAt as Timestamp
+      createdAt: data.createdAt || null,
+      updatedAt: data.updatedAt || null
     };
   },
   (stats) => {

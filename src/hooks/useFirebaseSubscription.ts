@@ -75,6 +75,11 @@ export function useFirebaseSubscription<T>(
             try {
               const docData = snapshot.exists() ? snapshot.data() : null;
               
+              // Validate the docData before setting it
+              if (snapshot.exists() && !docData) {
+                console.warn('Document exists but data is null:', snapshot.id);
+              }
+              
               setData(docData);
               setLoading(false);
               
@@ -87,7 +92,12 @@ export function useFirebaseSubscription<T>(
               setError(appError);
               setLoading(false);
               
-              // Log the error
+              // Log the error with more context
+              console.error('Snapshot processing error:', {
+                docId: snapshot.id,
+                exists: snapshot.exists(),
+                error: err
+              });
               logError(appError);
               
               // Call the onError callback if provided
@@ -119,7 +129,14 @@ export function useFirebaseSubscription<T>(
           reference as Query<T>,
           (snapshot: QuerySnapshot<T>) => {
             try {
-              const docsData = snapshot.docs.map(doc => doc.data());
+              const docsData = snapshot.docs.map(doc => {
+                try {
+                  return doc.data();
+                } catch (docErr) {
+                  console.error(`Error processing doc ${doc.id}:`, docErr);
+                  return null;
+                }
+              }).filter(Boolean) as T[]; // Filter out null values
               
               setData(docsData);
               setLoading(false);
@@ -133,7 +150,11 @@ export function useFirebaseSubscription<T>(
               setError(appError);
               setLoading(false);
               
-              // Log the error
+              // Log more context about the error
+              console.error('Collection snapshot processing error:', {
+                docsCount: snapshot.docs.length,
+                error: err
+              });
               logError(appError);
               
               // Call the onError callback if provided

@@ -19,8 +19,8 @@ export interface AppError extends Error {
 // Base types with common fields
 export interface BaseModel {
   id: string;
-  createdAt?: Timestamp;
-  updatedAt?: Timestamp;
+  createdAt?: Timestamp | null;
+  updatedAt?: Timestamp | null;
 }
 
 // User related types
