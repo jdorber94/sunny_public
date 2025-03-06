@@ -7,10 +7,6 @@ const nextConfig = {
     domains: [],
     remotePatterns: [],
   },
-  experimental: {
-    optimizeCss: true,
-    scrollRestoration: true,
-  },
 };
 
 module.exports = nextConfig; 
