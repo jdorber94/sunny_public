@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { headers } from 'next/headers';
-import { getUserProfile, saveUserProfile } from '@/lib/firestoreService';
+import { db } from '@/services/firestore/config';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 
 // Use a function to initialize Stripe only when the route is called
 const getStripeInstance = () => {
@@ -49,14 +50,17 @@ export async function POST(request: Request) {
       if (userId) {
         try {
           // Get the user's profile
-          const userProfile = await getUserProfile(userId);
+          const userDocRef = doc(db, 'users', userId);
+          const userDocSnap = await getDoc(userDocRef);
           
-          if (userProfile) {
+          if (userDocSnap.exists()) {
             // Update the profile with premium status
-            userProfile.isPremium = true;
+            const userData = userDocSnap.data();
+            userData.isPremium = true;
+            userData.updatedAt = new Date();
             
             // Save the updated profile
-            await saveUserProfile(userId, userProfile);
+            await setDoc(userDocRef, userData, { merge: true });
             console.log(`User ${userId} upgraded to premium successfully`);
           }
         } catch (error) {

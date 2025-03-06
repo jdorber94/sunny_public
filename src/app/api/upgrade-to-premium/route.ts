@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { getUserProfile, saveUserProfile } from '@/lib/firestoreService';
+import { db } from '@/services/firestore/config';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 
 export async function POST(request: Request) {
   try {
@@ -13,66 +14,56 @@ export async function POST(request: Request) {
     }
     
     // Get the user's profile
-    let userProfile = await getUserProfile(userId);
+    const userProfileDoc = doc(db, 'users', userId);
+    const userProfileSnapshot = await getDoc(userProfileDoc);
     
     // If profile doesn't exist, create a new one
-    if (!userProfile) {
+    if (!userProfileSnapshot.exists()) {
       console.log(`User profile not found for ${userId}, creating a new one`);
       
-      // Create a basic profile if email is provided
-      if (email) {
-        userProfile = {
-          name: email.split('@')[0],
-          email: email,
-          avatar: '',
-          level: 1,
-          totalXP: 0,
-          daysActive: 0,
-          currentStreak: 0,
-          joinDate: new Date().toISOString(),
-          isPremium: true, // Set to premium immediately
-          preferences: {
-            notifications: true,
-            darkMode: false,
-            weekStartsOn: 'monday'
-          }
-        };
-      } else {
-        // Create a minimal profile if no email
-        userProfile = {
-          name: 'User',
-          email: 'unknown@example.com',
-          avatar: '',
-          level: 1,
-          totalXP: 0,
-          daysActive: 0,
-          currentStreak: 0,
-          joinDate: new Date().toISOString(),
-          isPremium: true,
-          preferences: {
-            notifications: true,
-            darkMode: false,
-            weekStartsOn: 'monday'
-          }
-        };
-      }
+      const newUserProfile = {
+        name: email.split('@')[0], // Use part of email as name
+        email,
+        isPremium: true,
+        avatar: '',
+        level: 1,
+        totalXP: 0,
+        daysActive: 1,
+        currentStreak: 1,
+        joinDate: new Date().toISOString().split('T')[0],
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        preferences: {
+          notifications: true,
+          darkMode: false,
+          weekStartsOn: 'monday'
+        }
+      };
       
       // Save the new profile
-      await saveUserProfile(userId, userProfile);
+      await setDoc(userProfileDoc, newUserProfile);
       
       console.log(`Created new premium profile for user ${userId}`);
       
-      return NextResponse.json({ 
-        success: true, 
-        message: 'New premium user profile created successfully' 
+      // Return the checkout URL
+      return NextResponse.json({
+        success: true,
+        message: 'New premium profile created successfully'
       });
     }
     
-    // Update the existing profile with premium status
-    userProfile.isPremium = true;
+    // Get the existing profile data
+    const userProfile = userProfileSnapshot.data();
+    
+    // Update the profile with premium status
+    const updatedProfile = {
+      ...userProfile,
+      isPremium: true,
+      updatedAt: new Date()
+    };
     
     // Save the updated profile
-    await saveUserProfile(userId, userProfile);
+    await setDoc(userProfileDoc, updatedProfile);
     
     console.log(`User ${userId} manually upgraded to premium`);
     

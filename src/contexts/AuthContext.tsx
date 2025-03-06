@@ -9,7 +9,33 @@ import {
   signOut as firebaseSignOut, 
   subscribeToAuthChanges 
 } from '@/services/firebase/auth';
-import { initializeUserData, getUserProfile, subscribeToUserProfile, UserProfile } from '@/lib/firestoreService';
+import { db } from '@/services/firestore/config';
+import { 
+  doc, 
+  getDoc, 
+  setDoc, 
+  onSnapshot 
+} from 'firebase/firestore';
+
+// Define the UserProfile type locally
+interface UserProfile {
+  name: string;
+  email: string;
+  avatar: string;
+  isPremium?: boolean;
+  level?: number;
+  totalXP?: number;
+  daysActive?: number;
+  currentStreak?: number;
+  joinDate?: string;
+  createdAt?: Date;
+  updatedAt?: Date;
+  preferences?: {
+    notifications: boolean;
+    darkMode: boolean;
+    weekStartsOn: string;
+  };
+}
 
 interface AuthContextType {
   user: (User & { isPremium?: boolean }) | null;
@@ -24,13 +50,68 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Helper functions to replace the old firestoreService functions
+const initializeUserData = async (authUser: User): Promise<void> => {
+  const userDocRef = doc(db, 'users', authUser.uid);
+  const userDoc = await getDoc(userDocRef);
+  
+  if (!userDoc.exists()) {
+    // Create a new user profile if it doesn't exist
+    const newProfile: UserProfile = {
+      name: authUser.displayName || 'User',
+      email: authUser.email || '',
+      avatar: authUser.photoURL || '',
+      level: 1,
+      totalXP: 0,
+      daysActive: 1,
+      currentStreak: 1,
+      joinDate: new Date().toISOString().split('T')[0],
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      preferences: {
+        notifications: true,
+        darkMode: false,
+        weekStartsOn: 'monday'
+      }
+    };
+    
+    await setDoc(userDocRef, newProfile);
+  }
+};
+
+const getUserProfile = async (userId: string): Promise<UserProfile | null> => {
+  const userDocRef = doc(db, 'users', userId);
+  const userDoc = await getDoc(userDocRef);
+  
+  if (userDoc.exists()) {
+    return userDoc.data() as UserProfile;
+  }
+  
+  return null;
+};
+
+const subscribeToUserProfile = (userId: string, callback: (profile: UserProfile | null) => void) => {
+  const userDocRef = doc(db, 'users', userId);
+  
+  return onSnapshot(userDocRef, (snapshot) => {
+    if (snapshot.exists()) {
+      callback(snapshot.data() as UserProfile);
+    } else {
+      callback(null);
+    }
+  }, (error) => {
+    console.error('Error subscribing to user profile:', error);
+    callback(null);
+  });
+};
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<(User & { isPremium?: boolean }) | null>(null);
   const [loading, setLoading] = useState(true);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
 
   useEffect(() => {
-    const unsubscribe = subscribeToAuthChanges((authUser) => {
+    const unsubscribe = subscribeToAuthChanges((authUser: User | null) => {
       if (authUser) {
         // Initialize user data in Firestore when user logs in
         initializeUserData(authUser).catch(error => {

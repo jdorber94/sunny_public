@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { getUserProfile, saveUserProfile } from '@/lib/firestoreService';
+import { db } from '@/services/firestore/config';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 
 export async function POST(request: Request) {
   try {
@@ -25,20 +26,26 @@ export async function POST(request: Request) {
     }
 
     // Get the user profile
-    let userProfile = await getUserProfile(userId);
+    const userProfileDoc = doc(db, 'users', userId);
+    const userProfileSnapshot = await getDoc(userProfileDoc);
 
-    if (!userProfile) {
+    if (!userProfileSnapshot.exists()) {
       return NextResponse.json(
         { success: false, message: 'User profile not found' },
         { status: 404 }
       );
     }
 
+    const userProfile = userProfileSnapshot.data();
+
     // Set premium status
-    userProfile.isPremium = true;
+    const updatedUserProfile = {
+      ...userProfile,
+      isPremium: true
+    };
 
     // Save the updated profile
-    await saveUserProfile(userId, userProfile);
+    await setDoc(userProfileDoc, updatedUserProfile);
 
     return NextResponse.json({
       success: true,

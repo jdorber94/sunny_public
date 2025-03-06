@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import { getUserProfile, saveUserProfile } from '@/lib/firestoreService';
 import { db } from '@/services/firestore/config';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 
