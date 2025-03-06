@@ -45,5 +45,26 @@ export const getCurrentUser = (): User | null => {
   return auth.currentUser;
 };
 
+// Create a test user for debugging purposes
+export const createTestUser = async (): Promise<User> => {
+  try {
+    // Try to sign in with test credentials first
+    try {
+      const result = await signInWithEmailAndPassword(auth, 'test@example.com', 'Test123!');
+      console.log('Signed in with test user');
+      return result.user;
+    } catch (error) {
+      // If sign in fails, create a new test user
+      console.log('Creating new test user');
+      const result = await createUserWithEmailAndPassword(auth, 'test@example.com', 'Test123!');
+      await updateProfile(result.user, { displayName: 'Test User' });
+      return result.user;
+    }
+  } catch (error) {
+    console.error('Error creating/signing in test user:', error);
+    throw error;
+  }
+};
+
 // Export Firebase auth instance
 export { auth }; 

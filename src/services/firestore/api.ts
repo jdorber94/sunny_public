@@ -146,25 +146,32 @@ export const habitSetsApi = {
   // Get all habit sets for a user
   async getAll(userId: string): Promise<ApiResponse<HabitSet[]>> {
     return handleApiRequest(async () => {
+      console.log(`Getting all habit sets for user ${userId}`);
       const collectionRef = getHabitSetsRef(userId);
       const q = query(collectionRef, orderBy('createdAt', 'asc'));
       const querySnapshot = await getDocs(q);
       
-      return querySnapshot.docs.map(doc => doc.data());
+      const habitSets = querySnapshot.docs.map(doc => doc.data());
+      console.log(`Retrieved ${habitSets.length} habit sets for user ${userId}`);
+      return habitSets;
     }, 'Failed to get habit sets');
   },
   
   // Get a specific habit set
   async get(userId: string, habitSetId: string): Promise<ApiResponse<HabitSet | null>> {
     return handleApiRequest(async () => {
+      console.log(`Getting habit set ${habitSetId} for user ${userId}`);
       const docRef = getHabitSetRef(userId, habitSetId);
       try {
         const docSnap = await getDoc(docRef);
         
         // Safe check for exists method
         if (docSnap && typeof docSnap.exists === 'function' && docSnap.exists()) {
-          return docSnap.data();
+          const data = docSnap.data();
+          console.log(`Retrieved habit set: ${habitSetId}, name: ${data.name}`);
+          return data;
         } else {
+          console.log(`Habit set ${habitSetId} not found`);
           return null;
         }
       } catch (error) {
@@ -177,6 +184,7 @@ export const habitSetsApi = {
   // Create a new habit set
   async create(userId: string, habitSet: Omit<HabitSet, 'id' | 'createdAt' | 'updatedAt'>): Promise<ApiResponse<HabitSet>> {
     return handleApiRequest(async () => {
+      console.log(`Creating habit set for user ${userId}:`, habitSet);
       const collectionRef = getHabitSetsRef(userId);
       
       // Create a new document with an auto-generated ID
@@ -199,10 +207,14 @@ export const habitSetsApi = {
         habitSetWithTimestamps.updatedAt = serverTimestamp();
       }
       
+      console.log('Adding document to Firestore with data:', habitSetWithTimestamps);
       const docRef = await addDoc(collectionRef, habitSetWithTimestamps);
+      const habitSetId = docRef.id;
+      console.log(`Created habit set with ID: ${habitSetId}`);
       
       // Update the document with its actual ID
-      await updateDoc(docRef, { id: docRef.id });
+      await updateDoc(docRef, { id: habitSetId });
+      console.log(`Updated habit set with its ID: ${habitSetId}`);
       
       // Get the created document
       try {
@@ -210,11 +222,14 @@ export const habitSetsApi = {
         
         // Safe check for exists method
         if (docSnap && typeof docSnap.exists === 'function' && docSnap.exists()) {
-          return docSnap.data();
+          const data = docSnap.data();
+          console.log(`Retrieved newly created habit set:`, data);
+          return data;
         } else {
+          console.log(`Newly created habit set ${habitSetId} not found, returning fallback`);
           // Fallback - create a basic habit set object if we can't get the data
           return {
-            id: docRef.id,
+            id: habitSetId,
             name: habitSet.name,
             description: habitSet.description || '',
             isActive: habitSet.isActive || false,
@@ -227,7 +242,7 @@ export const habitSetsApi = {
         console.error('Error getting newly created habit set:', error);
         // Fallback - return the habit set data we have
         return {
-          id: docRef.id,
+          id: habitSetId,
           name: habitSet.name,
           description: habitSet.description || '',
           isActive: habitSet.isActive || false,
@@ -242,8 +257,10 @@ export const habitSetsApi = {
   // Update a habit set
   async update(userId: string, habitSetId: string, updates: Partial<HabitSet>): Promise<ApiResponse<boolean>> {
     return handleApiRequest(async () => {
+      console.log(`Updating habit set ${habitSetId} for user ${userId}:`, updates);
       const docRef = getHabitSetRef(userId, habitSetId);
       await updateDoc(docRef, withUpdateTimestamp(updates));
+      console.log(`Successfully updated habit set ${habitSetId}`);
       
       return true;
     }, 'Failed to update habit set');
@@ -252,8 +269,10 @@ export const habitSetsApi = {
   // Delete a habit set
   async delete(userId: string, habitSetId: string): Promise<ApiResponse<boolean>> {
     return handleApiRequest(async () => {
+      console.log(`Deleting habit set ${habitSetId} for user ${userId}`);
       const docRef = getHabitSetRef(userId, habitSetId);
       await deleteDoc(docRef);
+      console.log(`Successfully deleted habit set ${habitSetId}`);
       
       return true;
     }, 'Failed to delete habit set');
@@ -262,22 +281,28 @@ export const habitSetsApi = {
   // Set a habit set as active
   async setActive(userId: string, habitSetId: string): Promise<ApiResponse<boolean>> {
     return handleApiRequest(async () => {
+      console.log(`Setting habit set ${habitSetId} as active for user ${userId}`);
       const batch = writeBatch(db);
       
       // Get all habit sets
       const collectionRef = getHabitSetsRef(userId);
       const querySnapshot = await getDocs(collectionRef);
       
+      console.log(`Found ${querySnapshot.size} habit sets to update`);
+      
       // Set all to inactive
       querySnapshot.forEach(doc => {
+        console.log(`Setting habit set ${doc.id} to inactive`);
         batch.update(doc.ref, { isActive: false, updatedAt: serverTimestamp() });
       });
       
       // Set the selected one to active
       const docRef = getHabitSetRef(userId, habitSetId);
+      console.log(`Setting habit set ${habitSetId} to active`);
       batch.update(docRef, { isActive: true, updatedAt: serverTimestamp() });
       
       await batch.commit();
+      console.log(`Successfully set habit set ${habitSetId} as active`);
       return true;
     }, 'Failed to set active habit set');
   }

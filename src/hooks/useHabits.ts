@@ -19,6 +19,7 @@ export function useHabits() {
   
   // Subscribe to habit sets
   const habitSetsRef = useMemo(() => {
+    console.log('Creating habitSetsRef for user:', user?.uid);
     return user ? getHabitSetsRef(user.uid) : null;
   }, [user]);
   
@@ -28,25 +29,37 @@ export function useHabits() {
     error: habitSetsError 
   } = useFirebaseSubscription<HabitSet>(habitSetsRef);
   
+  // Keep our local state in sync with Firestore data for habit sets
+  useEffect(() => {
+    console.log('Received habitSetsData:', habitSetsData);
+    if (Array.isArray(habitSetsData)) {
+      console.log(`Received ${habitSetsData.length} habit sets from Firestore subscription`);
+      setHabitSets(habitSetsData);
+    }
+  }, [habitSetsData]);
+  
   // Find active habit set
   const activeHabitSet = useMemo(() => {
-    if (!habitSetsData || !Array.isArray(habitSetsData)) return null;
+    console.log('Finding active habit set from:', habitSets);
+    if (!habitSets || !Array.isArray(habitSets) || habitSets.length === 0) return null;
     
     // First try to find the one marked as active
-    const active = habitSetsData.find(set => set.isActive);
+    const active = habitSets.find(set => set.isActive);
     if (active) {
+      console.log('Found active habit set:', active.name);
       setActiveHabitSetId(active.id);
       return active;
     }
     
     // If no active set is found and we have sets, use the first one
-    if (habitSetsData.length > 0) {
-      setActiveHabitSetId(habitSetsData[0].id);
-      return habitSetsData[0];
+    if (habitSets.length > 0) {
+      console.log('No active set found, using first one:', habitSets[0].name);
+      setActiveHabitSetId(habitSets[0].id);
+      return habitSets[0];
     }
     
     return null;
-  }, [habitSetsData]);
+  }, [habitSets]);
   
   // Subscribe to habits in the active habit set
   const habitsRef = useMemo(() => {
@@ -116,7 +129,7 @@ export function useHabits() {
     } finally {
       setIsLoading(false);
     }
-  }, [user, activeHabitSetId, habitsApi, setHabits]);
+  }, [user, activeHabitSetId]);
   
   // Update a habit
   const updateHabit = useCallback(async (
@@ -201,20 +214,35 @@ export function useHabits() {
     
     setIsLoading(true);
     try {
+      console.log('Creating habit set with data:', habitSetData);
       const result = await habitSetsApi.create(user.uid, habitSetData);
+      console.log('Habit set creation API result:', result);
       
       if (result.status === 'success' && result.data) {
         // Set as active if it's the first one
-        if (!activeHabitSetId) {
+        if (habitSets.length === 0) {
+          console.log('Setting as active (first habit set):', result.data.id);
           await habitSetsApi.setActive(user.uid, result.data.id);
           setActiveHabitSetId(result.data.id);
         }
+        
+        // Manually add to local state to ensure immediate UI update
+        setHabitSets(prev => {
+          const exists = prev.some(set => set.id === result.data?.id);
+          if (!exists && result.data) {
+            console.log('Adding new habit set to local state:', result.data);
+            return [...prev, result.data];
+          }
+          return prev;
+        });
         
         toast.success('Habit set created successfully');
       }
       
       return result;
     } catch (error) {
+      console.error('Error creating habit set:', error);
+      
       // Handle quota exceeded errors specially
       if (isQuotaExceededError(error)) {
         toast.error('Firebase quota exceeded. Using local mode until quota resets.');
@@ -233,7 +261,7 @@ export function useHabits() {
         
         // Set as active if needed
         if (habitSets.length === 0) {
-          setActiveHabitSet(tempId);
+          setActiveHabitSetId(tempId);
         }
         
         return {
@@ -250,7 +278,7 @@ export function useHabits() {
     } finally {
       setIsLoading(false);
     }
-  }, [user, activeHabitSetId, habitSets.length]);
+  }, [user, habitSets]);
   
   // Set active habit set
   const setActiveHabitSet = useCallback(async (
@@ -265,10 +293,21 @@ export function useHabits() {
     
     setIsLoading(true);
     try {
+      console.log('Setting active habit set:', habitSetId);
       const result = await habitSetsApi.setActive(user.uid, habitSetId);
+      console.log('Set active result:', result);
       
       if (result.status === 'success') {
         setActiveHabitSetId(habitSetId);
+        
+        // Update local state to reflect the change immediately
+        setHabitSets(prev => 
+          prev.map(set => ({
+            ...set,
+            isActive: set.id === habitSetId
+          }))
+        );
+        
         toast.success('Habit set activated');
       }
       
@@ -291,19 +330,25 @@ export function useHabits() {
     
     setIsLoading(true);
     try {
+      console.log('Deleting habit set:', habitSetId);
       const result = await habitSetsApi.delete(user.uid, habitSetId);
+      console.log('Delete result:', result);
       
       if (result.status === 'success') {
         // If we deleted the active set, we need to select another one
         if (habitSetId === activeHabitSetId && habitSets && Array.isArray(habitSets) && habitSets.length > 1) {
           const remainingSets = habitSets.filter(set => set.id !== habitSetId);
           if (remainingSets.length > 0) {
+            console.log('Setting new active set after deletion:', remainingSets[0].id);
             await habitSetsApi.setActive(user.uid, remainingSets[0].id);
             setActiveHabitSetId(remainingSets[0].id);
           } else {
             setActiveHabitSetId(null);
           }
         }
+        
+        // Update local state immediately
+        setHabitSets(prev => prev.filter(set => set.id !== habitSetId));
         
         toast.success('Habit set deleted successfully');
       }
@@ -336,7 +381,7 @@ export function useHabits() {
     loadingHabits,
     
     // Data
-    habitSets: Array.isArray(habitSetsData) ? habitSetsData : [],
+    habitSets: Array.isArray(habitSets) ? habitSets : [],
     habits: Array.isArray(habits) ? habits : [],
     activeHabitSet,
     activeHabitSetId,
