@@ -73,12 +73,8 @@ export function useFirebaseSubscription<T>(
           reference,
           (snapshot: DocumentSnapshot<T>) => {
             try {
-              const docData = snapshot.exists() ? snapshot.data() : null;
-              
-              // Validate the docData before setting it
-              if (snapshot.exists() && !docData) {
-                console.warn('Document exists but data is null:', snapshot.id);
-              }
+              // Get the data, which will be null if the document doesn't exist
+              const docData = snapshot.data() || null;
               
               setData(docData);
               setLoading(false);
@@ -95,7 +91,6 @@ export function useFirebaseSubscription<T>(
               // Log the error with more context
               console.error('Snapshot processing error:', {
                 docId: snapshot.id,
-                exists: snapshot.exists(),
                 error: err
               });
               logError(appError);

@@ -65,13 +65,9 @@ export const userProfileApi = {
       const docRef = getUserProfileRef(userId);
       try {
         const docSnap = await getDoc(docRef);
-        
-        // Safe check for exists method
-        if (docSnap && typeof docSnap.exists === 'function' && docSnap.exists()) {
-          return docSnap.data();
-        } else {
-          return null;
-        }
+        // Get data directly, which will be undefined if document doesn't exist
+        const data = docSnap.data();
+        return data || null;
       } catch (error) {
         console.error(`Error fetching user profile for ${userId}:`, error);
         return null;
@@ -86,7 +82,8 @@ export const userProfileApi = {
       
       try {
         const docSnap = await getDoc(docRef);
-        const exists = docSnap && typeof docSnap.exists === 'function' && docSnap.exists();
+        // Check if document exists by checking if data is not undefined
+        const exists = docSnap.data() !== undefined;
         
         if (exists) {
           // Document exists, update it
@@ -164,10 +161,9 @@ export const habitSetsApi = {
       const docRef = getHabitSetRef(userId, habitSetId);
       try {
         const docSnap = await getDoc(docRef);
+        const data = docSnap.data();
         
-        // Safe check for exists method
-        if (docSnap && typeof docSnap.exists === 'function' && docSnap.exists()) {
-          const data = docSnap.data();
+        if (data) {
           console.log(`Retrieved habit set: ${habitSetId}, name: ${data.name}`);
           return data;
         } else {
@@ -219,10 +215,9 @@ export const habitSetsApi = {
       // Get the created document
       try {
         const docSnap = await getDoc(docRef);
+        const data = docSnap.data();
         
-        // Safe check for exists method
-        if (docSnap && typeof docSnap.exists === 'function' && docSnap.exists()) {
-          const data = docSnap.data();
+        if (data) {
           console.log(`Retrieved newly created habit set:`, data);
           return data;
         } else {
@@ -236,7 +231,7 @@ export const habitSetsApi = {
             isPremium: habitSet.isPremium || false,
             createdAt: null,
             updatedAt: null
-          };
+          } as HabitSet;
         }
       } catch (error) {
         console.error('Error getting newly created habit set:', error);
@@ -249,7 +244,7 @@ export const habitSetsApi = {
           isPremium: habitSet.isPremium || false,
           createdAt: null,
           updatedAt: null
-        };
+        } as HabitSet;
       }
     }, 'Failed to create habit set');
   },
@@ -341,13 +336,8 @@ export const habitsApi = {
       const docRef = getHabitRef(userId, habitSetId, habitId);
       try {
         const docSnap = await getDoc(docRef);
-        
-        // Safe check for exists method
-        if (docSnap && typeof docSnap.exists === 'function' && docSnap.exists()) {
-          return docSnap.data();
-        } else {
-          return null;
-        }
+        const data = docSnap.data();
+        return data || null;
       } catch (error) {
         console.error(`Error fetching habit ${habitId}:`, error);
         return null;
@@ -509,13 +499,8 @@ export const userStatsApi = {
       const docRef = getUserStatsDocRef(userId);
       try {
         const docSnap = await getDoc(docRef);
-        
-        // Safe check for exists method
-        if (docSnap && typeof docSnap.exists === 'function' && docSnap.exists()) {
-          return docSnap.data();
-        } else {
-          return null;
-        }
+        const data = docSnap.data();
+        return data || null;
       } catch (error) {
         console.error(`Error fetching user stats for ${userId}:`, error);
         return null;
@@ -530,7 +515,7 @@ export const userStatsApi = {
       
       try {
         const docSnap = await getDoc(docRef);
-        const exists = docSnap && typeof docSnap.exists === 'function' && docSnap.exists();
+        const exists = docSnap.data() !== undefined;
         
         if (exists) {
           await updateDoc(docRef, withUpdateTimestamp(updates));
