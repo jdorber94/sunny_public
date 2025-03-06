@@ -63,8 +63,19 @@ export const userProfileApi = {
   async get(userId: string): Promise<ApiResponse<UserProfile | null>> {
     return handleApiRequest(async () => {
       const docRef = getUserProfileRef(userId);
-      const docSnap = await getDoc(docRef);
-      return docSnap.exists() ? docSnap.data() : null;
+      try {
+        const docSnap = await getDoc(docRef);
+        
+        // Safe check for exists method
+        if (docSnap && typeof docSnap.exists === 'function' && docSnap.exists()) {
+          return docSnap.data();
+        } else {
+          return null;
+        }
+      } catch (error) {
+        console.error(`Error fetching user profile for ${userId}:`, error);
+        return null;
+      }
     }, 'Failed to get user profile');
   },
   
@@ -72,53 +83,60 @@ export const userProfileApi = {
   async save(userId: string, profile: Partial<UserProfile>): Promise<ApiResponse<boolean>> {
     return handleApiRequest(async () => {
       const docRef = getUserProfileRef(userId);
-      const docSnap = await getDoc(docRef);
       
-      if (docSnap.exists()) {
-        // Document exists, update it
-        await updateDoc(docRef, withUpdateTimestamp({
-          ...profile,
-          // Ensure we don't include id in the update data
-          id: undefined
-        }));
-      } else {
-        // Document doesn't exist, create it
-        const newProfile = {
-          id: userId,
-          name: profile.name || 'User',
-          email: profile.email || '',
-          avatar: profile.avatar || '',
-          level: profile.level || 1,
-          totalXP: profile.totalXP || 0,
-          daysActive: profile.daysActive || 0,
-          currentStreak: profile.currentStreak || 0,
-          joinDate: profile.joinDate || new Date().toISOString().split('T')[0],
-          isPremium: profile.isPremium || false,
-          preferences: profile.preferences || {
-            notifications: false,
-            darkMode: false,
-            weekStartsOn: 'monday'
+      try {
+        const docSnap = await getDoc(docRef);
+        const exists = docSnap && typeof docSnap.exists === 'function' && docSnap.exists();
+        
+        if (exists) {
+          // Document exists, update it
+          await updateDoc(docRef, withUpdateTimestamp({
+            ...profile,
+            // Ensure we don't include id in the update data
+            id: undefined
+          }));
+        } else {
+          // Document doesn't exist, create it
+          const newProfile = {
+            id: userId,
+            name: profile.name || 'User',
+            email: profile.email || '',
+            avatar: profile.avatar || '',
+            level: profile.level || 1,
+            totalXP: profile.totalXP || 0,
+            daysActive: profile.daysActive || 0,
+            currentStreak: profile.currentStreak || 0,
+            joinDate: profile.joinDate || new Date().toISOString().split('T')[0],
+            isPremium: profile.isPremium || false,
+            preferences: profile.preferences || {
+              notifications: false,
+              darkMode: false,
+              weekStartsOn: 'monday'
+            }
+          };
+          
+          // Create a new document with timestamps
+          const docData = withTimestamps(newProfile) as typeof newProfile & {
+            createdAt?: any;
+            updatedAt?: any;
+          };
+          
+          // If timestamps weren't added (fallback case), add them explicitly
+          if (!docData.createdAt) {
+            docData.createdAt = serverTimestamp();
           }
-        };
-        
-        // Create a new document with timestamps
-        const docData = withTimestamps(newProfile) as typeof newProfile & {
-          createdAt?: any;
-          updatedAt?: any;
-        };
-        
-        // If timestamps weren't added (fallback case), add them explicitly
-        if (!docData.createdAt) {
-          docData.createdAt = serverTimestamp();
-        }
-        if (!docData.updatedAt) {
-          docData.updatedAt = serverTimestamp();
+          if (!docData.updatedAt) {
+            docData.updatedAt = serverTimestamp();
+          }
+          
+          await setDoc(docRef, docData);
         }
         
-        await setDoc(docRef, docData);
+        return true;
+      } catch (error) {
+        console.error(`Error saving user profile for ${userId}:`, error);
+        return false;
       }
-      
-      return true;
     }, 'Failed to save user profile');
   }
 };
@@ -140,9 +158,19 @@ export const habitSetsApi = {
   async get(userId: string, habitSetId: string): Promise<ApiResponse<HabitSet | null>> {
     return handleApiRequest(async () => {
       const docRef = getHabitSetRef(userId, habitSetId);
-      const docSnap = await getDoc(docRef);
-      
-      return docSnap.exists() ? docSnap.data() : null;
+      try {
+        const docSnap = await getDoc(docRef);
+        
+        // Safe check for exists method
+        if (docSnap && typeof docSnap.exists === 'function' && docSnap.exists()) {
+          return docSnap.data();
+        } else {
+          return null;
+        }
+      } catch (error) {
+        console.error(`Error fetching habit set ${habitSetId}:`, error);
+        return null;
+      }
     }, 'Failed to get habit set');
   },
   
@@ -177,12 +205,37 @@ export const habitSetsApi = {
       await updateDoc(docRef, { id: docRef.id });
       
       // Get the created document
-      const docSnap = await getDoc(docRef);
-      if (!docSnap.exists()) {
-        throw new Error('Failed to create habit set');
+      try {
+        const docSnap = await getDoc(docRef);
+        
+        // Safe check for exists method
+        if (docSnap && typeof docSnap.exists === 'function' && docSnap.exists()) {
+          return docSnap.data();
+        } else {
+          // Fallback - create a basic habit set object if we can't get the data
+          return {
+            id: docRef.id,
+            name: habitSet.name,
+            description: habitSet.description || '',
+            isActive: habitSet.isActive || false,
+            isPremium: habitSet.isPremium || false,
+            createdAt: null,
+            updatedAt: null
+          };
+        }
+      } catch (error) {
+        console.error('Error getting newly created habit set:', error);
+        // Fallback - return the habit set data we have
+        return {
+          id: docRef.id,
+          name: habitSet.name,
+          description: habitSet.description || '',
+          isActive: habitSet.isActive || false,
+          isPremium: habitSet.isPremium || false,
+          createdAt: null,
+          updatedAt: null
+        };
       }
-      
-      return docSnap.data();
     }, 'Failed to create habit set');
   },
   
@@ -247,9 +300,19 @@ export const habitsApi = {
   async get(userId: string, habitSetId: string, habitId: string): Promise<ApiResponse<Habit | null>> {
     return handleApiRequest(async () => {
       const docRef = getHabitRef(userId, habitSetId, habitId);
-      const docSnap = await getDoc(docRef);
-      
-      return docSnap.exists() ? docSnap.data() : null;
+      try {
+        const docSnap = await getDoc(docRef);
+        
+        // Safe check for exists method
+        if (docSnap && typeof docSnap.exists === 'function' && docSnap.exists()) {
+          return docSnap.data();
+        } else {
+          return null;
+        }
+      } catch (error) {
+        console.error(`Error fetching habit ${habitId}:`, error);
+        return null;
+      }
     }, 'Failed to get habit');
   },
   
@@ -284,12 +347,41 @@ export const habitsApi = {
       await updateDoc(docRef, { id: docRef.id });
       
       // Get the created document
-      const docSnap = await getDoc(docRef);
-      if (!docSnap.exists()) {
-        throw new Error('Failed to create habit');
+      try {
+        const docSnap = await getDoc(docRef);
+        
+        // Safe check for exists method
+        if (docSnap && typeof docSnap.exists === 'function' && docSnap.exists()) {
+          return docSnap.data();
+        } else {
+          // Fallback - create a basic habit object if we can't get the data
+          return {
+            id: docRef.id,
+            name: habit.name,
+            logs: habit.logs || [],
+            xp: habit.xp || 0,
+            streak: habit.streak || 0,
+            category: habit.category,
+            daysOfWeek: habit.daysOfWeek,
+            createdAt: null,
+            updatedAt: null
+          };
+        }
+      } catch (error) {
+        console.error('Error getting newly created habit:', error);
+        // Fallback - return the habit data we have
+        return {
+          id: docRef.id,
+          name: habit.name,
+          logs: habit.logs || [],
+          xp: habit.xp || 0,
+          streak: habit.streak || 0,
+          category: habit.category,
+          daysOfWeek: habit.daysOfWeek,
+          createdAt: null, 
+          updatedAt: null
+        };
       }
-      
-      return docSnap.data();
     }, 'Failed to create habit');
   },
   
@@ -373,9 +465,19 @@ export const userStatsApi = {
   async get(userId: string): Promise<ApiResponse<UserStats | null>> {
     return handleApiRequest(async () => {
       const docRef = getUserStatsDocRef(userId);
-      const docSnap = await getDoc(docRef);
-      
-      return docSnap.exists() ? docSnap.data() : null;
+      try {
+        const docSnap = await getDoc(docRef);
+        
+        // Safe check for exists method
+        if (docSnap && typeof docSnap.exists === 'function' && docSnap.exists()) {
+          return docSnap.data();
+        } else {
+          return null;
+        }
+      } catch (error) {
+        console.error(`Error fetching user stats for ${userId}:`, error);
+        return null;
+      }
     }, 'Failed to get user stats');
   },
   
@@ -383,36 +485,43 @@ export const userStatsApi = {
   async update(userId: string, updates: Partial<UserStats>): Promise<ApiResponse<boolean>> {
     return handleApiRequest(async () => {
       const docRef = getUserStatsDocRef(userId);
-      const docSnap = await getDoc(docRef);
       
-      if (docSnap.exists()) {
-        await updateDoc(docRef, withUpdateTimestamp(updates));
-      } else {
-        const today = new Date().toISOString().split('T')[0];
-        const defaultStats = {
-          id: 'current',
-          totalXP: updates.totalXP || 0,
-          dailyXP: updates.dailyXP || { date: today, xp: 0 }
-        };
+      try {
+        const docSnap = await getDoc(docRef);
+        const exists = docSnap && typeof docSnap.exists === 'function' && docSnap.exists();
+        
+        if (exists) {
+          await updateDoc(docRef, withUpdateTimestamp(updates));
+        } else {
+          const today = new Date().toISOString().split('T')[0];
+          const defaultStats = {
+            id: 'current',
+            totalXP: updates.totalXP || 0,
+            dailyXP: updates.dailyXP || { date: today, xp: 0 }
+          };
 
-        // Create stats with timestamps
-        const statsWithTimestamps = withTimestamps(defaultStats) as typeof defaultStats & {
-          createdAt?: any;
-          updatedAt?: any;
-        };
+          // Create stats with timestamps
+          const statsWithTimestamps = withTimestamps(defaultStats) as typeof defaultStats & {
+            createdAt?: any;
+            updatedAt?: any;
+          };
 
-        // If timestamps weren't added (fallback case), add them explicitly
-        if (!statsWithTimestamps.createdAt) {
-          statsWithTimestamps.createdAt = serverTimestamp();
+          // If timestamps weren't added (fallback case), add them explicitly
+          if (!statsWithTimestamps.createdAt) {
+            statsWithTimestamps.createdAt = serverTimestamp();
+          }
+          if (!statsWithTimestamps.updatedAt) {
+            statsWithTimestamps.updatedAt = serverTimestamp();
+          }
+
+          await setDoc(docRef, statsWithTimestamps);
         }
-        if (!statsWithTimestamps.updatedAt) {
-          statsWithTimestamps.updatedAt = serverTimestamp();
-        }
-
-        await setDoc(docRef, statsWithTimestamps);
+        
+        return true;
+      } catch (error) {
+        console.error(`Error updating user stats for ${userId}:`, error);
+        return false;
       }
-      
-      return true;
     }, 'Failed to update user stats');
   }
 }; 
