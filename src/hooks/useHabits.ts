@@ -134,9 +134,36 @@ export function useHabits() {
       return result;
     } catch (error) {
       console.error('Error creating habit:', error);
-      toast.error('Failed to create habit');
+      
+      // Check for quota exceeded errors
+      if (isQuotaExceededError(error)) {
+        const message = 'Firebase quota exceeded. Using local mode.';
+        toast.error(message);
+        
+        // Create a local habit with a temporary ID
+        const tempId = `local_${Date.now()}`;
+        const tempHabit: Habit = {
+          ...habitData,
+          id: tempId,
+          createdAt: new Date() as any,
+          updatedAt: new Date() as any
+        };
+        
+        // Add to local state
+        setHabits(currentHabits => [...(currentHabits || []), tempHabit]);
+        
+        return {
+          data: tempHabit,
+          status: 'success',
+          isLocal: true
+        };
+      }
+      
+      // Handle other errors
+      const errorMessage = error instanceof Error ? error.message : 'Failed to create habit';
+      toast.error(errorMessage);
       return {
-        error: 'Failed to create habit',
+        error: errorMessage,
         status: 'error'
       };
     } finally {

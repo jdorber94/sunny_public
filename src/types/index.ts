@@ -80,6 +80,7 @@ export interface ApiResponse<T> {
   data?: T;
   error?: string;
   status: 'success' | 'error';
+  isLocal?: boolean; // Indicates if the data is stored locally only (e.g., due to quota limits)
 }
 
 // Form state types

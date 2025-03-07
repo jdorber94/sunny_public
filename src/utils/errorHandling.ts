@@ -125,5 +125,36 @@ export function logError(error: AppError | unknown): void {
 
 // Add a function to check if an error is a quota exceeded error
 export function isQuotaExceededError(error: unknown): boolean {
-  return error instanceof FirebaseError && error.code === 'resource-exhausted';
+  if (!error) return false;
+  
+  // Check if it's a Firebase error with the resource-exhausted code
+  if (error instanceof FirebaseError && error.code === 'resource-exhausted') {
+    return true;
+  }
+  
+  // Check for error message containing "quota" or "resource exhausted"
+  if (error instanceof Error) {
+    const errorMessage = error.message.toLowerCase();
+    return errorMessage.includes('quota') || 
+           errorMessage.includes('resource exhausted') ||
+           errorMessage.includes('resource-exhausted');
+  }
+  
+  // If it's an object with a code property
+  if (typeof error === 'object' && error !== null) {
+    const errorObj = error as any;
+    if (errorObj.code === 'resource-exhausted') {
+      return true;
+    }
+    
+    // Check message property if it exists
+    if (errorObj.message && typeof errorObj.message === 'string') {
+      const errorMessage = errorObj.message.toLowerCase();
+      return errorMessage.includes('quota') || 
+             errorMessage.includes('resource exhausted') ||
+             errorMessage.includes('resource-exhausted');
+    }
+  }
+  
+  return false;
 } 
