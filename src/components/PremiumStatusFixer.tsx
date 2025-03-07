@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { db } from '@/services/firestore/config';
+import { db } from '@/lib/firebase';
 import { doc, getDoc, updateDoc, setDoc } from 'firebase/firestore';
 import { toast } from 'react-hot-toast';
 
@@ -49,9 +49,9 @@ export default function PremiumStatusFixer() {
           avatar: user.photoURL || '',
           level: 1,
           totalXP: 0,
-          daysActive: 0,
+          daysActive: 1,
           currentStreak: 0,
-          joinDate: new Date().toISOString().split('T')[0],
+          joinDate: new Date().toISOString(),
           preferences: {
             notifications: true,
             darkMode: false,
@@ -61,44 +61,40 @@ export default function PremiumStatusFixer() {
         console.log('Created new document with isPremium: true');
       }
       
-      // Verify the update worked
-      const updatedDocSnap = await getDoc(userDocRef);
-      const updatedData = updatedDocSnap.exists() ? updatedDocSnap.data() : null;
-      console.log('Updated user document:', updatedData);
-      setDebugInfo(updatedData);
-      
-      toast.success('Premium status set to TRUE! Please refresh the page or sign out and back in to see changes.');
+      toast.success('Premium status fixed successfully!');
     } catch (error) {
       console.error('Error fixing premium status:', error);
-      toast.error('Failed to fix premium status. See console for details.');
-      setDebugInfo({ error: String(error) });
+      toast.error('Failed to fix premium status');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg mb-4">
-      <h3 className="font-medium text-yellow-800 dark:text-yellow-200 mb-2">Premium Status Fixer</h3>
-      <p className="text-sm text-yellow-700 dark:text-yellow-300 mb-3">
-        If your premium status isn't working, click the button below to fix it.
+    <div className="bg-white shadow-md rounded-lg p-6 mb-6">
+      <h2 className="text-xl font-semibold mb-4">Premium Status Fixer</h2>
+      <p className="mb-4 text-gray-600">
+        If you're having issues with your premium status, use this tool to fix it.
       </p>
+      
       <button
         onClick={fixPremiumStatus}
         disabled={loading || !user}
-        className={`px-4 py-2 rounded-md text-white ${
-          loading || !user
-            ? 'bg-gray-400 cursor-not-allowed'
-            : 'bg-yellow-600 hover:bg-yellow-700'
-        }`}
+        className={`
+          px-4 py-2 rounded-md text-white font-medium
+          ${loading || !user ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-500 hover:bg-blue-600'}
+          transition-colors duration-200
+        `}
       >
         {loading ? 'Fixing...' : 'Fix Premium Status'}
       </button>
       
       {debugInfo && (
-        <div className="mt-4 p-3 bg-gray-100 dark:bg-gray-800 rounded text-xs overflow-auto max-h-40">
-          <p className="font-medium mb-1">Debug Info:</p>
-          <pre>{JSON.stringify(debugInfo, null, 2)}</pre>
+        <div className="mt-4 p-4 bg-gray-100 rounded-md">
+          <h3 className="font-medium mb-2">Debug Info:</h3>
+          <pre className="text-xs overflow-auto max-h-40">
+            {JSON.stringify(debugInfo, null, 2)}
+          </pre>
         </div>
       )}
     </div>
