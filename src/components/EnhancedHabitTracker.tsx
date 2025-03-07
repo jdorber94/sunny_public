@@ -237,6 +237,23 @@ export default function EnhancedHabitTracker() {
               <p className="text-gray-500 mb-6 text-center">
                 Please create or select a habit set to start tracking your habits.
               </p>
+              
+              {/* Add buttons to help users */}
+              <div className="flex space-x-4">
+                <button 
+                  onClick={createTestHabitSet}
+                  className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors duration-200"
+                >
+                  Create Default Habit Set
+                </button>
+                <button 
+                  onClick={loginWithTestUser}
+                  className="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors duration-200 flex items-center"
+                >
+                  <FaUser className="mr-2" />
+                  Login with Test User
+                </button>
+              </div>
             </div>
           )}
         </div>

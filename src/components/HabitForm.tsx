@@ -53,6 +53,12 @@ export const HabitForm: React.FC<HabitFormProps> = ({ onClose, habitToEdit }) =>
     if (!activeHabitSet) {
       setError('No active habit set selected');
       toast.error('No active habit set selected. Please create or select a habit set first.');
+      
+      // Close the form after a delay
+      setTimeout(() => {
+        onClose();
+      }, 2000);
+      
       return;
     }
     

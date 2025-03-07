@@ -41,7 +41,20 @@ export function useHabits() {
   // Find active habit set
   const activeHabitSet = useMemo(() => {
     console.log('Finding active habit set from:', habitSets);
-    if (!habitSets || !Array.isArray(habitSets) || habitSets.length === 0) return null;
+    if (!habitSets || !Array.isArray(habitSets) || habitSets.length === 0) {
+      console.warn('No habit sets found. This could be due to:');
+      console.warn('1. User not authenticated properly');
+      console.warn('2. Firestore connection issues');
+      console.warn('3. No habit sets created yet');
+      
+      // If user is authenticated but no habit sets, we'll create a default one
+      if (user && !loadingHabitSets) {
+        console.log('User is authenticated but no habit sets found. Will create a default one.');
+        // We'll create a default habit set in a separate effect
+      }
+      
+      return null;
+    }
     
     // First try to find the one marked as active
     const active = habitSets.find(set => set.isActive);
@@ -59,7 +72,7 @@ export function useHabits() {
     }
     
     return null;
-  }, [habitSets]);
+  }, [habitSets, user, loadingHabitSets]);
   
   // Subscribe to habits in the active habit set
   const habitsRef = useMemo(() => {
@@ -279,6 +292,35 @@ export function useHabits() {
       setIsLoading(false);
     }
   }, [user, habitSets]);
+  
+  // Create a default habit set if none exists
+  useEffect(() => {
+    const createDefaultHabitSet = async () => {
+      if (user && !loadingHabitSets && (!habitSets || habitSets.length === 0)) {
+        console.log('Creating default habit set for user:', user.uid);
+        try {
+          const result = await createHabitSet({
+            name: 'My Habits',
+            description: 'Default habit set',
+            isPremium: false,
+            isActive: true
+          });
+          
+          console.log('Default habit set creation result:', result);
+          
+          if (result.status === 'success') {
+            toast.success('Created your first habit set!');
+          } else if (result.error) {
+            console.error('Failed to create default habit set:', result.error);
+          }
+        } catch (error) {
+          console.error('Error creating default habit set:', error);
+        }
+      }
+    };
+    
+    createDefaultHabitSet();
+  }, [user, loadingHabitSets, habitSets, createHabitSet]);
   
   // Set active habit set
   const setActiveHabitSet = useCallback(async (
