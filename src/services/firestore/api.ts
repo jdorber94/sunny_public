@@ -41,6 +41,7 @@ import {
   showErrorToast, 
   logError 
 } from '@/utils/errorHandling';
+import { cleanForFirestore, ensureRequiredFields } from '@/utils/firestoreHelpers';
 
 // Generic function to handle API responses
 async function handleApiRequest<T>(
@@ -183,9 +184,22 @@ export const habitSetsApi = {
       console.log(`Creating habit set for user ${userId}:`, habitSet);
       const collectionRef = getHabitSetsRef(userId);
       
+      // Ensure required fields and clean the data for Firestore
+      const requiredFields = {
+        name: habitSet.name || 'Unnamed Set',
+        isPremium: false,
+        isActive: false
+      };
+      
+      // First ensure required fields, then clean for Firestore
+      const habitSetWithRequiredFields = ensureRequiredFields(habitSet, requiredFields);
+      const cleanedHabitSet = cleanForFirestore(habitSetWithRequiredFields);
+      
+      console.log('Cleaned habit set data for Firestore:', cleanedHabitSet);
+      
       // Create a new document with an auto-generated ID
       const newHabitSetData = {
-        ...habitSet,
+        ...cleanedHabitSet,
         id: '' // Temporary ID that will be replaced
       };
       
@@ -203,7 +217,7 @@ export const habitSetsApi = {
         habitSetWithTimestamps.updatedAt = serverTimestamp();
       }
       
-      console.log('Adding document to Firestore with data:', habitSetWithTimestamps);
+      console.log('Final data being sent to Firestore:', habitSetWithTimestamps);
       const docRef = await addDoc(collectionRef, habitSetWithTimestamps);
       const habitSetId = docRef.id;
       console.log(`Created habit set with ID: ${habitSetId}`);
@@ -216,34 +230,20 @@ export const habitSetsApi = {
       try {
         const docSnap = await getDoc(docRef);
         const data = docSnap.data();
+        console.log(`Retrieved newly created habit set:`, data);
+        return data as HabitSet;
+      } catch (retrievalError) {
+        console.error(`Error retrieving newly created habit set ${habitSetId}:`, retrievalError);
         
-        if (data) {
-          console.log(`Retrieved newly created habit set:`, data);
-          return data;
-        } else {
-          console.log(`Newly created habit set ${habitSetId} not found, returning fallback`);
-          // Fallback - create a basic habit set object if we can't get the data
-          return {
-            id: habitSetId,
-            name: habitSet.name,
-            description: habitSet.description || '',
-            isActive: habitSet.isActive || false,
-            isPremium: habitSet.isPremium || false,
-            createdAt: null,
-            updatedAt: null
-          } as HabitSet;
-        }
-      } catch (error) {
-        console.error('Error getting newly created habit set:', error);
-        // Fallback - return the habit set data we have
+        // If retrieval fails, return a constructed object
         return {
           id: habitSetId,
-          name: habitSet.name,
-          description: habitSet.description || '',
-          isActive: habitSet.isActive || false,
-          isPremium: habitSet.isPremium || false,
-          createdAt: null,
-          updatedAt: null
+          name: cleanedHabitSet.name as string,
+          description: cleanedHabitSet.description,
+          isPremium: cleanedHabitSet.isPremium as boolean,
+          isActive: cleanedHabitSet.isActive as boolean,
+          createdAt: habitSetWithTimestamps.createdAt,
+          updatedAt: habitSetWithTimestamps.updatedAt
         } as HabitSet;
       }
     }, 'Failed to create habit set');
@@ -352,14 +352,18 @@ export const habitsApi = {
         console.log(`Creating habit in set ${habitSetId}:`, habit);
         const collectionRef = getHabitsRef(userId, habitSetId);
         
-        // Clean the habit data by removing undefined values
-        const cleanedHabit = Object.entries(habit).reduce((acc, [key, value]) => {
-          // Only include defined values
-          if (value !== undefined) {
-            acc[key] = value;
-          }
-          return acc;
-        }, {} as Record<string, any>);
+        // Ensure required fields and clean the data for Firestore
+        const requiredFields = {
+          name: '',
+          logs: [],
+          xp: 0
+        };
+        
+        // First ensure required fields, then clean for Firestore
+        const habitWithRequiredFields = ensureRequiredFields(habit, requiredFields);
+        const cleanedHabit = cleanForFirestore(habitWithRequiredFields);
+        
+        console.log('Cleaned habit data for Firestore:', cleanedHabit);
         
         // Create a new document with an auto-generated ID
         const newHabitData = {
@@ -381,6 +385,7 @@ export const habitsApi = {
           habitWithTimestamps.updatedAt = serverTimestamp();
         }
         
+        console.log('Final data being sent to Firestore:', habitWithTimestamps);
         const docRef = await addDoc(collectionRef, habitWithTimestamps);
         const habitId = docRef.id;
         console.log(`Created habit with ID: ${habitId}`);
@@ -407,16 +412,15 @@ export const habitsApi = {
     return handleApiRequest(async () => {
       const docRef = getHabitRef(userId, habitSetId, habitId);
       
-      // Clean the updates by removing undefined values
-      const cleanedUpdates = Object.entries(updates).reduce((acc, [key, value]) => {
-        // Only include defined values
-        if (value !== undefined) {
-          acc[key] = value;
-        }
-        return acc;
-      }, {} as Record<string, any>);
+      // Clean the updates for Firestore
+      const cleanedUpdates = cleanForFirestore(updates);
+      console.log('Cleaned updates for Firestore:', cleanedUpdates);
       
-      await updateDoc(docRef, withUpdateTimestamp(cleanedUpdates));
+      // Add update timestamp
+      const updatesWithTimestamp = withUpdateTimestamp(cleanedUpdates);
+      console.log('Final updates being sent to Firestore:', updatesWithTimestamp);
+      
+      await updateDoc(docRef, updatesWithTimestamp);
       
       return true;
     }, 'Failed to update habit');
