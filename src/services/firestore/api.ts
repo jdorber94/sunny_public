@@ -352,9 +352,18 @@ export const habitsApi = {
         console.log(`Creating habit in set ${habitSetId}:`, habit);
         const collectionRef = getHabitsRef(userId, habitSetId);
         
+        // Clean the habit data by removing undefined values
+        const cleanedHabit = Object.entries(habit).reduce((acc, [key, value]) => {
+          // Only include defined values
+          if (value !== undefined) {
+            acc[key] = value;
+          }
+          return acc;
+        }, {} as Record<string, any>);
+        
         // Create a new document with an auto-generated ID
         const newHabitData = {
-          ...habit,
+          ...cleanedHabit,
           id: '' // Temporary ID that will be replaced
         };
         
@@ -378,38 +387,14 @@ export const habitsApi = {
         
         // Update the document with its actual ID
         await updateDoc(docRef, { id: habitId });
-        console.log(`Updated habit with its ID: ${habitId}`);
         
-        // Prepare the returned habit object (even if retrieval fails)
-        const newHabit: Habit = {
+        // Return the created habit with the correct ID
+        return {
+          ...cleanedHabit,
           id: habitId,
-          name: habit.name,
-          logs: habit.logs || [],
-          xp: habit.xp || 0,
-          streak: habit.streak || 0,
-          category: habit.category || '',
-          daysOfWeek: habit.daysOfWeek || [],
-          createdAt: null, // Will be set by Firestore
-          updatedAt: null  // Will be set by Firestore
-        };
-        
-        // Try to get the created document with Firestore timestamps
-        try {
-          const docSnap = await getDoc(docRef);
-          
-          // Safe check for exists method
-          if (docSnap && typeof docSnap.exists === 'function' && docSnap.exists()) {
-            const data = docSnap.data();
-            console.log(`Retrieved newly created habit:`, data);
-            return data;
-          }
-        } catch (retrievalError) {
-          console.error(`Error retrieving newly created habit ${habitId}:`, retrievalError);
-        }
-        
-        // Return our constructed object if retrieval failed
-        console.log(`Returning manually constructed habit:`, newHabit);
-        return newHabit;
+          createdAt: habitWithTimestamps.createdAt,
+          updatedAt: habitWithTimestamps.updatedAt
+        } as Habit;
       } catch (error) {
         console.error('Error creating habit:', error);
         throw error;
@@ -421,7 +406,17 @@ export const habitsApi = {
   async update(userId: string, habitSetId: string, habitId: string, updates: Partial<Habit>): Promise<ApiResponse<boolean>> {
     return handleApiRequest(async () => {
       const docRef = getHabitRef(userId, habitSetId, habitId);
-      await updateDoc(docRef, withUpdateTimestamp(updates));
+      
+      // Clean the updates by removing undefined values
+      const cleanedUpdates = Object.entries(updates).reduce((acc, [key, value]) => {
+        // Only include defined values
+        if (value !== undefined) {
+          acc[key] = value;
+        }
+        return acc;
+      }, {} as Record<string, any>);
+      
+      await updateDoc(docRef, withUpdateTimestamp(cleanedUpdates));
       
       return true;
     }, 'Failed to update habit');

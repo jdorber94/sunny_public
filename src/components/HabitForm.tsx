@@ -74,11 +74,22 @@ export const HabitForm: React.FC<HabitFormProps> = ({ onClose, habitToEdit }) =>
       
       if (habitToEdit) {
         // Update existing habit
-        const result = await updateHabit(habitToEdit.id, {
-          name,
-          category: category || undefined,
-          daysOfWeek: daysOfWeek.length ? daysOfWeek : undefined
-        });
+        const updateData: any = {
+          name
+        };
+        
+        // Only add category if it has a value
+        if (category && category.trim()) {
+          updateData.category = category;
+        }
+        
+        // Only add daysOfWeek if it has values
+        if (daysOfWeek.length > 0) {
+          updateData.daysOfWeek = daysOfWeek;
+        }
+        
+        console.log('Updating habit with data:', updateData);
+        const result = await updateHabit(habitToEdit.id, updateData);
         
         if (result.status === 'error') {
           setError(result.error || 'Failed to update habit');
@@ -89,13 +100,24 @@ export const HabitForm: React.FC<HabitFormProps> = ({ onClose, habitToEdit }) =>
         toast.success('Habit updated successfully');
       } else {
         // Create new habit
-        const result = await createHabit({
+        const habitData: any = {
           name,
           logs: [],
-          xp: 0,
-          category: category || undefined,
-          daysOfWeek: daysOfWeek.length ? daysOfWeek : undefined
-        });
+          xp: 0
+        };
+        
+        // Only add category if it has a value
+        if (category && category.trim()) {
+          habitData.category = category;
+        }
+        
+        // Only add daysOfWeek if it has values
+        if (daysOfWeek.length > 0) {
+          habitData.daysOfWeek = daysOfWeek;
+        }
+        
+        console.log('Creating habit with data:', habitData);
+        const result = await createHabit(habitData);
         
         if (result.status === 'error') {
           setError(result.error || 'Failed to create habit');
