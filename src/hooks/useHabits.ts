@@ -6,6 +6,18 @@ import { getHabitsRef, getHabitSetsRef } from '@/services/firestore/collections'
 import { Habit, HabitSet, ApiResponse } from '@/types';
 import { toast } from 'react-hot-toast';
 import { isQuotaExceededError } from '@/utils/errorHandling';
+import {
+  getHabitSetsFromLocalStorage,
+  getHabitsFromLocalStorage,
+  getActiveHabitSetFromLocalStorage,
+  saveHabitSetsToLocalStorage,
+  saveHabitsToLocalStorage,
+  saveActiveHabitSetToLocalStorage,
+  createHabitSetInLocalStorage,
+  createHabitInLocalStorage,
+  setActiveHabitSetInLocalStorage,
+  initializeLocalStorage
+} from '@/utils/localStorageHelpers';
 
 /**
  * Custom hook for managing habits and habit sets
@@ -16,6 +28,23 @@ export function useHabits() {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [habitSets, setHabitSets] = useState<HabitSet[]>([]);
   const [habits, setHabits] = useState<Habit[]>([]);
+  const [isLocalMode, setIsLocalMode] = useState<boolean>(false);
+  
+  // Initialize local storage on first load and check for forced local mode
+  useEffect(() => {
+    try {
+      // Check if local mode is forced
+      const forcedLocalMode = localStorage.getItem('sunny_force_local_mode') === 'true';
+      if (forcedLocalMode) {
+        console.log('Local mode is forced by user');
+        setIsLocalMode(true);
+      }
+      
+      initializeLocalStorage();
+    } catch (error) {
+      console.error('Error initializing local storage:', error);
+    }
+  }, []);
   
   // Subscribe to habit sets
   const habitSetsRef = useMemo(() => {
@@ -32,11 +61,41 @@ export function useHabits() {
   // Keep our local state in sync with Firestore data for habit sets
   useEffect(() => {
     console.log('Received habitSetsData:', habitSetsData);
-    if (Array.isArray(habitSetsData)) {
+    
+    // If we have Firebase data, use it
+    if (Array.isArray(habitSetsData) && habitSetsData.length > 0) {
       console.log(`Received ${habitSetsData.length} habit sets from Firestore subscription`);
       setHabitSets(habitSetsData);
+      setIsLocalMode(false);
+    } 
+    // If we have an error or no data, try to use localStorage
+    else if (habitSetsError || (Array.isArray(habitSetsData) && habitSetsData.length === 0)) {
+      console.log('No habit sets from Firebase, using localStorage');
+      const localHabitSets = getHabitSetsFromLocalStorage();
+      
+      if (localHabitSets.length > 0) {
+        console.log(`Found ${localHabitSets.length} habit sets in localStorage`);
+        setHabitSets(localHabitSets);
+        setIsLocalMode(true);
+      } else if (user) {
+        // Create a default habit set in localStorage
+        console.log('No habit sets found in localStorage, creating default');
+        try {
+          const defaultHabitSet = createHabitSetInLocalStorage({
+            name: 'My Habits',
+            description: 'Default habit set',
+            isPremium: false,
+            isActive: true
+          });
+          
+          setHabitSets([defaultHabitSet]);
+          setIsLocalMode(true);
+        } catch (error) {
+          console.error('Error creating default habit set:', error);
+        }
+      }
     }
-  }, [habitSetsData]);
+  }, [habitSetsData, habitSetsError, user]);
   
   // Find active habit set
   const activeHabitSet = useMemo(() => {
@@ -77,7 +136,7 @@ export function useHabits() {
   // Subscribe to habits in the active habit set
   const habitsRef = useMemo(() => {
     if (!user || !activeHabitSetId) return null;
-    console.log(`Creating habitsRef for user ${user.uid}, habitSet ${activeHabitSetId}`);
+    console.log(`Creating habitsRef for user ${user.uid}, set ${activeHabitSetId}`);
     return getHabitsRef(user.uid, activeHabitSetId);
   }, [user, activeHabitSetId]);
   
@@ -87,19 +146,31 @@ export function useHabits() {
     error: habitsError 
   } = useFirebaseSubscription<Habit>(habitsRef);
   
-  // Keep our local state in sync with Firestore data
+  // Keep our local state in sync with Firestore data for habits
   useEffect(() => {
+    console.log('Received habitsData:', habitsData);
+    
+    // If we have Firebase data, use it
     if (Array.isArray(habitsData)) {
       console.log(`Received ${habitsData.length} habits from Firestore subscription`);
       setHabits(habitsData);
+    } 
+    // If we have an error or no data, try to use localStorage
+    else if (habitsError || isLocalMode) {
+      if (activeHabitSetId) {
+        console.log('Using localStorage for habits');
+        const localHabits = getHabitsFromLocalStorage(activeHabitSetId);
+        console.log(`Found ${localHabits.length} habits in localStorage for set ${activeHabitSetId}`);
+        setHabits(localHabits);
+      }
     }
-  }, [habitsData]);
+  }, [habitsData, habitsError, activeHabitSetId, isLocalMode]);
   
   // Create a new habit
   const createHabit = useCallback(async (
     habitData: Omit<Habit, 'id' | 'createdAt' | 'updatedAt'>
   ): Promise<ApiResponse<Habit>> => {
-    if (!user || !activeHabitSetId) {
+    if (!activeHabitSetId) {
       return { 
         error: 'No active habit set selected', 
         status: 'error' 
@@ -110,111 +181,129 @@ export function useHabits() {
     try {
       console.log('Creating new habit:', habitData);
       
-      // Add a timeout to prevent hanging requests
-      const timeoutPromise = new Promise<ApiResponse<Habit>>((resolve) => {
-        setTimeout(() => {
-          resolve({ 
-            error: 'Request timed out. Creating habit locally instead.', 
+      // If we're in local mode, create the habit in localStorage
+      if (isLocalMode || !user) {
+        console.log('Creating habit in localStorage');
+        try {
+          const newHabit = createHabitInLocalStorage(activeHabitSetId, habitData);
+          
+          // Update local state
+          setHabits(currentHabits => [...(currentHabits || []), newHabit]);
+          
+          toast.success('Habit created successfully (local mode)');
+          
+          return {
+            data: newHabit,
+            status: 'success',
+            isLocal: true
+          };
+        } catch (localError) {
+          console.error('Error creating habit in localStorage:', localError);
+          toast.error('Failed to create habit in local mode');
+          
+          return {
+            error: 'Failed to create habit in local mode',
             status: 'error',
             isLocal: true
-          });
-        }, 5000); // 5 second timeout
-      });
+          };
+        }
+      }
       
-      // Race the actual request against the timeout
-      const result = await Promise.race([
-        habitsApi.create(user.uid, activeHabitSetId, habitData),
-        timeoutPromise
-      ]);
-      
-      // If the request timed out or failed, create a local habit
-      if (result.status === 'error' || result.isLocal) {
-        console.warn('Creating habit locally due to:', result.error);
+      // Try to create in Firebase first
+      try {
+        // Add a timeout to prevent hanging requests
+        const timeoutPromise = new Promise<ApiResponse<Habit>>((resolve) => {
+          setTimeout(() => {
+            resolve({ 
+              error: 'Request timed out. Creating habit locally instead.', 
+              status: 'error',
+              isLocal: true
+            });
+          }, 5000); // 5 second timeout
+        });
         
-        // Create a temporary local habit with a fake ID
-        const tempId = `local_${Date.now()}`;
-        const tempHabit: Habit = {
-          ...habitData,
-          id: tempId,
-          createdAt: new Date() as any,
-          updatedAt: new Date() as any
-        };
+        // Race the actual request against the timeout
+        const result = await Promise.race([
+          habitsApi.create(user.uid, activeHabitSetId, habitData),
+          timeoutPromise
+        ]);
         
-        // Add to local state
-        setHabits(currentHabits => [...(currentHabits || []), tempHabit]);
-        
-        // If it was a timeout, show a toast
-        if (result.error?.includes('timed out')) {
-          toast.error('Request timed out. Habit created locally only.');
+        // If the request timed out or failed, create a local habit
+        if (result.status === 'error' || result.isLocal) {
+          console.warn('Creating habit locally due to:', result.error);
+          setIsLocalMode(true);
+          
+          // Create a temporary local habit with a fake ID
+          const newHabit = createHabitInLocalStorage(activeHabitSetId, habitData);
+          
+          // Add to local state
+          setHabits(currentHabits => [...(currentHabits || []), newHabit]);
+          
+          // If it was a timeout, show a toast
+          if (result.error?.includes('timed out')) {
+            toast.error('Request timed out. Habit created locally only.');
+          } else {
+            toast.error('Failed to create habit in Firebase. Created locally instead.');
+          }
+          
+          return {
+            data: newHabit,
+            status: 'success',
+            isLocal: true
+          };
         }
         
-        return {
-          data: tempHabit,
-          status: 'success',
-          isLocal: true
-        };
-      }
-      
-      // Handle successful creation
-      if (result.status === 'success' && result.data) {
-        toast.success('Habit created successfully');
-        
-        // Manually add the new habit to our local state to ensure it shows up
-        // without waiting for the Firestore subscription to update
-        setHabits((currentHabits) => {
-          // Make sure we're not adding duplicates
-          if (Array.isArray(currentHabits) && result.data) {
-            const habitExists = currentHabits.some(h => h.id === result.data?.id);
-            if (!habitExists) {
-              console.log('Adding new habit to local state:', result.data);
-              return [...currentHabits, result.data];
+        // Handle successful creation
+        if (result.status === 'success' && result.data) {
+          toast.success('Habit created successfully');
+          
+          // Manually add the new habit to our local state to ensure it shows up
+          // without waiting for the Firestore subscription to update
+          setHabits((currentHabits) => {
+            // Make sure we're not adding duplicates
+            if (Array.isArray(currentHabits) && result.data) {
+              const habitExists = currentHabits.some(h => h.id === result.data?.id);
+              if (!habitExists) {
+                console.log('Adding new habit to local state:', result.data);
+                return [...currentHabits, result.data];
+              }
             }
-          }
-          return currentHabits || [];
-        });
-      } else if (result.error) {
-        toast.error(result.error);
-      }
-      
-      return result;
-    } catch (error) {
-      console.error('Error creating habit:', error);
-      
-      // Check for quota exceeded errors
-      if (isQuotaExceededError(error)) {
-        const message = 'Firebase quota exceeded. Using local mode.';
-        toast.error(message);
+            return currentHabits || [];
+          });
+          
+          return result;
+        }
         
-        // Create a local habit with a temporary ID
-        const tempId = `local_${Date.now()}`;
-        const tempHabit: Habit = {
-          ...habitData,
-          id: tempId,
-          createdAt: new Date() as any,
-          updatedAt: new Date() as any
-        };
+        return result;
+      } catch (error) {
+        console.error('Error creating habit in Firebase:', error);
+        setIsLocalMode(true);
+        
+        // Fall back to localStorage
+        const newHabit = createHabitInLocalStorage(activeHabitSetId, habitData);
         
         // Add to local state
-        setHabits(currentHabits => [...(currentHabits || []), tempHabit]);
+        setHabits(currentHabits => [...(currentHabits || []), newHabit]);
+        
+        toast.error('Failed to create habit in Firebase. Created locally instead.');
         
         return {
-          data: tempHabit,
+          data: newHabit,
           status: 'success',
           isLocal: true
         };
       }
-      
-      // Handle other errors
-      const errorMessage = error instanceof Error ? error.message : 'Failed to create habit';
-      toast.error(errorMessage);
+    } catch (error) {
+      console.error('Error in createHabit:', error);
+      toast.error('Failed to create habit');
       return {
-        error: errorMessage,
+        error: 'Failed to create habit',
         status: 'error'
       };
     } finally {
       setIsLoading(false);
     }
-  }, [user, activeHabitSetId]);
+  }, [user, activeHabitSetId, isLocalMode]);
   
   // Update a habit
   const updateHabit = useCallback(async (
@@ -290,146 +379,272 @@ export function useHabits() {
   const createHabitSet = useCallback(async (
     habitSetData: Omit<HabitSet, 'id' | 'createdAt' | 'updatedAt'>
   ): Promise<ApiResponse<HabitSet> & { isLocal?: boolean }> => {
-    if (!user) {
-      return { 
-        error: 'User not authenticated', 
-        status: 'error' 
-      };
-    }
-    
     setIsLoading(true);
     try {
       console.log('Creating habit set with data:', habitSetData);
-      const result = await habitSetsApi.create(user.uid, habitSetData);
-      console.log('Habit set creation API result:', result);
       
-      if (result.status === 'success' && result.data) {
-        // Set as active if it's the first one
-        if (habitSets.length === 0) {
-          console.log('Setting as active (first habit set):', result.data.id);
-          await habitSetsApi.setActive(user.uid, result.data.id);
-          setActiveHabitSetId(result.data.id);
-        }
-        
-        // Manually add to local state to ensure immediate UI update
-        setHabitSets(prev => {
-          const exists = prev.some(set => set.id === result.data?.id);
-          if (!exists && result.data) {
-            console.log('Adding new habit set to local state:', result.data);
-            return [...prev, result.data];
+      // If we're in local mode or no user, create in localStorage
+      if (isLocalMode || !user) {
+        console.log('Creating habit set in localStorage');
+        try {
+          const newHabitSet = createHabitSetInLocalStorage(habitSetData);
+          
+          // Update local state
+          setHabitSets(prev => [...prev, newHabitSet]);
+          
+          // Set as active if it's the first one
+          if (habitSets.length === 0) {
+            setActiveHabitSetId(newHabitSet.id);
           }
-          return prev;
-        });
-        
-        toast.success('Habit set created successfully');
+          
+          toast.success('Habit set created successfully (local mode)');
+          
+          return {
+            data: newHabitSet,
+            status: 'success',
+            isLocal: true
+          };
+        } catch (localError) {
+          console.error('Error creating habit set in localStorage:', localError);
+          toast.error('Failed to create habit set in local mode');
+          
+          return {
+            error: 'Failed to create habit set in local mode',
+            status: 'error',
+            isLocal: true
+          };
+        }
       }
       
-      return result;
-    } catch (error) {
-      console.error('Error creating habit set:', error);
-      
-      // Handle quota exceeded errors specially
-      if (isQuotaExceededError(error)) {
-        toast.error('Firebase quota exceeded. Using local mode until quota resets.');
+      // Try to create in Firebase first
+      try {
+        const result = await habitSetsApi.create(user.uid, habitSetData);
         
-        // Create a temporary local habit set with a fake ID
-        const tempId = `local_${Date.now()}`;
-        const tempHabitSet: HabitSet = {
-          ...habitSetData,
-          id: tempId,
-          createdAt: new Date() as any,
-          updatedAt: new Date() as any
-        };
-        
-        // Add to local state
-        setHabitSets(prev => [...prev, tempHabitSet]);
-        
-        // Set as active if needed
-        if (habitSets.length === 0) {
-          setActiveHabitSetId(tempId);
+        if (result.status === 'success' && result.data) {
+          // Set as active if it's the first one
+          if (habitSets.length === 0) {
+            console.log('Setting as active (first habit set):', result.data.id);
+            await habitSetsApi.setActive(user.uid, result.data.id);
+            setActiveHabitSetId(result.data.id);
+          }
+          
+          // Manually add to local state to ensure immediate UI update
+          setHabitSets(prev => {
+            const exists = prev.some(set => set.id === result.data?.id);
+            if (!exists && result.data) {
+              console.log('Adding new habit set to local state:', result.data);
+              return [...prev, result.data];
+            }
+            return prev;
+          });
+          
+          toast.success('Habit set created successfully');
+        } else if (result.error) {
+          // If Firebase creation failed, try localStorage
+          console.warn('Firebase creation failed, using localStorage:', result.error);
+          setIsLocalMode(true);
+          
+          const newHabitSet = createHabitSetInLocalStorage(habitSetData);
+          
+          // Update local state
+          setHabitSets(prev => [...prev, newHabitSet]);
+          
+          // Set as active if it's the first one
+          if (habitSets.length === 0) {
+            setActiveHabitSetId(newHabitSet.id);
+          }
+          
+          toast.error('Failed to create habit set in Firebase. Created locally instead.');
+          
+          return {
+            data: newHabitSet,
+            status: 'success',
+            isLocal: true
+          };
         }
         
+        return result;
+      } catch (error) {
+        console.error('Error creating habit set in Firebase:', error);
+        setIsLocalMode(true);
+        
+        // Fall back to localStorage
+        const newHabitSet = createHabitSetInLocalStorage(habitSetData);
+        
+        // Update local state
+        setHabitSets(prev => [...prev, newHabitSet]);
+        
+        // Set as active if it's the first one
+        if (habitSets.length === 0) {
+          setActiveHabitSetId(newHabitSet.id);
+        }
+        
+        toast.error('Failed to create habit set in Firebase. Created locally instead.');
+        
         return {
-          data: tempHabitSet,
+          data: newHabitSet,
           status: 'success',
           isLocal: true
         };
       }
-      
-      return { 
-        error: error instanceof Error ? error.message : 'Unknown error creating habit set', 
-        status: 'error' 
+    } catch (error) {
+      console.error('Error in createHabitSet:', error);
+      toast.error('Failed to create habit set');
+      return {
+        error: 'Failed to create habit set',
+        status: 'error'
       };
     } finally {
       setIsLoading(false);
     }
-  }, [user, habitSets]);
-  
-  // Create a default habit set if none exists
-  useEffect(() => {
-    const createDefaultHabitSet = async () => {
-      if (user && !loadingHabitSets && (!habitSets || habitSets.length === 0)) {
-        console.log('Creating default habit set for user:', user.uid);
-        try {
-          const result = await createHabitSet({
-            name: 'My Habits',
-            description: 'Default habit set',
-            isPremium: false,
-            isActive: true
-          });
-          
-          console.log('Default habit set creation result:', result);
-          
-          if (result.status === 'success') {
-            toast.success('Created your first habit set!');
-          } else if (result.error) {
-            console.error('Failed to create default habit set:', result.error);
-          }
-        } catch (error) {
-          console.error('Error creating default habit set:', error);
-        }
-      }
-    };
-    
-    createDefaultHabitSet();
-  }, [user, loadingHabitSets, habitSets, createHabitSet]);
+  }, [user, habitSets, isLocalMode]);
   
   // Set active habit set
   const setActiveHabitSet = useCallback(async (
     habitSetId: string
   ): Promise<ApiResponse<boolean>> => {
-    if (!user) {
-      return { 
-        error: 'User not authenticated', 
-        status: 'error' 
-      };
-    }
-    
     setIsLoading(true);
     try {
       console.log('Setting active habit set:', habitSetId);
-      const result = await habitSetsApi.setActive(user.uid, habitSetId);
-      console.log('Set active result:', result);
       
-      if (result.status === 'success') {
-        setActiveHabitSetId(habitSetId);
-        
-        // Update local state to reflect the change immediately
-        setHabitSets(prev => 
-          prev.map(set => ({
-            ...set,
-            isActive: set.id === habitSetId
-          }))
-        );
-        
-        toast.success('Habit set activated');
+      // If we're in local mode or no user, use localStorage
+      if (isLocalMode || !user) {
+        console.log('Setting active habit set in localStorage');
+        try {
+          const success = setActiveHabitSetInLocalStorage(habitSetId);
+          
+          if (success) {
+            // Update local state
+            setHabitSets(prev => prev.map(set => ({
+              ...set,
+              isActive: set.id === habitSetId
+            })));
+            
+            setActiveHabitSetId(habitSetId);
+            
+            toast.success('Habit set activated successfully (local mode)');
+            
+            return {
+              data: true,
+              status: 'success',
+              isLocal: true
+            };
+          } else {
+            toast.error('Failed to activate habit set in local mode');
+            
+            return {
+              error: 'Failed to activate habit set in local mode',
+              status: 'error',
+              isLocal: true
+            };
+          }
+        } catch (localError) {
+          console.error('Error activating habit set in localStorage:', localError);
+          toast.error('Failed to activate habit set in local mode');
+          
+          return {
+            error: 'Failed to activate habit set in local mode',
+            status: 'error',
+            isLocal: true
+          };
+        }
       }
       
-      return result;
+      // Try to set active in Firebase first
+      try {
+        const result = await habitSetsApi.setActive(user.uid, habitSetId);
+        
+        if (result.status === 'success') {
+          // Update local state immediately
+          setHabitSets(prev => prev.map(set => ({
+            ...set,
+            isActive: set.id === habitSetId
+          })));
+          
+          setActiveHabitSetId(habitSetId);
+          
+          // Load habits for the new active set
+          const habitsResult = await habitsApi.getAll(user.uid, habitSetId);
+          if (habitsResult.status === 'success' && habitsResult.data) {
+            setHabits(habitsResult.data);
+          }
+        } else if (result.error) {
+          // If Firebase activation failed, try localStorage
+          console.warn('Firebase activation failed, using localStorage:', result.error);
+          setIsLocalMode(true);
+          
+          const success = setActiveHabitSetInLocalStorage(habitSetId);
+          
+          if (success) {
+            // Update local state
+            setHabitSets(prev => prev.map(set => ({
+              ...set,
+              isActive: set.id === habitSetId
+            })));
+            
+            setActiveHabitSetId(habitSetId);
+            
+            toast.error('Failed to activate habit set in Firebase. Activated locally instead.');
+            
+            return {
+              data: true,
+              status: 'success',
+              isLocal: true
+            };
+          } else {
+            toast.error('Failed to activate habit set');
+            
+            return {
+              error: 'Failed to activate habit set',
+              status: 'error'
+            };
+          }
+        }
+        
+        return result;
+      } catch (error) {
+        console.error('Error activating habit set in Firebase:', error);
+        setIsLocalMode(true);
+        
+        // Fall back to localStorage
+        const success = setActiveHabitSetInLocalStorage(habitSetId);
+        
+        if (success) {
+          // Update local state
+          setHabitSets(prev => prev.map(set => ({
+            ...set,
+            isActive: set.id === habitSetId
+          })));
+          
+          setActiveHabitSetId(habitSetId);
+          
+          toast.error('Failed to activate habit set in Firebase. Activated locally instead.');
+          
+          return {
+            data: true,
+            status: 'success',
+            isLocal: true
+          };
+        } else {
+          toast.error('Failed to activate habit set');
+          
+          return {
+            error: 'Failed to activate habit set',
+            status: 'error'
+          };
+        }
+      }
+    } catch (error) {
+      console.error('Error in setActiveHabitSet:', error);
+      toast.error('Failed to activate habit set');
+      return {
+        error: 'Failed to activate habit set',
+        status: 'error'
+      };
     } finally {
       setIsLoading(false);
     }
-  }, [user]);
+  }, [user, isLocalMode]);
   
   // Delete a habit set
   const deleteHabitSet = useCallback(async (

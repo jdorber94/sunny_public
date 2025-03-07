@@ -11,10 +11,11 @@ import { Habit as HabitType } from '@/types';
 import { Toaster } from 'react-hot-toast';
 import { ErrorBoundary } from './ErrorBoundary';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FaPlus, FaCalendarAlt, FaChartBar, FaUser } from 'react-icons/fa';
+import { FaPlus, FaCalendarAlt, FaChartBar, FaUser, FaDatabase } from 'react-icons/fa';
 import { createTestUser } from '@/services/firebase/auth';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '@/contexts/AuthContext';
+import { initializeLocalStorage } from '@/utils/localStorageHelpers';
 
 export default function EnhancedHabitTracker() {
   const { 
@@ -30,6 +31,15 @@ export default function EnhancedHabitTracker() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [habitToEdit, setHabitToEdit] = useState<HabitType | null>(null);
   const [view, setView] = useState<'list' | 'calendar' | 'stats'>('list');
+  
+  // Initialize local storage on component mount
+  useEffect(() => {
+    try {
+      initializeLocalStorage();
+    } catch (error) {
+      console.error('Error initializing local storage:', error);
+    }
+  }, []);
   
   // Add debugging logs
   useEffect(() => {
@@ -117,6 +127,15 @@ export default function EnhancedHabitTracker() {
     }
   };
   
+  // Add a function to force local storage mode
+  const forceLocalStorageMode = () => {
+    localStorage.setItem('sunny_force_local_mode', 'true');
+    toast.success('Forced local storage mode. Refreshing page...');
+    setTimeout(() => {
+      window.location.reload();
+    }, 1000);
+  };
+  
   return (
     <ErrorBoundary>
       <main className="container mx-auto px-4 py-8 max-w-4xl">
@@ -139,6 +158,13 @@ export default function EnhancedHabitTracker() {
               >
                 <FaUser className="mr-1" size={12} />
                 Login Test User
+              </button>
+              <button 
+                onClick={forceLocalStorageMode}
+                className="px-3 py-1 bg-purple-500 text-white rounded-md text-sm flex items-center"
+              >
+                <FaDatabase className="mr-1" size={12} />
+                Force Local Mode
               </button>
             </div>
           </div>
