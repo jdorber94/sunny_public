@@ -69,6 +69,11 @@ const getHabitsCollectionRef = (userId: string) => {
   return collection(db, 'users', userId, 'habits');
 };
 
+// Helper function to get user stats document reference
+const getUserStatsDocRef = (userId: string) => {
+  return doc(db, 'users', userId, 'stats', 'main');
+};
+
 // Save user profile to Firestore
 export const saveUserProfile = async (userId: string, profile: UserProfile) => {
   try {
@@ -119,6 +124,60 @@ export const subscribeToUserProfile = (userId: string, callback: (profile: UserP
     }
   }, (error) => {
     console.error('Error subscribing to user profile:', error);
+    callback(null);
+  });
+};
+
+// Save user stats to Firestore
+export const saveUserStats = async (userId: string, stats: UserStats) => {
+  try {
+    const statsDocRef = getUserStatsDocRef(userId);
+    
+    // Add timestamps
+    const statsWithTimestamps = {
+      ...stats,
+      updatedAt: serverTimestamp(),
+      createdAt: stats.createdAt || serverTimestamp()
+    };
+    
+    await setDoc(statsDocRef, statsWithTimestamps, { merge: true });
+    console.log('User stats saved successfully');
+    return { success: true };
+  } catch (error) {
+    console.error('Error saving user stats:', error);
+    return { success: false, error };
+  }
+};
+
+// Get user stats from Firestore
+export const getUserStats = async (userId: string): Promise<UserStats | null> => {
+  try {
+    const statsDocRef = getUserStatsDocRef(userId);
+    const statsDoc = await getDoc(statsDocRef);
+    
+    if (statsDoc.exists()) {
+      return statsDoc.data() as UserStats;
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('Error getting user stats:', error);
+    return null;
+  }
+};
+
+// Subscribe to user stats changes
+export const subscribeToUserStats = (userId: string, callback: (stats: UserStats | null) => void) => {
+  const statsDocRef = getUserStatsDocRef(userId);
+  
+  return onSnapshot(statsDocRef, (doc) => {
+    if (doc.exists()) {
+      callback(doc.data() as UserStats);
+    } else {
+      callback(null);
+    }
+  }, (error) => {
+    console.error('Error subscribing to user stats:', error);
     callback(null);
   });
 };

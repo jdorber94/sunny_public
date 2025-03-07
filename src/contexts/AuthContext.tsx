@@ -9,10 +9,20 @@ import {
   signOut as firebaseSignOut, 
   subscribeToAuthChanges 
 } from '@/lib/firebase';
-import { initializeUserData } from '@/lib/firestoreService';
+import { 
+  initializeUserData, 
+  getUserProfile, 
+  subscribeToUserProfile, 
+  UserProfile 
+} from '@/lib/firestoreService';
+
+// Extended User type with isPremium property
+interface ExtendedUser extends User {
+  isPremium?: boolean;
+}
 
 interface AuthContextType {
-  user: User | null;
+  user: ExtendedUser | null;
   loading: boolean;
   signInWithGoogle: () => Promise<User>;
   signInWithEmail: (email: string, password: string) => Promise<User>;
@@ -23,14 +33,31 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<ExtendedUser | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
 
   // Subscribe to auth state changes
   useEffect(() => {
     const unsubscribe = subscribeToAuthChanges((authUser) => {
-      setUser(authUser);
-      setLoading(false);
+      if (authUser) {
+        // Get user profile to check premium status
+        subscribeToUserProfile(authUser.uid, (profile) => {
+          if (profile) {
+            // Add isPremium property to the user object
+            const extendedUser = {
+              ...authUser,
+              isPremium: profile.isPremium
+            };
+            setUser(extendedUser);
+          } else {
+            setUser(authUser);
+          }
+          setLoading(false);
+        });
+      } else {
+        setUser(null);
+        setLoading(false);
+      }
     });
 
     return () => unsubscribe();
