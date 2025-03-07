@@ -27,6 +27,21 @@ export const HabitSetSelector: React.FC = () => {
       activeHabitSet,
       loadingHabitSets
     });
+    
+    // Add more detailed logging
+    if (!habitSets || habitSets.length === 0) {
+      console.warn('No habit sets found. This could be due to:');
+      console.warn('1. User not authenticated properly');
+      console.warn('2. Firestore connection issues');
+      console.warn('3. No habit sets created yet');
+      console.warn('4. Permissions issues');
+    }
+    
+    if (user) {
+      console.log('User is authenticated:', user.uid);
+    } else {
+      console.warn('No authenticated user found');
+    }
   }, [habitSets, activeHabitSet, loadingHabitSets, user]);
   
   const [isCreating, setIsCreating] = useState(false);

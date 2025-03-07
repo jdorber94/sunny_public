@@ -11,7 +11,10 @@ import { Habit as HabitType } from '@/types';
 import { Toaster } from 'react-hot-toast';
 import { ErrorBoundary } from './ErrorBoundary';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FaPlus, FaCalendarAlt, FaChartBar } from 'react-icons/fa';
+import { FaPlus, FaCalendarAlt, FaChartBar, FaUser } from 'react-icons/fa';
+import { createTestUser } from '@/services/firebase/auth';
+import { toast } from 'react-hot-toast';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function EnhancedHabitTracker() {
   const { 
@@ -19,7 +22,9 @@ export default function EnhancedHabitTracker() {
     activeHabitSet, 
     loadingHabits, 
     habitsError,
-    loadingHabitSets
+    loadingHabitSets,
+    habitSets,
+    createHabitSet
   } = useHabits();
   
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -33,9 +38,23 @@ export default function EnhancedHabitTracker() {
       habitCount: habits?.length,
       loadingHabits,
       loadingHabitSets,
-      hasHabitsError: !!habitsError
+      hasHabitsError: !!habitsError,
+      habitSets: habitSets?.length || 0
     });
-  }, [activeHabitSet, habits, loadingHabits, loadingHabitSets, habitsError]);
+    
+    // Add more detailed debugging
+    if (habitsError) {
+      console.error('Habits error:', habitsError);
+    }
+    
+    if (!habitSets || habitSets.length === 0) {
+      console.warn('No habit sets available in EnhancedHabitTracker');
+    }
+    
+    if (!activeHabitSet && habitSets && habitSets.length > 0) {
+      console.warn('Have habit sets but no active set selected');
+    }
+  }, [activeHabitSet, habits, loadingHabits, loadingHabitSets, habitsError, habitSets]);
   
   // Handle opening the form for adding a new habit
   const handleAddHabit = () => {
@@ -68,12 +87,62 @@ export default function EnhancedHabitTracker() {
     </motion.button>
   );
   
+  // Add a function to create a test habit set
+  const createTestHabitSet = async () => {
+    try {
+      console.log('Creating test habit set from EnhancedHabitTracker');
+      const result = await createHabitSet({
+        name: `Test Set ${new Date().toLocaleTimeString()}`,
+        description: "A test habit set created for debugging",
+        isPremium: false,
+        isActive: true
+      });
+      
+      console.log('Test habit set creation result:', result);
+    } catch (error) {
+      console.error('Error creating test habit set:', error);
+    }
+  };
+  
+  // Add a function to login with a test user
+  const loginWithTestUser = async () => {
+    try {
+      console.log('Logging in with test user');
+      const testUser = await createTestUser();
+      console.log('Test user logged in:', testUser);
+      toast.success('Test user logged in successfully');
+    } catch (error) {
+      console.error('Error logging in with test user:', error);
+      toast.error('Failed to log in with test user');
+    }
+  };
+  
   return (
     <ErrorBoundary>
       <main className="container mx-auto px-4 py-8 max-w-4xl">
         <h1 className="text-3xl font-bold text-center mb-8">Habit Tracker</h1>
         
         <div className="bg-white rounded-lg shadow-md p-6">
+          {/* Add debug button */}
+          <div className="mb-4 p-2 bg-yellow-50 rounded-md">
+            <p className="text-sm text-yellow-700 mb-2">Debugging Tools:</p>
+            <div className="flex space-x-2">
+              <button 
+                onClick={createTestHabitSet}
+                className="px-3 py-1 bg-yellow-500 text-white rounded-md text-sm"
+              >
+                Create Test Habit Set
+              </button>
+              <button 
+                onClick={loginWithTestUser}
+                className="px-3 py-1 bg-green-500 text-white rounded-md text-sm flex items-center"
+              >
+                <FaUser className="mr-1" size={12} />
+                Login Test User
+              </button>
+            </div>
+          </div>
+          
           <HabitSetSelector />
           
           {loadingHabitSets && (
