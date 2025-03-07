@@ -1,11 +1,12 @@
 import React from 'react';
-import { useHabits } from '@/hooks/useHabits';
-import { Habit } from '@/types';
+import { Habit } from '@/lib/firestoreService';
 import { FaFire, FaCalendarCheck, FaTrophy } from 'react-icons/fa';
 
-export const HabitStats: React.FC = () => {
-  const { habits } = useHabits();
-  
+interface HabitStatsProps {
+  habits: Habit[];
+}
+
+export const HabitStats: React.FC<HabitStatsProps> = ({ habits }) => {
   // Calculate total habits
   const totalHabits = habits.length;
   

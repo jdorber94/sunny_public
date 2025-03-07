@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { useHabits } from '@/hooks/useHabits';
-import { Habit } from '@/types';
+import { Habit } from '@/lib/firestoreService';
 import { FaCheck, FaTimes } from 'react-icons/fa';
 
-export const HabitCalendar: React.FC = () => {
-  const { habits, isHabitCompletedToday } = useHabits();
+interface HabitCalendarProps {
+  habits: Habit[];
+}
+
+export const HabitCalendar: React.FC<HabitCalendarProps> = ({ habits }) => {
   const [currentWeek, setCurrentWeek] = useState<Date[]>([]);
   
   // Generate the dates for the current week

@@ -63,24 +63,9 @@ export interface Habit extends BaseModel {
   daysOfWeek?: number[]; // 0 = Sunday, 1 = Monday, etc.
 }
 
-export interface HabitSet extends BaseModel {
-  name: string;
-  description?: string;
-  isPremium: boolean;
-  isActive: boolean;
-}
-
 // Extended user type with premium status
 export interface AppUser extends FirebaseUser {
   isPremium?: boolean;
-}
-
-// API response types
-export interface ApiResponse<T> {
-  data?: T;
-  error?: string;
-  status: 'success' | 'error';
-  isLocal?: boolean; // Indicates if the data is stored locally only (e.g., due to quota limits)
 }
 
 // Form state types

@@ -1,21 +1,26 @@
 import React, { useState } from 'react';
-import { Habit as HabitType } from '@/types';
+import { Habit as HabitType } from '@/lib/firestoreService';
 import { motion } from 'framer-motion';
 import { FaCheck, FaTrash, FaEdit } from 'react-icons/fa';
-import { useHabits } from '@/hooks/useHabits';
-import { toast } from 'react-hot-toast';
 
 interface HabitProps {
   habit: HabitType;
-  onEdit?: (habit: HabitType) => void;
+  onEdit: () => void;
+  onDelete: () => void;
+  onLog: () => void;
 }
 
-export const Habit: React.FC<HabitProps> = ({ habit, onEdit }) => {
-  const { toggleHabitCompletion, deleteHabit, isHabitCompletedToday } = useHabits();
+export const Habit: React.FC<HabitProps> = ({ habit, onEdit, onDelete, onLog }) => {
   const [isToggling, setIsToggling] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   
-  const isCompleted = isHabitCompletedToday(habit);
+  // Check if habit is completed today
+  const isCompletedToday = () => {
+    const today = new Date().toISOString().split('T')[0];
+    return habit.logs.includes(today);
+  };
+  
+  const isCompleted = isCompletedToday();
   
   // Handle toggling habit completion
   const handleToggle = async (e: React.MouseEvent) => {
@@ -25,11 +30,7 @@ export const Habit: React.FC<HabitProps> = ({ habit, onEdit }) => {
     
     setIsToggling(true);
     try {
-      const result = await toggleHabitCompletion(habit.id);
-      
-      if (result.status === 'error') {
-        toast.error(result.error || 'Failed to toggle habit completion');
-      }
+      await onLog();
     } finally {
       setIsToggling(false);
     }
@@ -41,26 +42,18 @@ export const Habit: React.FC<HabitProps> = ({ habit, onEdit }) => {
     
     if (isDeleting) return;
     
-    if (window.confirm(`Are you sure you want to delete "${habit.name}"?`)) {
-      setIsDeleting(true);
-      try {
-        const result = await deleteHabit(habit.id);
-        
-        if (result.status === 'error') {
-          toast.error(result.error || 'Failed to delete habit');
-        }
-      } finally {
-        setIsDeleting(false);
-      }
+    setIsDeleting(true);
+    try {
+      await onDelete();
+    } finally {
+      setIsDeleting(false);
     }
   };
   
   // Handle editing a habit
   const handleEdit = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (onEdit) {
-      onEdit(habit);
-    }
+    onEdit();
   };
   
   return (

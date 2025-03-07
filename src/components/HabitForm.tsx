@@ -1,17 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { Habit } from '@/types';
-import { useHabits } from '@/hooks/useHabits';
-import { motion, AnimatePresence } from 'framer-motion';
+import { Habit } from '@/lib/firestoreService';
+import { motion } from 'framer-motion';
 import { FaTimes, FaSave } from 'react-icons/fa';
-import { toast } from 'react-hot-toast';
 
 interface HabitFormProps {
-  onClose: () => void;
-  habitToEdit: Habit | null;
+  habit: Habit | null;
+  onSave: (habit: Omit<Habit, 'id'>) => Promise<void>;
+  onCancel: () => void;
 }
 
-export const HabitForm: React.FC<HabitFormProps> = ({ onClose, habitToEdit }) => {
-  const { createHabit, updateHabit, activeHabitSet } = useHabits();
+export const HabitForm: React.FC<HabitFormProps> = ({ habit, onSave, onCancel }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
@@ -22,23 +20,12 @@ export const HabitForm: React.FC<HabitFormProps> = ({ onClose, habitToEdit }) =>
   
   // Initialize form with habit data if editing
   useEffect(() => {
-    if (habitToEdit) {
-      setName(habitToEdit.name);
-      setCategory(habitToEdit.category || '');
-      setDaysOfWeek(habitToEdit.daysOfWeek || []);
+    if (habit) {
+      setName(habit.name);
+      setCategory(habit.category || '');
+      setDaysOfWeek(habit.daysOfWeek || []);
     }
-  }, [habitToEdit]);
-  
-  // Add debugging logs
-  useEffect(() => {
-    console.log('HabitForm state:', {
-      isEditing: !!habitToEdit,
-      habitName: name,
-      category,
-      daysOfWeek,
-      activeHabitSet: activeHabitSet?.name
-    });
-  }, [name, category, daysOfWeek, habitToEdit, activeHabitSet]);
+  }, [habit]);
   
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
@@ -50,232 +37,157 @@ export const HabitForm: React.FC<HabitFormProps> = ({ onClose, habitToEdit }) =>
       return;
     }
     
-    if (!activeHabitSet) {
-      setError('No active habit set selected');
-      toast.error('No active habit set selected. Please create or select a habit set first.');
-      
-      // Close the form after a delay
-      setTimeout(() => {
-        onClose();
-      }, 2000);
-      
-      return;
-    }
-    
     setIsSubmitting(true);
     
     try {
-      console.log('Submitting habit form:', {
-        isEditing: !!habitToEdit,
-        name,
-        category,
-        daysOfWeek
-      });
+      const habitData: Omit<Habit, 'id'> = {
+        name: name.trim(),
+        logs: habit?.logs || [],
+        xp: habit?.xp || 0,
+        streak: habit?.streak || 0
+      };
       
-      if (habitToEdit) {
-        // Update existing habit
-        const updateData: any = {
-          name
-        };
-        
-        // Only add category if it has a value
-        if (category && category.trim()) {
-          updateData.category = category;
-        }
-        
-        // Only add daysOfWeek if it has values
-        if (daysOfWeek.length > 0) {
-          updateData.daysOfWeek = daysOfWeek;
-        }
-        
-        console.log('Updating habit with data:', updateData);
-        
-        try {
-          const result = await updateHabit(habitToEdit.id, updateData);
-          
-          if (result.status === 'error') {
-            setError(result.error || 'Failed to update habit');
-            toast.error(result.error || 'Failed to update habit');
-            return;
-          }
-          
-          toast.success('Habit updated successfully');
-          onClose(); // Close the form on success
-        } catch (updateError) {
-          console.error('Error updating habit:', updateError);
-          setError('An unexpected error occurred while updating the habit');
-          toast.error('Failed to update habit. Please try again.');
-        }
-      } else {
-        // Create new habit
-        const habitData: any = {
-          name,
-          logs: [],
-          xp: 0
-        };
-        
-        // Only add category if it has a value
-        if (category && category.trim()) {
-          habitData.category = category;
-        }
-        
-        // Only add daysOfWeek if it has values
-        if (daysOfWeek.length > 0) {
-          habitData.daysOfWeek = daysOfWeek;
-        }
-        
-        console.log('Creating habit with data:', habitData);
-        
-        try {
-          const result = await createHabit(habitData);
-          
-          if (result.status === 'error') {
-            setError(result.error || 'Failed to create habit');
-            toast.error(result.error || 'Failed to create habit');
-            return;
-          }
-          
-          toast.success('Habit created successfully');
-          onClose(); // Close the form on success
-        } catch (createError) {
-          console.error('Error creating habit:', createError);
-          setError('An unexpected error occurred while creating the habit');
-          toast.error('Failed to create habit. Please try again.');
-        }
+      // Only add category if it has a value
+      if (category && category.trim()) {
+        habitData.category = category.trim();
       }
-    } catch (formError) {
-      console.error('Form submission error:', formError);
-      setError('An unexpected error occurred');
-      toast.error('An error occurred. Please try again.');
+      
+      // Only add daysOfWeek if it has values
+      if (daysOfWeek.length > 0) {
+        habitData.daysOfWeek = daysOfWeek;
+      }
+      
+      await onSave(habitData);
+      onCancel();
+    } catch (err) {
+      console.error('Error saving habit:', err);
+      setError('Failed to save habit');
     } finally {
       setIsSubmitting(false);
     }
   };
   
-  // Toggle day selection
+  // Toggle a day of the week
   const toggleDay = (day: number) => {
-    setDaysOfWeek(prev => 
-      prev.includes(day) 
-        ? prev.filter(d => d !== day) 
-        : [...prev, day].sort()
-    );
+    setDaysOfWeek(current => {
+      if (current.includes(day)) {
+        return current.filter(d => d !== day);
+      } else {
+        return [...current, day].sort();
+      }
+    });
   };
   
-  // Day names
-  const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  // Get day name
+  const getDayName = (day: number): string => {
+    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    return days[day];
+  };
   
   return (
-    <AnimatePresence>
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.9 }}
-          className="bg-white rounded-lg shadow-xl w-full max-w-md"
+    <div className="p-6 bg-white rounded-lg shadow-xl max-w-md w-full">
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-2xl font-bold text-gray-800">
+          {habit ? 'Edit Habit' : 'Add New Habit'}
+        </h2>
+        <button
+          onClick={onCancel}
+          className="text-gray-500 hover:text-gray-700 focus:outline-none"
+          aria-label="Close"
         >
-          <div className="flex justify-between items-center p-4 border-b">
-            <h2 className="text-xl font-semibold text-gray-800">
-              {habitToEdit ? 'Edit Habit' : 'Add New Habit'}
-            </h2>
-            <button
-              onClick={onClose}
-              className="text-gray-500 hover:text-gray-700 focus:outline-none"
-              aria-label="Close"
-            >
-              <FaTimes />
-            </button>
-          </div>
-          
-          <form onSubmit={handleSubmit} className="p-4">
-            {error && (
-              <div className="mb-4 p-3 bg-red-50 border-l-4 border-red-500 text-red-700 text-sm">
-                {error}
-              </div>
-            )}
-            
-            <div className="mb-4">
-              <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
-                Habit Name*
-              </label>
-              <input
-                type="text"
-                id="name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="e.g., Drink water"
-                required
-              />
-            </div>
-            
-            <div className="mb-4">
-              <label htmlFor="category" className="block text-sm font-medium text-gray-700 mb-1">
-                Category (optional)
-              </label>
-              <input
-                type="text"
-                id="category"
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="e.g., Health, Productivity"
-              />
-            </div>
-            
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Days of Week (optional)
-              </label>
-              <div className="flex justify-between">
-                {dayNames.map((day, index) => (
-                  <button
-                    key={day}
-                    type="button"
-                    onClick={() => toggleDay(index)}
-                    className={`
-                      w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium
-                      ${daysOfWeek.includes(index)
-                        ? 'bg-blue-500 text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}
-                      transition-colors duration-200
-                    `}
-                  >
-                    {day}
-                  </button>
-                ))}
-              </div>
-            </div>
-            
-            <div className="flex justify-end space-x-3 border-t pt-4">
-              <button
-                type="button"
-                onClick={onClose}
-                className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500"
-                disabled={isSubmitting}
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 flex items-center"
-                disabled={isSubmitting}
-              >
-                {isSubmitting ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                    Saving...
-                  </>
-                ) : (
-                  <>
-                    <FaSave className="mr-2" />
-                    {habitToEdit ? 'Update' : 'Create'}
-                  </>
-                )}
-              </button>
-            </div>
-          </form>
-        </motion.div>
+          <FaTimes size={20} />
+        </button>
       </div>
-    </AnimatePresence>
+      
+      {error && (
+        <div className="mb-4 p-3 bg-red-50 text-red-700 rounded-md border border-red-200">
+          {error}
+        </div>
+      )}
+      
+      <form onSubmit={handleSubmit}>
+        <div className="mb-4">
+          <label htmlFor="name" className="block text-gray-700 font-medium mb-2">
+            Habit Name*
+          </label>
+          <input
+            type="text"
+            id="name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="e.g., Drink Water"
+            required
+          />
+        </div>
+        
+        <div className="mb-4">
+          <label htmlFor="category" className="block text-gray-700 font-medium mb-2">
+            Category (optional)
+          </label>
+          <input
+            type="text"
+            id="category"
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="e.g., Health, Fitness, Learning"
+          />
+        </div>
+        
+        <div className="mb-6">
+          <label className="block text-gray-700 font-medium mb-2">
+            Days of Week (optional)
+          </label>
+          <div className="flex flex-wrap gap-2">
+            {[0, 1, 2, 3, 4, 5, 6].map(day => (
+              <button
+                key={day}
+                type="button"
+                onClick={() => toggleDay(day)}
+                className={`
+                  px-3 py-2 rounded-md text-sm font-medium transition-colors
+                  ${daysOfWeek.includes(day)
+                    ? 'bg-blue-500 text-white'
+                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}
+                `}
+              >
+                {getDayName(day)}
+              </button>
+            ))}
+          </div>
+        </div>
+        
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="px-4 py-2 mr-2 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-500"
+            disabled={isSubmitting}
+          >
+            Cancel
+          </button>
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            type="submit"
+            className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 flex items-center"
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                Saving...
+              </>
+            ) : (
+              <>
+                <FaSave className="mr-2" />
+                Save Habit
+              </>
+            )}
+          </motion.button>
+        </div>
+      </form>
+    </div>
   );
 }; 
