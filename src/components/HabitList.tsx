@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Habit as HabitType } from '@/types';
 import { Habit } from './Habit';
 import { useHabits } from '@/hooks/useHabits';
@@ -23,12 +23,14 @@ export const HabitList: React.FC<HabitListProps> = ({
   } = useHabits();
   
   // Add console logging for debugging
-  console.log('HabitList rendering with:', {
-    habitCount: habits?.length,
-    activeHabitSet: activeHabitSet?.name,
-    loading: loadingHabits,
-    hasError: !!habitsError
-  });
+  useEffect(() => {
+    console.log('HabitList rendering with:', {
+      habitCount: habits?.length,
+      activeHabitSet: activeHabitSet?.name,
+      loading: loadingHabits,
+      hasError: !!habitsError
+    });
+  }, [habits, activeHabitSet, loadingHabits, habitsError]);
   
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [habitToEdit, setHabitToEdit] = useState<HabitType | null>(null);
@@ -80,7 +82,7 @@ export const HabitList: React.FC<HabitListProps> = ({
   }
   
   // Render empty state
-  if (!habits.length) {
+  if (!habits || !habits.length) {
     return (
       <div className="flex flex-col items-center justify-center p-8 bg-gray-50 rounded-lg">
         <img 
@@ -99,15 +101,13 @@ export const HabitList: React.FC<HabitListProps> = ({
             : 'Create a habit set first to start tracking your habits.'}
         </p>
         
-        {activeHabitSet && showAddButton && (
-          <button
-            onClick={() => setIsFormOpen(true)}
-            className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors duration-200 flex items-center"
-          >
-            <FaPlus className="mr-2" />
-            Add your first habit
-          </button>
-        )}
+        <button
+          onClick={() => setIsFormOpen(true)}
+          className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors duration-200 flex items-center"
+        >
+          <FaPlus className="mr-2" />
+          Add your first habit
+        </button>
         
         {isFormOpen && (
           <HabitForm onClose={handleCloseForm} habitToEdit={habitToEdit} />
@@ -119,22 +119,6 @@ export const HabitList: React.FC<HabitListProps> = ({
   // Render habit list
   return (
     <div className="space-y-4">
-      {showAddButton && (
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold text-gray-800">
-            {activeHabitSet?.name || 'My Habits'}
-          </h2>
-          
-          <button
-            onClick={() => setIsFormOpen(true)}
-            className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors duration-200 flex items-center"
-          >
-            <FaPlus className="mr-2" />
-            Add Habit
-          </button>
-        </div>
-      )}
-      
       <AnimatePresence>
         {Array.isArray(habits) && habits.length > 0 ? (
           habits.map(habit => (

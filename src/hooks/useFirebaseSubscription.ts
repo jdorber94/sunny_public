@@ -67,120 +67,148 @@ export function useFirebaseSubscription<T>(
       return;
     }
     
-    // Create the subscription
-    const unsubscribe = isDocumentReference(reference)
-      ? onSnapshot(
+    let unsubscribe: () => void;
+    
+    try {
+      // Create the subscription
+      if (isDocumentReference(reference)) {
+        unsubscribe = onSnapshot(
           reference,
-          (snapshot: DocumentSnapshot<T>) => {
-            try {
-              // Get the data, which will be null if the document doesn't exist
-              const docData = snapshot.data() || null;
-              
-              setData(docData);
-              setLoading(false);
-              
-              // Call the onData callback if provided
-              if (callbacksRef.current.onData) {
-                callbacksRef.current.onData(docData);
-              }
-            } catch (err: unknown) {
-              const appError = handleError(err, 'Error processing snapshot data');
-              setError(appError);
-              setLoading(false);
-              
-              // Log the error with more context
-              console.error('Snapshot processing error:', {
-                docId: snapshot.id,
-                error: err
-              });
-              logError(appError);
-              
-              // Call the onError callback if provided
-              if (callbacksRef.current.onError) {
-                callbacksRef.current.onError(appError);
-              }
-            }
-          },
-          (err: unknown) => {
-            const appError = handleError(err, errorMessage);
-            setError(appError);
-            setLoading(false);
-            
-            // Log the error
-            logError(appError);
-            
-            // Show toast if enabled
-            if (showErrorToast) {
-              toast.error(appError.message);
-            }
-            
-            // Call the onError callback if provided
-            if (callbacksRef.current.onError) {
-              callbacksRef.current.onError(appError);
-            }
-          }
-        )
-      : onSnapshot(
-          reference as Query<T>,
-          (snapshot: QuerySnapshot<T>) => {
-            try {
-              const docsData = snapshot.docs.map(doc => {
+          {
+            next: (snapshot: DocumentSnapshot<T>) => {
+              try {
+                // Get the data, which will be null if the document doesn't exist
+                let docData: T | null = null;
+                
                 try {
-                  return doc.data();
-                } catch (docErr) {
-                  console.error(`Error processing doc ${doc.id}:`, docErr);
-                  return null;
+                  // Safely get data
+                  docData = snapshot.data() || null;
+                } catch (dataErr) {
+                  console.warn('Error getting document data:', dataErr);
                 }
-              }).filter(Boolean) as T[]; // Filter out null values
-              
-              setData(docsData);
-              setLoading(false);
-              
-              // Call the onData callback if provided
-              if (callbacksRef.current.onData) {
-                callbacksRef.current.onData(docsData);
+                
+                setData(docData);
+                setLoading(false);
+                
+                // Call the onData callback if provided
+                if (callbacksRef.current.onData) {
+                  callbacksRef.current.onData(docData);
+                }
+              } catch (err: unknown) {
+                const appError = handleError(err, 'Error processing snapshot data');
+                setError(appError);
+                setLoading(false);
+                
+                // Log the error with more context
+                console.error('Snapshot processing error:', {
+                  docId: snapshot.id,
+                  error: err
+                });
+                logError(appError);
+                
+                // Call the onError callback if provided
+                if (callbacksRef.current.onError) {
+                  callbacksRef.current.onError(appError);
+                }
               }
-            } catch (err: unknown) {
-              const appError = handleError(err, 'Error processing snapshot data');
+            },
+            error: (err: unknown) => {
+              const appError = handleError(err, errorMessage);
               setError(appError);
               setLoading(false);
               
-              // Log more context about the error
-              console.error('Collection snapshot processing error:', {
-                docsCount: snapshot.docs.length,
-                error: err
-              });
+              // Log the error
               logError(appError);
+              
+              // Show toast if enabled
+              if (showErrorToast) {
+                toast.error(appError.message);
+              }
               
               // Call the onError callback if provided
               if (callbacksRef.current.onError) {
                 callbacksRef.current.onError(appError);
               }
-            }
-          },
-          (err: unknown) => {
-            const appError = handleError(err, errorMessage);
-            setError(appError);
-            setLoading(false);
-            
-            // Log the error
-            logError(appError);
-            
-            // Show toast if enabled
-            if (showErrorToast) {
-              toast.error(appError.message);
-            }
-            
-            // Call the onError callback if provided
-            if (callbacksRef.current.onError) {
-              callbacksRef.current.onError(appError);
             }
           }
         );
+      } else {
+        unsubscribe = onSnapshot(
+          reference as Query<T>,
+          {
+            next: (snapshot: QuerySnapshot<T>) => {
+              try {
+                const docsData = snapshot.docs.map(doc => {
+                  try {
+                    return doc.data();
+                  } catch (docErr) {
+                    console.error(`Error processing doc ${doc.id}:`, docErr);
+                    return null;
+                  }
+                }).filter(Boolean) as T[]; // Filter out null values
+                
+                setData(docsData);
+                setLoading(false);
+                
+                // Call the onData callback if provided
+                if (callbacksRef.current.onData) {
+                  callbacksRef.current.onData(docsData);
+                }
+              } catch (err: unknown) {
+                const appError = handleError(err, 'Error processing snapshot data');
+                setError(appError);
+                setLoading(false);
+                
+                // Log more context about the error
+                console.error('Collection snapshot processing error:', {
+                  docsCount: snapshot.docs.length,
+                  error: err
+                });
+                logError(appError);
+                
+                // Call the onError callback if provided
+                if (callbacksRef.current.onError) {
+                  callbacksRef.current.onError(appError);
+                }
+              }
+            },
+            error: (err: unknown) => {
+              const appError = handleError(err, errorMessage);
+              setError(appError);
+              setLoading(false);
+              
+              // Log the error
+              logError(appError);
+              
+              // Show toast if enabled
+              if (showErrorToast) {
+                toast.error(appError.message);
+              }
+              
+              // Call the onError callback if provided
+              if (callbacksRef.current.onError) {
+                callbacksRef.current.onError(appError);
+              }
+            }
+          }
+        );
+      }
+    } catch (err) {
+      console.error('Error setting up subscription:', err);
+      setError(handleError(err, 'Error setting up subscription'));
+      setLoading(false);
+      
+      // Return a no-op cleanup function
+      return () => {};
+    }
     
     // Clean up the subscription when the component unmounts or the reference changes
     return () => {
-      unsubscribe();
+      try {
+        unsubscribe();
+      } catch (err) {
+        console.error('Error unsubscribing:', err);
+      }
     };
   }, [reference, errorMessage, showErrorToast]);
   

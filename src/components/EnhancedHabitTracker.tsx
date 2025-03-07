@@ -18,12 +18,24 @@ export default function EnhancedHabitTracker() {
     habits, 
     activeHabitSet, 
     loadingHabits, 
-    habitsError 
+    habitsError,
+    loadingHabitSets
   } = useHabits();
   
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [habitToEdit, setHabitToEdit] = useState<HabitType | null>(null);
   const [view, setView] = useState<'list' | 'calendar' | 'stats'>('list');
+  
+  // Add debugging logs
+  useEffect(() => {
+    console.log('EnhancedHabitTracker state:', {
+      activeHabitSet: activeHabitSet?.name,
+      habitCount: habits?.length,
+      loadingHabits,
+      loadingHabitSets,
+      hasHabitsError: !!habitsError
+    });
+  }, [activeHabitSet, habits, loadingHabits, loadingHabitSets, habitsError]);
   
   // Handle opening the form for adding a new habit
   const handleAddHabit = () => {
@@ -51,7 +63,14 @@ export default function EnhancedHabitTracker() {
         <div className="bg-white rounded-lg shadow-md p-6">
           <HabitSetSelector />
           
-          {activeHabitSet && (
+          {loadingHabitSets && (
+            <div className="flex flex-col items-center justify-center p-8 mt-6">
+              <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+              <p className="text-gray-600">Loading habit sets...</p>
+            </div>
+          )}
+          
+          {!loadingHabitSets && activeHabitSet && (
             <div className="mt-6">
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold text-gray-800">
@@ -120,7 +139,7 @@ export default function EnhancedHabitTracker() {
             </div>
           )}
           
-          {!activeHabitSet && !loadingHabits && (
+          {!loadingHabitSets && !activeHabitSet && (
             <div className="flex flex-col items-center justify-center p-8 bg-gray-50 rounded-lg mt-6">
               <h3 className="text-xl font-medium text-gray-700 mb-2">No Active Habit Set</h3>
               <p className="text-gray-500 mb-6 text-center">

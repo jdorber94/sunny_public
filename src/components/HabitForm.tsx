@@ -3,6 +3,7 @@ import { Habit } from '@/types';
 import { useHabits } from '@/hooks/useHabits';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FaTimes, FaSave } from 'react-icons/fa';
+import { toast } from 'react-hot-toast';
 
 interface HabitFormProps {
   onClose: () => void;
@@ -10,8 +11,9 @@ interface HabitFormProps {
 }
 
 export const HabitForm: React.FC<HabitFormProps> = ({ onClose, habitToEdit }) => {
-  const { createHabit, updateHabit } = useHabits();
+  const { createHabit, updateHabit, activeHabitSet } = useHabits();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   
   // Form state
   const [name, setName] = useState('');
@@ -27,36 +29,83 @@ export const HabitForm: React.FC<HabitFormProps> = ({ onClose, habitToEdit }) =>
     }
   }, [habitToEdit]);
   
+  // Add debugging logs
+  useEffect(() => {
+    console.log('HabitForm state:', {
+      isEditing: !!habitToEdit,
+      habitName: name,
+      category,
+      daysOfWeek,
+      activeHabitSet: activeHabitSet?.name
+    });
+  }, [name, category, daysOfWeek, habitToEdit, activeHabitSet]);
+  
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
     
     if (!name.trim()) {
+      setError('Habit name is required');
+      return;
+    }
+    
+    if (!activeHabitSet) {
+      setError('No active habit set selected');
+      toast.error('No active habit set selected. Please create or select a habit set first.');
       return;
     }
     
     setIsSubmitting(true);
     
     try {
+      console.log('Submitting habit form:', {
+        isEditing: !!habitToEdit,
+        name,
+        category,
+        daysOfWeek
+      });
+      
       if (habitToEdit) {
         // Update existing habit
-        await updateHabit(habitToEdit.id, {
+        const result = await updateHabit(habitToEdit.id, {
           name,
           category: category || undefined,
           daysOfWeek: daysOfWeek.length ? daysOfWeek : undefined
         });
+        
+        if (result.status === 'error') {
+          setError(result.error || 'Failed to update habit');
+          toast.error(result.error || 'Failed to update habit');
+          return;
+        }
+        
+        toast.success('Habit updated successfully');
       } else {
         // Create new habit
-        await createHabit({
+        const result = await createHabit({
           name,
           logs: [],
           xp: 0,
           category: category || undefined,
           daysOfWeek: daysOfWeek.length ? daysOfWeek : undefined
         });
+        
+        if (result.status === 'error') {
+          setError(result.error || 'Failed to create habit');
+          toast.error(result.error || 'Failed to create habit');
+          return;
+        }
+        
+        toast.success('Habit created successfully');
       }
       
       onClose();
+    } catch (err) {
+      console.error('Error in habit form submission:', err);
+      const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setIsSubmitting(false);
     }
@@ -97,6 +146,12 @@ export const HabitForm: React.FC<HabitFormProps> = ({ onClose, habitToEdit }) =>
           </div>
           
           <form onSubmit={handleSubmit} className="p-4">
+            {error && (
+              <div className="mb-4 p-3 bg-red-50 border-l-4 border-red-500 text-red-700 text-sm">
+                {error}
+              </div>
+            )}
+            
             <div className="mb-4">
               <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
                 Habit Name*
