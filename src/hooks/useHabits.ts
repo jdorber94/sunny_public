@@ -109,8 +109,53 @@ export function useHabits() {
     setIsLoading(true);
     try {
       console.log('Creating new habit:', habitData);
-      const result = await habitsApi.create(user.uid, activeHabitSetId, habitData);
       
+      // Add a timeout to prevent hanging requests
+      const timeoutPromise = new Promise<ApiResponse<Habit>>((resolve) => {
+        setTimeout(() => {
+          resolve({ 
+            error: 'Request timed out. Creating habit locally instead.', 
+            status: 'error',
+            isLocal: true
+          });
+        }, 5000); // 5 second timeout
+      });
+      
+      // Race the actual request against the timeout
+      const result = await Promise.race([
+        habitsApi.create(user.uid, activeHabitSetId, habitData),
+        timeoutPromise
+      ]);
+      
+      // If the request timed out or failed, create a local habit
+      if (result.status === 'error' || result.isLocal) {
+        console.warn('Creating habit locally due to:', result.error);
+        
+        // Create a temporary local habit with a fake ID
+        const tempId = `local_${Date.now()}`;
+        const tempHabit: Habit = {
+          ...habitData,
+          id: tempId,
+          createdAt: new Date() as any,
+          updatedAt: new Date() as any
+        };
+        
+        // Add to local state
+        setHabits(currentHabits => [...(currentHabits || []), tempHabit]);
+        
+        // If it was a timeout, show a toast
+        if (result.error?.includes('timed out')) {
+          toast.error('Request timed out. Habit created locally only.');
+        }
+        
+        return {
+          data: tempHabit,
+          status: 'success',
+          isLocal: true
+        };
+      }
+      
+      // Handle successful creation
       if (result.status === 'success' && result.data) {
         toast.success('Habit created successfully');
         

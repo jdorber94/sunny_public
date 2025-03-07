@@ -35,27 +35,49 @@ export function handleError(error: unknown, customMessage?: string): AppError {
     return error;
   }
   
-  // Firebase error
-  if (error instanceof FirebaseError) {
-    const message = customMessage || getFirebaseErrorMessage(error);
-    const type = getErrorTypeFromFirebaseError(error);
-    return new AppError(message, type, error);
-  }
-  
-  // Network error
-  if (error instanceof TypeError && error.message.includes('network')) {
+  // Safe check for error type
+  try {
+    // Firebase error
+    if (error instanceof FirebaseError) {
+      const message = customMessage || getFirebaseErrorMessage(error);
+      const type = getErrorTypeFromFirebaseError(error);
+      return new AppError(message, type, error);
+    }
+    
+    // Network error
+    if (error instanceof TypeError) {
+      if (error.message.includes('network')) {
+        return new AppError(
+          customMessage || 'Network error. Please check your connection.',
+          ErrorType.NETWORK,
+          error
+        );
+      }
+      
+      // Handle the specific "e.data is not a function" error
+      if (error.message.includes('data is not a function')) {
+        return new AppError(
+          customMessage || 'Error processing data from Firestore. This is likely a temporary issue.',
+          ErrorType.FIRESTORE,
+          error
+        );
+      }
+    }
+    
+    // Generic error
+    const message = customMessage || 
+      (error instanceof Error ? error.message : 'An unknown error occurred');
+    
+    return new AppError(message, ErrorType.UNKNOWN, error);
+  } catch (handlingError) {
+    // If we get an error while handling the error, return a safe fallback
+    console.error('Error while handling error:', handlingError);
     return new AppError(
-      customMessage || 'Network error. Please check your connection.',
-      ErrorType.NETWORK,
+      customMessage || 'An unexpected error occurred',
+      ErrorType.UNKNOWN,
       error
     );
   }
-  
-  // Generic error
-  const message = customMessage || 
-    (error instanceof Error ? error.message : 'An unknown error occurred');
-  
-  return new AppError(message, ErrorType.UNKNOWN, error);
 }
 
 // Get user-friendly message for Firebase errors

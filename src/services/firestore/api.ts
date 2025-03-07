@@ -49,9 +49,31 @@ async function handleApiRequest<T>(
   errorMessage = 'An error occurred'
 ): Promise<ApiResponse<T>> {
   try {
-    const data = await requestFn();
+    // Add a timeout to prevent hanging requests
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => {
+        reject(new Error('Request timed out'));
+      }, 10000); // 10 second timeout
+    });
+    
+    // Race the actual request against the timeout
+    const data = await Promise.race([
+      requestFn(),
+      timeoutPromise
+    ]) as T;
+    
+    // Check if data is valid
+    if (data === undefined || data === null) {
+      console.warn('API request returned undefined or null data');
+      return { 
+        error: 'No data returned from operation', 
+        status: 'error' 
+      };
+    }
+    
     return { data, status: 'success' };
   } catch (error) {
+    console.error('API request error:', error);
     const appError = handleError(error, errorMessage);
     logError(appError);
     return { error: appError.message, status: 'error' };

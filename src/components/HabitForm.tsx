@@ -89,15 +89,23 @@ export const HabitForm: React.FC<HabitFormProps> = ({ onClose, habitToEdit }) =>
         }
         
         console.log('Updating habit with data:', updateData);
-        const result = await updateHabit(habitToEdit.id, updateData);
         
-        if (result.status === 'error') {
-          setError(result.error || 'Failed to update habit');
-          toast.error(result.error || 'Failed to update habit');
-          return;
+        try {
+          const result = await updateHabit(habitToEdit.id, updateData);
+          
+          if (result.status === 'error') {
+            setError(result.error || 'Failed to update habit');
+            toast.error(result.error || 'Failed to update habit');
+            return;
+          }
+          
+          toast.success('Habit updated successfully');
+          onClose(); // Close the form on success
+        } catch (updateError) {
+          console.error('Error updating habit:', updateError);
+          setError('An unexpected error occurred while updating the habit');
+          toast.error('Failed to update habit. Please try again.');
         }
-        
-        toast.success('Habit updated successfully');
       } else {
         // Create new habit
         const habitData: any = {
@@ -117,23 +125,28 @@ export const HabitForm: React.FC<HabitFormProps> = ({ onClose, habitToEdit }) =>
         }
         
         console.log('Creating habit with data:', habitData);
-        const result = await createHabit(habitData);
         
-        if (result.status === 'error') {
-          setError(result.error || 'Failed to create habit');
-          toast.error(result.error || 'Failed to create habit');
-          return;
+        try {
+          const result = await createHabit(habitData);
+          
+          if (result.status === 'error') {
+            setError(result.error || 'Failed to create habit');
+            toast.error(result.error || 'Failed to create habit');
+            return;
+          }
+          
+          toast.success('Habit created successfully');
+          onClose(); // Close the form on success
+        } catch (createError) {
+          console.error('Error creating habit:', createError);
+          setError('An unexpected error occurred while creating the habit');
+          toast.error('Failed to create habit. Please try again.');
         }
-        
-        toast.success('Habit created successfully');
       }
-      
-      onClose();
-    } catch (err) {
-      console.error('Error in habit form submission:', err);
-      const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
-      setError(errorMessage);
-      toast.error(errorMessage);
+    } catch (formError) {
+      console.error('Form submission error:', formError);
+      setError('An unexpected error occurred');
+      toast.error('An error occurred. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
