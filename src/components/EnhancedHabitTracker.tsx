@@ -55,6 +55,19 @@ export default function EnhancedHabitTracker() {
     setHabitToEdit(null);
   };
   
+  // Render the Add Habit button
+  const renderAddHabitButton = () => (
+    <motion.button
+      whileHover={{ scale: 1.05 }}
+      whileTap={{ scale: 0.95 }}
+      onClick={handleAddHabit}
+      className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors duration-200 flex items-center"
+    >
+      <FaPlus className="mr-2" />
+      Add Habit
+    </motion.button>
+  );
+  
   return (
     <ErrorBoundary>
       <main className="container mx-auto px-4 py-8 max-w-4xl">
@@ -113,20 +126,18 @@ export default function EnhancedHabitTracker() {
                     </button>
                   </div>
                   
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={handleAddHabit}
-                    className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors duration-200 flex items-center"
-                  >
-                    <FaPlus className="mr-2" />
-                    Add Habit
-                  </motion.button>
+                  {renderAddHabitButton()}
                 </div>
               </div>
               
               {view === 'list' && (
-                <HabitList onEditHabit={handleEditHabit} />
+                <>
+                  {/* Add a standalone Add Habit button at the top of the list for better visibility */}
+                  <div className="mb-6 flex justify-end">
+                    {renderAddHabitButton()}
+                  </div>
+                  <HabitList onEditHabit={handleEditHabit} />
+                </>
               )}
               
               {view === 'calendar' && (
@@ -136,6 +147,18 @@ export default function EnhancedHabitTracker() {
               {view === 'stats' && (
                 <HabitStats />
               )}
+              
+              {/* Add a floating action button for adding habits */}
+              <div className="fixed bottom-8 right-8">
+                <motion.button
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.9 }}
+                  onClick={handleAddHabit}
+                  className="w-14 h-14 rounded-full bg-blue-500 text-white shadow-lg flex items-center justify-center hover:bg-blue-600"
+                >
+                  <FaPlus size={24} />
+                </motion.button>
+              </div>
             </div>
           )}
           

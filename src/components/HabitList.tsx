@@ -101,13 +101,7 @@ export const HabitList: React.FC<HabitListProps> = ({
             : 'Create a habit set first to start tracking your habits.'}
         </p>
         
-        <button
-          onClick={() => setIsFormOpen(true)}
-          className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors duration-200 flex items-center"
-        >
-          <FaPlus className="mr-2" />
-          Add your first habit
-        </button>
+        {/* The Add Habit button is now handled by the parent component */}
         
         {isFormOpen && (
           <HabitForm onClose={handleCloseForm} habitToEdit={habitToEdit} />
@@ -120,19 +114,13 @@ export const HabitList: React.FC<HabitListProps> = ({
   return (
     <div className="space-y-4">
       <AnimatePresence>
-        {Array.isArray(habits) && habits.length > 0 ? (
-          habits.map(habit => (
-            <Habit 
-              key={habit.id} 
-              habit={habit} 
-              onEdit={handleEditHabit} 
-            />
-          ))
-        ) : (
-          <div className="text-center text-gray-500 py-4">
-            No habits yet. Click "Add Habit" to create your first habit.
-          </div>
-        )}
+        {habits.map(habit => (
+          <Habit 
+            key={habit.id} 
+            habit={habit} 
+            onEdit={handleEditHabit} 
+          />
+        ))}
       </AnimatePresence>
       
       {isFormOpen && (
