@@ -7,12 +7,14 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { stripePromise } from '@/lib/stripe';
 import { toast } from 'react-hot-toast';
 import PremiumStatusFixer from './PremiumStatusFixer';
+import { doc, updateDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 // Set the price display here (should match what's in your Stripe dashboard)
 const PRICE_DISPLAY = '$0.99/month';
 
 export default function PremiumFeatures() {
-  const { user, upgradeToPremium } = useAuth();
+  const { user } = useAuth();
   const [upgrading, setUpgrading] = useState(false);
   const [error, setError] = useState('');
   const router = useRouter();
@@ -34,6 +36,28 @@ export default function PremiumFeatures() {
       }
     }
   }, [searchParams]);
+
+  // Manual upgrade function (replaces upgradeToPremium)
+  const upgradeToPremium = async () => {
+    if (!user) {
+      throw new Error('User must be logged in to upgrade to premium');
+    }
+    
+    try {
+      // Update the user's profile with premium status
+      const userDocRef = doc(db, 'users', user.uid);
+      await updateDoc(userDocRef, {
+        isPremium: true,
+        updatedAt: new Date()
+      });
+      
+      toast.success('Successfully upgraded to premium!');
+      return true;
+    } catch (error) {
+      console.error('Error upgrading to premium:', error);
+      throw error;
+    }
+  };
 
   const handleUpgrade = async () => {
     if (!user) {
@@ -59,37 +83,36 @@ export default function PremiumFeatures() {
         }),
       });
       
-      console.log('Checkout response status:', response.status);
+      const session = await response.json();
       
       if (!response.ok) {
-        const errorData = await response.json();
-        console.error('Checkout error response:', errorData);
-        throw new Error(errorData.error || 'Failed to create checkout session');
+        throw new Error(session.message || 'Failed to create checkout session');
       }
       
-      const data = await response.json();
-      console.log('Checkout session created:', data.sessionId ? 'Success' : 'No session ID');
-      
-      if (data.error) {
-        throw new Error(data.error);
-      }
+      console.log('Checkout session created:', session);
       
       // Redirect to Stripe Checkout
-      if (data.url) {
-        console.log('Redirecting to Stripe checkout...');
-        window.location.href = data.url;
-      } else {
-        throw new Error('No checkout URL returned');
+      const stripe = await stripePromise;
+      if (!stripe) {
+        throw new Error('Stripe failed to load');
       }
-    } catch (error: any) {
-      console.error('Error details:', error);
-      setError(`Failed to start the checkout process: ${error.message || 'Unknown error'}`);
-      console.error('Error starting checkout:', error);
+      
+      const { error } = await stripe.redirectToCheckout({
+        sessionId: session.id,
+      });
+      
+      if (error) {
+        throw new Error(error.message);
+      }
+    } catch (err) {
+      console.error('Upgrade error:', err);
+      setError(err instanceof Error ? err.message : 'An unknown error occurred');
+      toast.error('Failed to start checkout process');
     } finally {
       setUpgrading(false);
     }
   };
-
+  
   const handleManualUpgrade = async () => {
     if (!user) {
       setError('You must be logged in to upgrade.');
@@ -100,167 +123,121 @@ export default function PremiumFeatures() {
     setError('');
     
     try {
-      console.log('Starting manual upgrade process for user:', user.uid);
-      
-      // Call the manual upgrade endpoint
-      const response = await fetch('/api/upgrade-to-premium', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          userId: user.uid,
-          email: user.email,
-        }),
-      });
-      
-      console.log('Manual upgrade response status:', response.status);
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error('Manual upgrade error response:', errorData);
-        throw new Error(errorData.error || 'Failed to manually upgrade');
-      }
-      
-      const data = await response.json();
-      console.log('Manual upgrade result:', data);
-      
-      if (data.error) {
-        throw new Error(data.error);
-      }
-      
-      // Refresh the page to update the UI
-      toast.success('Manual upgrade successful! Refreshing...');
-      setTimeout(() => {
-        window.location.reload();
-      }, 2000);
-    } catch (error: any) {
-      console.error('Error details:', error);
-      setError(`Failed to manually upgrade: ${error.message || 'Unknown error'}`);
-      console.error('Error during manual upgrade:', error);
+      await upgradeToPremium();
+      toast.success('Successfully upgraded to premium!');
+      // Force a page refresh to update the UI
+      window.location.reload();
+    } catch (err) {
+      console.error('Manual upgrade error:', err);
+      setError(err instanceof Error ? err.message : 'An unknown error occurred');
+      toast.error('Failed to upgrade to premium');
     } finally {
       setUpgrading(false);
     }
   };
-
-  if (!user) {
-    return (
-      <div className="p-4 text-center">
-        <p>Please log in to view premium features</p>
-      </div>
-    );
-  }
-
-  if (user.isPremium) {
-    return (
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
-        <div className="flex items-center justify-center mb-4">
-          <div className="bg-yellow-100 dark:bg-yellow-900 p-3 rounded-full">
-            <SparklesIcon className="h-8 w-8 text-yellow-500" />
-          </div>
-        </div>
-        <h2 className="text-xl font-bold text-center text-gray-800 dark:text-white mb-2">
-          Premium Member
-        </h2>
-        <p className="text-gray-600 dark:text-gray-300 text-center mb-6">
-          Thank you for supporting Quest Master! You have access to all premium features.
-        </p>
-        
-        <div className="space-y-3">
-          <div className="flex items-start">
-            <CheckIcon className="h-5 w-5 text-green-500 mr-2 flex-shrink-0 mt-0.5" />
-            <p className="text-gray-700 dark:text-gray-300">Create unlimited habit sets</p>
-          </div>
-          <div className="flex items-start">
-            <CheckIcon className="h-5 w-5 text-green-500 mr-2 flex-shrink-0 mt-0.5" />
-            <p className="text-gray-700 dark:text-gray-300">Advanced habit analytics</p>
-          </div>
-          <div className="flex items-start">
-            <CheckIcon className="h-5 w-5 text-green-500 mr-2 flex-shrink-0 mt-0.5" />
-            <p className="text-gray-700 dark:text-gray-300">Custom habit categories</p>
-          </div>
-          <div className="flex items-start">
-            <CheckIcon className="h-5 w-5 text-green-500 mr-2 flex-shrink-0 mt-0.5" />
-            <p className="text-gray-700 dark:text-gray-300">Priority support</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
+  
+  // Check if user is already premium
+  const isPremium = user?.isPremium;
+  
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
-      <div className="flex items-center justify-center mb-4">
-        <div className="bg-yellow-100 dark:bg-yellow-900 p-3 rounded-full">
-          <SparklesIcon className="h-8 w-8 text-yellow-500" />
+    <div className="bg-white dark:bg-gray-800 shadow-md rounded-lg overflow-hidden">
+      <div className="p-6">
+        <div className="flex items-center mb-4">
+          <SparklesIcon className="h-6 w-6 text-yellow-500 mr-2" />
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Premium Features</h2>
         </div>
+        
+        {isPremium ? (
+          <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-md p-4 mb-6">
+            <div className="flex items-center">
+              <CheckIcon className="h-5 w-5 text-green-500 mr-2" />
+              <p className="text-green-700 dark:text-green-300 font-medium">
+                You have premium access!
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-md p-4 mb-6">
+            <p className="text-yellow-700 dark:text-yellow-300">
+              Upgrade to premium to unlock all features.
+            </p>
+          </div>
+        )}
+        
+        <div className="space-y-4 mb-6">
+          <div className="flex items-start">
+            <CheckIcon className="h-5 w-5 text-green-500 mt-0.5 mr-2 flex-shrink-0" />
+            <p className="text-gray-600 dark:text-gray-300">Create unlimited habit sets</p>
+          </div>
+          <div className="flex items-start">
+            <CheckIcon className="h-5 w-5 text-green-500 mt-0.5 mr-2 flex-shrink-0" />
+            <p className="text-gray-600 dark:text-gray-300">Advanced statistics and insights</p>
+          </div>
+          <div className="flex items-start">
+            <CheckIcon className="h-5 w-5 text-green-500 mt-0.5 mr-2 flex-shrink-0" />
+            <p className="text-gray-600 dark:text-gray-300">Priority support</p>
+          </div>
+          <div className="flex items-start">
+            <CheckIcon className="h-5 w-5 text-green-500 mt-0.5 mr-2 flex-shrink-0" />
+            <p className="text-gray-600 dark:text-gray-300">No ads</p>
+          </div>
+        </div>
+        
+        <div className="mb-6">
+          <p className="text-2xl font-bold text-gray-900 dark:text-white mb-1">{PRICE_DISPLAY}</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">Cancel anytime</p>
+        </div>
+        
+        {!isPremium && (
+          <>
+            <button
+              onClick={handleUpgrade}
+              disabled={upgrading || !user}
+              className={`
+                w-full py-2 px-4 rounded-md font-medium text-white
+                ${upgrading || !user
+                  ? 'bg-gray-400 cursor-not-allowed'
+                  : 'bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600'}
+                transition-colors duration-200 mb-3
+              `}
+            >
+              {upgrading ? 'Processing...' : 'Upgrade with Stripe'}
+            </button>
+            
+            <button
+              onClick={handleManualUpgrade}
+              disabled={upgrading || !user}
+              className={`
+                w-full py-2 px-4 rounded-md font-medium text-white
+                ${upgrading || !user
+                  ? 'bg-gray-400 cursor-not-allowed'
+                  : 'bg-blue-500 hover:bg-blue-600'}
+                transition-colors duration-200
+              `}
+            >
+              {upgrading ? 'Processing...' : 'Upgrade Manually (Testing)'}
+            </button>
+            
+            {error && (
+              <p className="mt-2 text-sm text-red-600 dark:text-red-400">{error}</p>
+            )}
+            
+            {!user && (
+              <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                Please log in to upgrade to premium.
+              </p>
+            )}
+          </>
+        )}
       </div>
-      <h2 className="text-xl font-bold text-center text-gray-800 dark:text-white mb-2">
-        Upgrade to Premium
-      </h2>
-      <p className="text-gray-600 dark:text-gray-300 text-center mb-6">
-        Unlock all features and support the development of Quest Master
-      </p>
       
-      <div className="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 p-4 rounded-lg mb-6">
-        <h3 className="font-semibold text-gray-800 dark:text-white mb-3">Premium Features</h3>
-        <div className="space-y-3">
-          <div className="flex items-start">
-            <CheckIcon className="h-5 w-5 text-green-500 mr-2 flex-shrink-0 mt-0.5" />
-            <p className="text-gray-700 dark:text-gray-300">Create unlimited habit sets</p>
-          </div>
-          <div className="flex items-start">
-            <CheckIcon className="h-5 w-5 text-green-500 mr-2 flex-shrink-0 mt-0.5" />
-            <p className="text-gray-700 dark:text-gray-300">Advanced habit analytics</p>
-          </div>
-          <div className="flex items-start">
-            <CheckIcon className="h-5 w-5 text-green-500 mr-2 flex-shrink-0 mt-0.5" />
-            <p className="text-gray-700 dark:text-gray-300">Custom habit categories</p>
-          </div>
-          <div className="flex items-start">
-            <CheckIcon className="h-5 w-5 text-green-500 mr-2 flex-shrink-0 mt-0.5" />
-            <p className="text-gray-700 dark:text-gray-300">Priority support</p>
-          </div>
-        </div>
-      </div>
-      
-      {error && (
-        <div className="bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-300 p-3 rounded-lg mb-4">
-          {error}
-        </div>
-      )}
-      
-      <button
-        onClick={handleUpgrade}
-        disabled={upgrading}
-        className="w-full py-3 px-4 bg-gradient-to-r from-yellow-400 to-yellow-600 hover:from-yellow-500 hover:to-yellow-700 text-white font-medium rounded-lg shadow-sm transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
-      >
-        {upgrading ? 'Processing...' : `Upgrade for ${PRICE_DISPLAY}`}
-      </button>
-      
-      <p className="text-xs text-gray-500 dark:text-gray-400 text-center mt-4">
-        Cancel anytime. Secure payment processing with Stripe.
-      </p>
-      
-      {!user?.isPremium && (
-        <div className="mt-8 p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
-          <h3 className="text-lg font-semibold text-yellow-800 dark:text-yellow-200">Troubleshooting</h3>
-          <p className="text-sm text-yellow-700 dark:text-yellow-300 mb-4">
-            If you've already purchased premium but don't see your benefits, try the manual upgrade button below.
-          </p>
-          <button
-            onClick={handleManualUpgrade}
-            disabled={upgrading}
-            className="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {upgrading ? 'Processing...' : 'Manual Upgrade (Testing)'}
-          </button>
-        </div>
-      )}
-
-      {user && (
+      {/* Add the premium status fixer for debugging */}
+      <div className="border-t border-gray-200 dark:border-gray-700 p-6">
+        <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
+          Troubleshooting
+        </h3>
         <PremiumStatusFixer />
-      )}
+      </div>
     </div>
   );
 } 
